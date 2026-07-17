@@ -59,6 +59,7 @@ import {
   createScopedRepository as S,
   createAppendOnlyRepository as A,
 } from "./base";
+import { createCommitStateTransitions } from "./commits";
 import { ScopeContext, runInTransaction } from "./scope";
 
 /**
@@ -117,6 +118,7 @@ export function assembleUserScopedRepositories(
       rows: A("commit_rows", commitRows, ctx),
       progressEffects: A("commit_progress_effects", commitProgressEffects, ctx),
       planEffects: A("commit_plan_effects", commitPlanEffects, ctx),
+      ...createCommitStateTransitions(ctx),
     },
     billing: {
       checkoutSessions: S("checkout_sessions", checkoutSessions, ctx),

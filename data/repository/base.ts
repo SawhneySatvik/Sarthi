@@ -77,7 +77,7 @@ async function insertRow<T>(
   return (rows as unknown as T[])[0];
 }
 
-async function updateRows<T>(
+export async function updateRows<T>(
   executor: SqliteExecutor,
   table: SQLiteTable,
   values: Row,
