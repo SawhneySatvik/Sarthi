@@ -87,8 +87,8 @@ Scale (mobile-first): display-xl 40/44 · display 28/32 · title 20/26 · body 1
 
 ## 4. Color law
 
-- Amber (`--energy`) appears **only** on XP, streak, level-up, and the Overall stats card. If amber is on screen, the user earned it.
-- Domain hue appears on: the domain chip, lens accents, ring fills, card left-edge ticks. Never as large text on `--bg-card` without the `-strong` variant (contrast).
+- Amber (`--energy`) appears **only** on XP, streak, level-up, and the Overall stats card. If amber is on screen, the user earned it. **Amber only when EARNED (D-041 fold-back):** the arc **day-counter** ("Day 5 of 30") is a position, not a reward → neutral `--ink-2`; a **zero/base stat** (streak `0`, level `1`) hasn't been earned → neutral `--ink-3`. A stat pill turns amber only once its value crosses the earned threshold (streak `> 0`, level `> 1`).
+- Domain hue appears on: the domain chip, lens accents, ring fills, card left-edge ticks. Never as large text on `--bg-card` without the `-strong` variant (contrast). **Health-lens ring tints (D-041):** water `--health-water` `#6f9fae` dark / `#3f7e93` light · protein `--health-protein` `#a8815c` dark / `#8a6238` light — set **per-mode** (`[data-mode="light"]`) for AA on warm paper, and pulled deliberately clear of `--energy` amber + `--dom-money` gold so the three rings read as three distinct metrics, never as "earned" amber.
 - Surfaces: max two elevations visible at once (`card` on `canvas`, or `raised` over both). Cards are lifted a hair — one soft shadow token, never stacked shadows, never pure grey.
 - Imagery always sits under `--scrim` when type is on it.
 

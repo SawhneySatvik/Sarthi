@@ -71,7 +71,7 @@
 
 ### SAR-005 — Token shell and thin Today spine
 
-- **Status:** 🟢 **Landed 2026-07-18** (code; Sol review ACCEPTABLE TO LAND, 0 blocking; 94 tests + build + invariants + runtime smoke green, keyless). **Open DoD before CLOSE:** visual screenshot-verify at 390px + desktop (Satvik's local pass). `SAR-001`–`SAR-004` accepted.
+- **Status:** ✅ **CLOSED 2026-07-18** (code; Sol review ACCEPTABLE TO LAND, 0 blocking; 106 tests + build + invariants green, keyless). **Visual DoD CLOSED (D-041):** built surfaces screenshot-verified at 390px + desktop (Playwright, `.verify/screens/`) + Sol design review — stat-cluster amber-discipline (neutral day-counter + zero/base stats), completed-row strikethrough removed, dev-pill repositioned off the avatar. `SAR-001`–`SAR-004` accepted.
 - **Agent:** `screens` (Terra) · **Size:** L · **Depends:** `SAR-001`, `SAR-003`
 - **Docs:** `docs/experience/DESIGN.md` §§2–7 · `docs/experience/DESIGN-PROMPTS.md` P0, P2 · `docs/screens/SCREEN-TODAY.md` · `docs/experience/FLOWS.md` F2–F3
 - **Acceptance (verbatim P0):** “switching the pill restyles the entire shell live in all 6 theme-modes with AA-readable text; nav+capture bar match docs/experience/DESIGN.md §6; nothing hardcodes a color.”
@@ -81,7 +81,7 @@
 
 ### SAR-006 — Health vertical slice and capture-sheet hero
 
-- **Status:** 🟢 **Landed 2026-07-18** (code; two-pass Sol review ACCEPTABLE TO LAND — 4 blocking findings fixed; 101 tests + build + invariants + route-loop smoke green, keyless; F3 runnable). **Open DoD before CLOSE:** visual screenshot-verify at 390px + desktop (Satvik's local pass). `SAR-001`–`SAR-005` accepted/landed.
+- **Status:** ✅ **CLOSED 2026-07-18** (code; two-pass Sol review ACCEPTABLE TO LAND — 4 blocking findings fixed; 106 tests + build + invariants green, keyless; F3 runnable). **Visual DoD CLOSED (D-041):** capture-sheet + Health lens screenshot-verified at 390px + desktop + Sol review — legible level-up bloom (was amber-on-amber), a "Confirmed by you" ledger so accepted estimates persist on the done state, flat filed-strip rows vs. the raised estimate card (categorical confirm zones), distinct clay/slate-teal ring tints with per-mode AA, real Health labels + glass-box `~`. `SAR-001`–`SAR-005` accepted/landed.
 - **Agent:** `pipeline` (Terra) · **Size:** XL · **Depends:** `SAR-004`, `SAR-005`
 - **Docs:** `docs/screens/SCREEN-CAPTURE.md` · `docs/screens/SCREEN-LENSES.md` §§2, 7 · `docs/experience/DESIGN-PROMPTS.md` P1, P3a · `docs/experience/FLOWS.md` F3–F4 · `docs/architecture/ARCHITECTURE.md` §5
 - **Acceptance (verbatim P1):** “the two confirm zones are unmistakably different at a glance; all four gestures work; the question card blocks nothing else; level-up is inline and brief; the whole loop runs on mock data end-to-end.”
@@ -98,7 +98,7 @@
   - Cover `canonical-cross-domain`, `estimated-meal-photo`, `ambiguous-skill`, and `undo-batch` exactly as architecture gate 3 requires.
   - Make `wrongSilentWrites === 0` a hard assertion and save mobile/desktop F3 state screenshots to `.verify/screens/`.
   - Tests and eval code only; do not edit production modules.
-- **Status:** ✅ **F3 GATE MET (automated) 2026-07-18** — `tests/eval/` drives all four gate-3 fixtures keyless; `wrongSilentWrites === 0` holds as a hard aggregate; 106 tests + build + invariants green; Sol-reviewed. Manual remainder: visual F3-state screenshots (browser-pending). Fan-out (SAR-008/009/010) is now unblocked.
+- **Status:** ✅ **F3 GATE MET (automated) 2026-07-18** — `tests/eval/` drives all four gate-3 fixtures keyless; `wrongSilentWrites === 0` holds as a hard aggregate; 106 tests + build + invariants green; Sol-reviewed. **Visual F3-state DoD CLOSED (D-041):** capture input → shimmer → confirm → why/edit → done/fan-out screenshot-verified at 390px + desktop (`.verify/screens/`) + Sol review. Fan-out (SAR-008/009/010) is now unblocked.
 - **Moves:** **F3 GATE — must pass before fan-out or non-provisioning Phase-1 work begins.** If it fails, stop that downstream work and finish F3; no cut line fires merely because time elapsed.
 
 ## 3. Demo-spine fan-out and experience

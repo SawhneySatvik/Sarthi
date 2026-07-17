@@ -105,4 +105,6 @@ Build ONLY the fixture + harness + eval tests + the D-040 wording fix + the CHAN
 3. Build steps 1–5 in the main session; then a read-only Sol diff review; on green, declare the F3 GATE met (automated) and record the visual-screenshot remainder.
 4. `/handoff` at session end.
 
-**LANDED 2026-07-18 — F3 GATE MET (automated). 106 tests/build/invariants green; wrongSilentWrites===0 hard aggregate; D-040 corrected + CHANGELOG. Manual remainder: visual F3-state screenshots. Next: fan-out (SAR-008 Money).**
+**LANDED 2026-07-18 — F3 GATE MET (automated). 106 tests/build/invariants green; wrongSilentWrites===0 hard aggregate; D-040 corrected + CHANGELOG.**
+
+**VISUAL DoD CLOSED 2026-07-18 (D-041) — SAR-005/006/007.** Browser tooling wired (Playwright, `pnpm screenshots`, `scripts/screenshot.mjs`); 38 built-surface shots at 390px + desktop across the theme-modes → `.verify/screens/`; a Sol design review of the rendered UI surfaced 5 mobile-blocking issues, all fixed (illegible level-up bloom · accepted-estimates vanished → "Confirmed by you" ledger · amber/neon rings → clay/slate-teal per-mode · un-earned header amber → neutral · dev-pill over the avatar) + polish (categorical confirm zones, no strikethrough, real Health labels). Screenshot→Luna-analyze→Sol-review→implement→re-shoot is now the standing SAR visual gate (D-041). `pnpm check` 106 green. **Next: fan-out (SAR-008 Money).**
