@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | **Written** | 2026-07-17 — Session 1 document reconciliation |
-| **For** | The next action: build `SAR-005` (token shell + thin Today spine) → `SAR-006` (Health slice + capture sheet) → `SAR-007` (F3 fake-stack eval), driving toward the F3 gate |
+| **For** | The next action: plan `SAR-006` (Health slice + capture sheet — the hero) → `SAR-007` (F3 fake-stack eval), driving toward the F3 gate |
 | **Read order** | AGENTS.md → docs/product/PROJECT.md → docs/architecture/TECH-STACK.md → docs/experience/FLOWS.md → rest as needed |
-| **State of play** | Phase-0/1 contract reconciled. 38 decisions, signed architecture, and locked tickets; `SAR-001`, `SAR-002`, `SAR-003`, and **`SAR-004` (the capture moat)** are accepted. The typed persistence floor + user-scoped repository factory + local auth gate + the full capture pipeline (parse → route-by-confidence → exhaustive typed commit + XP/plan/satisfied-by effects → 5-min undo) are built, validated keyless (`pnpm check` **85 tests**, build, invariants clean), and gate-reviewed (SAR-004 two-pass — one blocking finding, the backdate streak recompute, fixed). SAR-003 is committed on branch `sar-003-schema-repository`; SAR-004 stacks uncommitted on it, pending Satvik's branch/commit/merge call. |
+| **State of play** | Phase-0/1 contract reconciled. 39 decisions, signed architecture, and locked tickets; `SAR-001`–`SAR-004` (through the capture moat) are accepted, and **`SAR-005` (token shell + thin Today spine) is landed (code)**. The typed persistence floor + capture pipeline (parse → route → exhaustive typed commit + XP/plan/satisfied-by effects → 5-min undo) + the presentation floor (6 theme-modes, 5-tab shell + static capture bar, a Today spine reading real repos via a server-only accessor + a pure framework-clean read-model) are built and validated keyless (`pnpm check` **94 tests**, build, invariants, compiled-CSS + AA contrast + runtime smoke), Sol-reviewed ACCEPTABLE TO LAND. **SAR-005's one open DoD is visual screenshot-verify (390px + desktop) before it CLOSES.** All commits stack on branch `sar-003-schema-repository`. |
 
 ## 1. What Sarthi is
 A voice-and-photo life coach. One messy spoken sentence is parsed into typed entries across four

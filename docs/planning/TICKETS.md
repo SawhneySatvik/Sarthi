@@ -71,6 +71,7 @@
 
 ### SAR-005 — Token shell and thin Today spine
 
+- **Status:** 🟢 **Landed 2026-07-18** (code; Sol review ACCEPTABLE TO LAND, 0 blocking; 94 tests + build + invariants + runtime smoke green, keyless). **Open DoD before CLOSE:** visual screenshot-verify at 390px + desktop (Satvik's local pass). `SAR-001`–`SAR-004` accepted.
 - **Agent:** `screens` (Terra) · **Size:** L · **Depends:** `SAR-001`, `SAR-003`
 - **Docs:** `docs/experience/DESIGN.md` §§2–7 · `docs/experience/DESIGN-PROMPTS.md` P0, P2 · `docs/screens/SCREEN-TODAY.md` · `docs/experience/FLOWS.md` F2–F3
 - **Acceptance (verbatim P0):** “switching the pill restyles the entire shell live in all 6 theme-modes with AA-readable text; nav+capture bar match docs/experience/DESIGN.md §6; nothing hardcodes a color.”
