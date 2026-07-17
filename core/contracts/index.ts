@@ -14,3 +14,26 @@ export type {
   VoiceProvider,
   VoiceProviderName,
 } from "./providers";
+
+export type {
+  AuthenticatedUser,
+  ScopedEntityRepository,
+  AppendOnlyRepository,
+  ProfileRepository,
+  MoneyRepositories,
+  HealthRepositories,
+  HabitRepositories,
+  SkillRepositories,
+  PlanRepositories,
+  CoachRepositories,
+  EvidenceRepository,
+  CommitRepository,
+  BillingRepository,
+  UserScopedRepositories,
+  RepositoryFactory,
+} from "./repositories";
+
+export type { AuthProvider } from "./auth";
+
+// Error classes are runtime values, not types — re-export without `type` under isolatedModules.
+export { SarthiError, ProviderConfigurationError, RepositoryError } from "./errors";

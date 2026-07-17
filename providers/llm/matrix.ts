@@ -1,4 +1,8 @@
 import type { LlmProviderName, Tier } from "@/core/contracts";
+import { ProviderConfigurationError } from "@/core/contracts/errors";
+
+// Canonical taxonomy lives in core; re-export so existing `@/providers/llm` importers keep working.
+export { ProviderConfigurationError };
 
 export type EnabledLlmProviderName = Exclude<LlmProviderName, "anthropic">;
 export type LlmModelId = string | null;
@@ -28,13 +32,6 @@ export const LLM_MODEL_MATRIX: Readonly<Record<LlmProviderName, Readonly<Record<
   }),
   anthropic: Object.freeze({ deep: null, balanced: null, fast: null }),
 });
-
-export class ProviderConfigurationError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "ProviderConfigurationError";
-  }
-}
 
 export function resolveLlmModelId(provider: LlmProviderName, tier: Tier): string {
   const modelId = LLM_MODEL_MATRIX[provider][tier];
