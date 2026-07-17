@@ -1,0 +1,7 @@
+# ~/.codex/ci.config.toml  →  codex --profile ci exec "..."
+# Unattended eval / test runs in CI. Cheapest model, no human approvals, read-only unless writing eval fixtures.
+model = "gpt-5.6-luna"
+model_reasoning_effort = "high"
+model_verbosity = "medium"
+sandbox_mode = "read-only"
+approval_policy = "never"

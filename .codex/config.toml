@@ -1,0 +1,77 @@
+# .codex/config.toml — PROJECT-scoped Codex config for Sarthi
+# Loaded when you run Codex inside a trusted checkout of this repo.
+# NOTE: `model_provider` and `[profiles.*]` are IGNORED in project-local config —
+#       they must live in ~/.codex/config.toml. Provider/auth stays global; this
+#       file owns behavior, safety, features, subagents, hooks, and MCP.
+
+# ---- Core model (the default session = the orchestrator / architect) ----
+# Plan-credit billing (~Rs 4000): keep the bare session on Sol for planning, but default the
+# effort to MEDIUM to protect credits — bump to high (Alt+.) only for genuinely hard planning.
+# Day-to-day building goes through `make` targets that pin the right cheaper model per task.
+model = "gpt-5.6-sol"
+model_reasoning_effort = "medium"
+model_verbosity = "low"             # keep chat focused on code, not chatter
+
+# ---- Safety posture (HITL by default) ----
+approval_policy = "on-request"      # ask before running commands; the hooks harden the hard gates
+sandbox_mode = "workspace-write"    # edit the repo, block the rest of the machine
+
+[sandbox_workspace_write]
+network_access = false              # off by default; enable per-run for installs:
+                                    #   codex -c sandbox_workspace_write.network_access=true "pnpm install"
+
+# ---- Project docs ingestion (AGENTS.md points Codex at docs/) ----
+project_doc_max_bytes = 65536       # AGENTS.md is the index; @-mention docs/ files per ticket
+project_root_markers = [".git"]
+
+# ---- Feature switches ----
+[features]
+multi_agent = true                  # spawn specialized subagents (.codex/agents/*)
+goals = true                        # /goal — persist the F3 gate as the standing objective
+hooks = true                        # lifecycle hooks (the HITL harness in .codex/hooks/)
+plugins = true
+shell_snapshot = true               # faster repeated tool calls
+in_app_browser = true               # shared rendered-page preview for the screenshot-verify loop
+browser_use = true                  # in-app browser automation (drive the app, capture states)
+computer_use = true                 # inspect the RENDERED result, not just the code (Premium Dark fidelity)
+image_generation = false            # runtime art is generated separately per ASSETS.md; keep off in-build
+
+# ---- Subagent per-model routing FIX (important as of the 2026-07-09 GPT-5.6 drop) ----
+# GPT-5.6 Sol auto-selects "MultiAgent V2", which by default hides the model/reasoning/service_tier
+# fields from the spawn schema — so subagents silently inherit Sol and you CANNOT pin Terra/Luna.
+# These two lines re-expose per-subagent routing so .codex/agents/*.toml models take effect.
+# (Tracking: github.com/openai/codex/issues/31814 — re-verify after each `codex upgrade`.)
+[features.multi_agent_v2]
+hide_spawn_agent_metadata = false
+tool_namespace = "agents"
+
+# ---- Subagent concurrency ----
+[agents]
+max_depth = 1                       # root can spawn children; children can't spawn grandchildren
+max_threads = 6                     # concurrent agent threads
+
+# ---- MCP servers ----
+# Chrome DevTools MCP powers the screenshot-verify loop (drive the running dev server, snap states).
+[mcp_servers.chrome-devtools]
+command = "npx"
+args = ["-y", "chrome-devtools-mcp@latest"]
+startup_timeout_sec = 30            # Node servers lazy-load; 30s avoids silent drop
+
+# Optional: a docs MCP so docs-verifier reads live library docs instead of guessing versions.
+# [mcp_servers.context7]
+# command = "npx"
+# args = ["-y", "@upstash/context7-mcp@latest"]
+# startup_timeout_sec = 30
+
+# ---- HITL gate hooks (see .codex/hooks/) ----
+# PreToolUse is the primary policy gate: it can DENY a command before it runs.
+[[hooks.PreToolUse]]
+command = ["bash", ".codex/hooks/guard-writes.sh"]
+
+# PostToolUse runs the invariant checks after a write lands (floats-for-money, hardcoded hex, etc.).
+[[hooks.PostToolUse]]
+command = ["bash", ".codex/hooks/check-invariants.sh"]
+
+# SessionStart injects a one-line reminder of the current gate.
+[[hooks.SessionStart]]
+command = ["bash", ".codex/hooks/session-context.sh"]

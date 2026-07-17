@@ -1,0 +1,32 @@
+# Dependencies and package-manager state.
+node_modules/
+.pnpm-store/
+pnpm-debug.log*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Framework and build output.
+.next/
+out/
+coverage/
+*.tsbuildinfo
+
+# Local deployment state and operating-system metadata.
+.vercel/
+.DS_Store
+
+# Local runtime configuration; .env.example remains tracked.
+.env
+.env.*
+!.env.example
+
+# Local SQLite state.
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Keep screenshots and documentation evidence available for review.
+!.verify/
+!.verify/screens/

@@ -1,0 +1,6 @@
+# ~/.codex/screens.config.toml  →  codex --profile screens
+# Terra at medium effort for routine, well-specified screens (D-028: Terra writes all code).
+model = "gpt-5.6-terra"
+model_reasoning_effort = "extra-high"
+model_verbosity = "high"
+sandbox_mode = "workspace-write"

@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      LLM_PROVIDER: fake
+      VOICE_PROVIDER: fake
+      VISION_PROVIDER: fake
+      AUTH_PROVIDER: local-password
+      DATABASE_PROVIDER: sqlite
+      BILLING_MODE: waitlist
+      JUDGE_MODE: "false"
+      DB_URL: file:./sarthi.dev.db
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - run: pnpm build

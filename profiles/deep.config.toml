@@ -1,0 +1,6 @@
+# ~/.codex/deep.config.toml  →  codex --profile deep
+# ESCALATION VALVE (D-028): only when Terra has failed the same ticket twice. Sol, full effort, writes.
+model = "gpt-5.6-sol"
+model_reasoning_effort = "high"
+model_verbosity = "low"
+sandbox_mode = "workspace-write"

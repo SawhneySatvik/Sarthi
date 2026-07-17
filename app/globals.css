@@ -1,0 +1,59 @@
+@import "tailwindcss";
+
+:root {
+  --bg-canvas: #0c0b0a;
+  --bg-card: #17130e;
+  --bg-raised: #1e1913;
+  --line: #2a241c;
+  --ink-1: #f4efe4;
+  --ink-2: #a79e8e;
+  --ink-3: #70675a;
+  --energy: #e8913e;
+  --dom-health: #7fb08c;
+  --dom-money: #d8a24a;
+  --dom-habits: #8189cf;
+  --dom-skills: #a97fc9;
+  --dom-health-strong: #7fb08c;
+  --dom-money-strong: #d8a24a;
+  --dom-habits-strong: #8189cf;
+  --dom-skills-strong: #a97fc9;
+  --ok: #7fb08c;
+  --warn: #d8a24a;
+  --danger: #c96e63;
+  --scrim: rgb(12 11 10 / 72%);
+  --ring: #f4efe4;
+  --elev-card: 0 1px 8px rgb(0 0 0 / 16%);
+  --r-card: 20px;
+  --r-chip: 999px;
+  --r-input: 14px;
+  --t-fast: 120ms;
+  --t-base: 200ms;
+  --t-slow: 320ms;
+  --t-hero: 600ms;
+  --space-shell: 1.5rem;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--bg-canvas);
+  color: var(--ink-1);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg-canvas);
+  color: var(--ink-1);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.scaffold-shell {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: var(--space-shell);
+  color: var(--ink-2);
+}

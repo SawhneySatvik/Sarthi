@@ -1,0 +1,6 @@
+# ~/.codex/review.config.toml  →  codex --profile review
+# Read-only adversarial review of the locked invariants. Different model context from the writer.
+model = "gpt-5.6-sol"
+model_reasoning_effort = "extra-high"
+model_verbosity = "high"
+sandbox_mode = "read-only"

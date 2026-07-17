@@ -1,0 +1,44 @@
+{
+  "name": "sarthi",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.9.0",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "check:core-boundary": "node scripts/check-core-boundary.mjs",
+    "test:core-boundary": "node --test tests/core-boundary.test.mjs",
+    "test:providers": "tsx --test tests/providers.test.ts",
+    "test": "pnpm test:core-boundary && pnpm test:providers",
+    "check": "pnpm typecheck && pnpm lint && pnpm check:core-boundary && pnpm test"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "4.0.15",
+    "@ai-sdk/google": "4.0.16",
+    "@ai-sdk/openai": "4.0.15",
+    "ai": "7.0.28",
+    "drizzle-orm": "0.44.7",
+    "next": "16.1.6",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "zod": "4.1.13"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.1.17",
+    "@types/node": "22.19.1",
+    "@types/react": "19.2.7",
+    "@types/react-dom": "19.2.3",
+    "drizzle-kit": "0.31.8",
+    "eslint": "9.39.1",
+    "eslint-config-next": "16.1.6",
+    "tailwindcss": "4.1.17",
+    "tsx": "4.20.6",
+    "typescript": "5.9.3"
+  }
+}
