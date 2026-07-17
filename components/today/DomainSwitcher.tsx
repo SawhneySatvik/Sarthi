@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 
+import { HealthLens } from "@/components/lenses/HealthLens";
 import { Chip } from "@/components/ui/Chip";
+import type { HealthView } from "@/core/domains/health";
 import type { TodayDomain } from "@/core/domains/today";
 
 const LABELS: Record<TodayDomain, string> = {
@@ -18,9 +20,11 @@ const LABELS: Record<TodayDomain, string> = {
  */
 export function DomainSwitcher({
   domains,
+  healthView,
   children,
 }: {
   domains: readonly TodayDomain[];
+  healthView: HealthView;
   children: React.ReactNode;
 }) {
   const [selected, setSelected] = useState<"all" | TodayDomain>("all");
@@ -38,6 +42,8 @@ export function DomainSwitcher({
       </div>
       {selected === "all" ? (
         children
+      ) : selected === "health" ? (
+        <HealthLens view={healthView} />
       ) : (
         <div className="px-4 pt-10 text-center">
           <p className="font-ui text-body text-ink-2">{LABELS[selected]} lens</p>

@@ -1,6 +1,7 @@
 import { getSession } from "@/app/lib/session";
 import { AppHeader } from "@/components/shell/AppHeader";
 import { TodayBody } from "@/components/today/TodayBody";
+import { buildHealthView } from "@/core/domains/health";
 import { buildTodayView } from "@/core/domains/today";
 
 // Reads the per-user SQLite scope at request time — never statically generated.
@@ -12,11 +13,15 @@ export default async function TodayPage() {
   // `timezone`) is owned by the SAR-006 capture edge; seed + page agree meanwhile.
   const localDate = new Date().toISOString().slice(0, 10);
 
-  const [items, progress, arcs, notes] = await Promise.all([
+  const [items, progress, arcs, notes, meals, waterLogs, workouts, weighIns] = await Promise.all([
     repos.plans.items.list({ localDate }),
     repos.plans.progress.list({}),
     repos.plans.arcs.list({}),
     repos.coach.notes.list({ scope: "daily", localDate }),
+    repos.health.meals.list({ localDate }),
+    repos.health.waterLogs.list({ localDate }),
+    repos.health.workouts.list({ localDate }),
+    repos.health.weighIns.list({ localDate }),
   ]);
 
   const view = buildTodayView({
@@ -26,11 +31,12 @@ export default async function TodayPage() {
     arcs,
     coachNote: notes[0] ?? null,
   });
+  const healthView = buildHealthView({ meals, waterLogs, workouts, weighIns });
 
   return (
     <>
       <AppHeader title="Today" />
-      <TodayBody view={view} />
+      <TodayBody view={view} healthView={healthView} />
     </>
   );
 }

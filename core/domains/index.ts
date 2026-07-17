@@ -1,2 +1,3 @@
-/** core/domains — pure, framework-clean per-domain read-models (SAR-005). Barrel. */
+/** core/domains — pure, framework-clean per-domain read-models. Barrel. */
 export * from "./today";
+export * from "./health";

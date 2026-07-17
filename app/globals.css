@@ -67,6 +67,10 @@
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --leading-coach: 1.65;
 
+  /* Lens-local Health ring hues (aqua / tan) — theme-independent brand accents. */
+  --health-water: #5aa9c9;
+  --health-protein: #c99a5a;
+
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
