@@ -1,6 +1,81 @@
 @import "tailwindcss";
 
+/*
+ * SAR-005 (D-A) — the token layer. DESIGN.md §2: theme (palette family) × mode
+ * (light|dark), selected by [data-theme][data-mode] on <html>. Components consume
+ * SEMANTIC tokens only (never a raw hex/px/ms — invariant #4). `--energy` (amber)
+ * and the four domain hues are brand constants across every theme; themes retune
+ * surfaces + neutrals. Non-Ember values are starting points, tuned in screenshot-verify.
+ */
+
+/* Map the runtime semantic vars into Tailwind utilities (bg-canvas, text-ink-1,
+ * rounded-card, font-coach, …). `inline` keeps the var() reference so the value
+ * resolves per the active [data-theme][data-mode] block at runtime. */
+@theme inline {
+  --color-canvas: var(--bg-canvas);
+  --color-card: var(--bg-card);
+  --color-raised: var(--bg-raised);
+  --color-line: var(--line);
+  --color-ink-1: var(--ink-1);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-energy: var(--energy);
+  --color-health: var(--dom-health);
+  --color-money: var(--dom-money);
+  --color-habits: var(--dom-habits);
+  --color-skills: var(--dom-skills);
+  --color-health-strong: var(--dom-health-strong);
+  --color-money-strong: var(--dom-money-strong);
+  --color-habits-strong: var(--dom-habits-strong);
+  --color-skills-strong: var(--dom-skills-strong);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-danger: var(--danger);
+  --color-ring: var(--ring);
+
+  --radius-card: var(--r-card);
+  --radius-chip: var(--r-chip);
+  --radius-input: var(--r-input);
+
+  --font-display: var(--font-display-family);
+  --font-ui: var(--font-ui-family);
+  --font-coach: var(--font-coach-family);
+
+  --text-display-xl: 40px;
+  --text-display-xl--line-height: 44px;
+  --text-display: 28px;
+  --text-display--line-height: 32px;
+  --text-title: 20px;
+  --text-title--line-height: 26px;
+  --text-body: 15px;
+  --text-body--line-height: 22px;
+  --text-caption: 12px;
+  --text-caption--line-height: 16px;
+}
+
+/* Structure-invariant tokens (radii/motion/spacing) + a default palette so the
+ * app has color before the pre-paint script sets the theme attrs (default = Ember Dark). */
 :root {
+  --r-card: 20px;
+  --r-chip: 999px;
+  --r-input: 14px;
+
+  --t-fast: 120ms;
+  --t-base: 200ms;
+  --t-slow: 320ms;
+  --t-hero: 900ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --leading-coach: 1.65;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-shell: 24px;
+
+  /* Ember Dark defaults (mirrored by the [ember][dark] block below). */
   --bg-canvas: #0c0b0a;
   --bg-card: #17130e;
   --bg-raised: #1e1913;
@@ -13,24 +88,166 @@
   --dom-money: #d8a24a;
   --dom-habits: #8189cf;
   --dom-skills: #a97fc9;
-  --dom-health-strong: #7fb08c;
-  --dom-money-strong: #d8a24a;
-  --dom-habits-strong: #8189cf;
-  --dom-skills-strong: #a97fc9;
+  --dom-health-strong: #a6cbaf;
+  --dom-money-strong: #e6bd77;
+  --dom-habits-strong: #a7adde;
+  --dom-skills-strong: #c6a6dc;
   --ok: #7fb08c;
   --warn: #d8a24a;
   --danger: #c96e63;
   --scrim: rgb(12 11 10 / 72%);
   --ring: #f4efe4;
   --elev-card: 0 1px 8px rgb(0 0 0 / 16%);
-  --r-card: 20px;
-  --r-chip: 999px;
-  --r-input: 14px;
-  --t-fast: 120ms;
-  --t-base: 200ms;
-  --t-slow: 320ms;
-  --t-hero: 600ms;
-  --space-shell: 1.5rem;
+}
+
+/* ── Ember — flagship (Premium Dark + warm-paper light) ─────────────────────── */
+[data-theme="ember"][data-mode="dark"] {
+  --bg-canvas: #0c0b0a;
+  --bg-card: #17130e;
+  --bg-raised: #1e1913;
+  --line: #2a241c;
+  --ink-1: #f4efe4;
+  --ink-2: #a79e8e;
+  --ink-3: #70675a;
+  --energy: #e8913e;
+  --dom-health: #7fb08c;
+  --dom-money: #d8a24a;
+  --dom-habits: #8189cf;
+  --dom-skills: #a97fc9;
+  --dom-health-strong: #a6cbaf;
+  --dom-money-strong: #e6bd77;
+  --dom-habits-strong: #a7adde;
+  --dom-skills-strong: #c6a6dc;
+  --ok: #7fb08c;
+  --warn: #d8a24a;
+  --danger: #c96e63;
+  --scrim: rgb(12 11 10 / 72%);
+  --ring: #f4efe4;
+  --elev-card: 0 1px 8px rgb(0 0 0 / 16%);
+}
+[data-theme="ember"][data-mode="light"] {
+  --bg-canvas: #faf6ee;
+  --bg-card: #fffdf8;
+  --bg-raised: #ffffff;
+  --line: #e8e0d2;
+  --ink-1: #1c1710;
+  --ink-2: #6b6153;
+  --ink-3: #8a8073;
+  --energy: #c86f1b;
+  --dom-health: #7fb08c;
+  --dom-money: #d8a24a;
+  --dom-habits: #8189cf;
+  --dom-skills: #a97fc9;
+  --dom-health-strong: #4c8a5e;
+  --dom-money-strong: #a47417;
+  --dom-habits-strong: #5560b8;
+  --dom-skills-strong: #8352a8;
+  --ok: #4c8a5e;
+  --warn: #a47417;
+  --danger: #b0483c;
+  --scrim: rgb(250 246 238 / 72%);
+  --ring: #1c1710;
+  --elev-card: 0 1px 8px rgb(60 40 20 / 8%);
+}
+
+/* ── Bone — editorial minimalist; hairline borders, no shadow ───────────────── */
+[data-theme="bone"][data-mode="dark"] {
+  --bg-canvas: #131211;
+  --bg-card: #181614;
+  --bg-raised: #201d1a;
+  --line: #302d2a;
+  --ink-1: #f4f1ec;
+  --ink-2: #a3a09b;
+  --ink-3: #6f6c67;
+  --energy: #e8913e;
+  --dom-health: #7fb08c;
+  --dom-money: #d8a24a;
+  --dom-habits: #8189cf;
+  --dom-skills: #a97fc9;
+  --dom-health-strong: #a6cbaf;
+  --dom-money-strong: #e6bd77;
+  --dom-habits-strong: #a7adde;
+  --dom-skills-strong: #c6a6dc;
+  --ok: #7fb08c;
+  --warn: #d8a24a;
+  --danger: #c96e63;
+  --scrim: rgb(19 18 17 / 72%);
+  --ring: #f4f1ec;
+  --elev-card: none;
+}
+[data-theme="bone"][data-mode="light"] {
+  --bg-canvas: #faf7f2;
+  --bg-card: #ffffff;
+  --bg-raised: #fdfcf9;
+  --line: #e5dfd6;
+  --ink-1: #211e1c;
+  --ink-2: #6f6a66;
+  --ink-3: #837d75;
+  --energy: #c86f1b;
+  --dom-health: #7fb08c;
+  --dom-money: #d8a24a;
+  --dom-habits: #8189cf;
+  --dom-skills: #a97fc9;
+  --dom-health-strong: #4c8a5e;
+  --dom-money-strong: #a47417;
+  --dom-habits-strong: #5560b8;
+  --dom-skills-strong: #8352a8;
+  --ok: #4c8a5e;
+  --warn: #a47417;
+  --danger: #b0483c;
+  --scrim: rgb(250 247 242 / 72%);
+  --ring: #211e1c;
+  --elev-card: none;
+}
+
+/* ── Moss — nature-calm, green-tinted neutrals (values tuned in verify) ─────── */
+[data-theme="moss"][data-mode="dark"] {
+  --bg-canvas: #0b0e0b;
+  --bg-card: #131a14;
+  --bg-raised: #1a231b;
+  --line: #263127;
+  --ink-1: #eef3ec;
+  --ink-2: #9fac9d;
+  --ink-3: #6b766a;
+  --energy: #e8913e;
+  --dom-health: #7fb08c;
+  --dom-money: #d8a24a;
+  --dom-habits: #8189cf;
+  --dom-skills: #a97fc9;
+  --dom-health-strong: #a6cbaf;
+  --dom-money-strong: #e6bd77;
+  --dom-habits-strong: #a7adde;
+  --dom-skills-strong: #c6a6dc;
+  --ok: #7fb08c;
+  --warn: #d8a24a;
+  --danger: #c96e63;
+  --scrim: rgb(11 14 11 / 72%);
+  --ring: #eef3ec;
+  --elev-card: 0 1px 8px rgb(0 0 0 / 18%);
+}
+[data-theme="moss"][data-mode="light"] {
+  --bg-canvas: #f4f7f2;
+  --bg-card: #fdfffc;
+  --bg-raised: #ffffff;
+  --line: #dde5da;
+  --ink-1: #1a211a;
+  --ink-2: #616b60;
+  --ink-3: #7d867b;
+  --energy: #c86f1b;
+  --dom-health: #7fb08c;
+  --dom-money: #d8a24a;
+  --dom-habits: #8189cf;
+  --dom-skills: #a97fc9;
+  --dom-health-strong: #4c8a5e;
+  --dom-money-strong: #a47417;
+  --dom-habits-strong: #5560b8;
+  --dom-skills-strong: #8352a8;
+  --ok: #4c8a5e;
+  --warn: #a47417;
+  --danger: #b0483c;
+  --scrim: rgb(244 247 242 / 72%);
+  --ring: #1a211a;
+  --elev-card: 0 1px 8px rgb(30 45 30 / 8%);
 }
 
 * {
@@ -40,6 +257,7 @@
 html {
   background: var(--bg-canvas);
   color: var(--ink-1);
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
@@ -47,13 +265,6 @@ body {
   min-height: 100vh;
   background: var(--bg-canvas);
   color: var(--ink-1);
-  font-family: Arial, Helvetica, sans-serif;
-}
-
-.scaffold-shell {
-  display: grid;
-  min-height: 100vh;
-  place-items: center;
-  padding: var(--space-shell);
-  color: var(--ink-2);
+  font-family: var(--font-ui-family), ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
