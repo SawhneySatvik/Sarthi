@@ -25,7 +25,8 @@
     "check": "pnpm typecheck && pnpm lint && pnpm check:core-boundary && pnpm test",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:seed:dev": "tsx scripts/seed-dev.ts"
+    "db:seed:dev": "tsx scripts/seed-dev.ts",
+    "screenshots": "node scripts/screenshot.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "4.0.15",
@@ -50,6 +51,7 @@
     "drizzle-kit": "0.31.8",
     "eslint": "9.39.1",
     "eslint-config-next": "16.1.6",
+    "playwright": "1.61.1",
     "tailwindcss": "4.1.17",
     "tsx": "4.20.6",
     "typescript": "5.9.3"

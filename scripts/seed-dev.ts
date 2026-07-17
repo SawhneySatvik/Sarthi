@@ -17,6 +17,8 @@ import { seedCanonicalEntities } from "../data/seed/canonical";
 const DB_URL = process.env.DB_URL ?? "file:./sarthi.dev.db";
 const FILE = DB_URL.replace(/^file:/, "");
 const USER: AuthenticatedUser = { userId: "local-dev", email: null, mode: "local" };
+/** populated (default) · empty (new-user, no arc) · alldone (every item complete) — for screenshot states. */
+const STATE = process.env.SEED_STATE ?? "populated";
 
 function isoDaysFromToday(delta: number): string {
   const d = new Date();
@@ -47,6 +49,12 @@ async function main(): Promise<void> {
 
   // The entities the canonical capture fixture resolves against (F3 strip; D-K).
   await seedCanonicalEntities(repos);
+
+  if (STATE === "empty") {
+    // New-user / nothing-planned Today: canonical entities exist (capture still works), no arc/items.
+    console.log(`seeded dev db (empty) at ${DB_URL}`);
+    return;
+  }
 
   const arc = await repos.plans.arcs.create({
     domain: "overall",
@@ -80,9 +88,11 @@ async function main(): Promise<void> {
       ...over,
     });
 
-  await item({ domain: "skills", kind: "target", title: "Deep work: system design", targetValue: 30, targetUnit: "minutes", status: "active" });
-  await item({ domain: "health", title: "Log lunch", status: "pending" });
-  await item({ domain: "habits", title: "Evening walk", status: "pending" });
+  // In `alldone`, the open items are completed (Today collapses to the celebration state).
+  const done = STATE === "alldone";
+  await item({ domain: "skills", kind: "target", title: "Deep work: system design", targetValue: 30, targetUnit: "minutes", status: done ? "done" : "active", completionSource: done ? "manual" : null });
+  await item({ domain: "health", title: "Log lunch", status: done ? "done" : "pending", completionSource: done ? "manual" : null });
+  await item({ domain: "habits", title: "Evening walk", status: done ? "done" : "pending", completionSource: done ? "manual" : null });
   await item({ domain: "health", title: "Drink water", status: "done", completionSource: "capture" });
   await item({ domain: "habits", title: "Meditate 10m", status: "done", completionSource: "manual" });
 
