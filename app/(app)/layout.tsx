@@ -1,6 +1,6 @@
+import { CaptureLauncher } from "@/components/capture/CaptureLauncher";
 import { ThemeSwitcher } from "@/components/dev/ThemeSwitcher";
 import { BottomNav } from "@/components/shell/BottomNav";
-import { CaptureBar } from "@/components/shell/CaptureBar";
 import { LeftRail } from "@/components/shell/LeftRail";
 
 /** The app shell: nav (bottom bar mobile / left rail desktop), the global capture
@@ -12,7 +12,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <div className="mx-auto flex min-h-screen max-w-[45rem] flex-col">
         <main className="flex-1 pb-44 md:pb-32">{children}</main>
       </div>
-      <CaptureBar />
+      <CaptureLauncher />
       <BottomNav />
       <ThemeSwitcher />
     </div>
