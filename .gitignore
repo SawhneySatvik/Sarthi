@@ -30,3 +30,8 @@ coverage/
 # Keep screenshots and documentation evidence available for review.
 !.verify/
 !.verify/screens/
+
+# Local mirror layer — parallel to .codex/, kept out of the tracked provenance surface.
+.claude/
+CLAUDE.md
+claude.mk
