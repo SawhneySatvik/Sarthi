@@ -58,11 +58,11 @@ export function HealthLens({ view }: { view: HealthView }) {
           {view.entries.map((entry) => (
             <li key={entry.id} className="flex items-center gap-3 rounded-card bg-card px-4 py-3">
               <span className="h-2 w-2 shrink-0 rounded-chip bg-health" aria-hidden />
-              <span className="flex-1 font-ui text-body text-ink-1">{entry.title}</span>
-              {entry.estimated && (
-                <span className="shrink-0 rounded-chip border border-line px-1.5 py-0.5 font-ui text-caption text-ink-3">est</span>
-              )}
-              <span className="shrink-0 font-ui text-caption tabular-nums text-ink-2">{entry.meta}</span>
+              <span className="flex-1 truncate font-ui text-body text-ink-1">{entry.title}</span>
+              <span className="shrink-0 font-ui text-caption tabular-nums text-ink-2">
+                {entry.estimated ? "~ " : ""}
+                {entry.meta}
+              </span>
             </li>
           ))}
         </ul>

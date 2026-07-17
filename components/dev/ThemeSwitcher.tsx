@@ -65,8 +65,9 @@ export function ThemeSwitcher() {
     <button
       type="button"
       onClick={cycle}
+      data-dev-switcher
       aria-label={`Theme: ${theme} ${mode}. Tap to cycle (dev).`}
-      className="fixed right-4 top-4 z-50 flex items-center gap-2 rounded-chip border border-line bg-raised px-3 py-1.5 font-ui text-caption text-ink-2 shadow-[var(--elev-card)]"
+      className="fixed bottom-3 left-3 z-50 flex items-center gap-2 rounded-chip border border-line bg-raised px-2.5 py-1 font-ui text-caption text-ink-3 opacity-70 shadow-[var(--elev-card)] md:opacity-80"
     >
       <Palette size={14} strokeWidth={1.5} aria-hidden />
       <span className="capitalize">

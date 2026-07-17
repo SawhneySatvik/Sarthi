@@ -1,13 +1,24 @@
 import type { ReactNode } from "react";
 
 /*
- * The amber stat cluster item (Day N of M · streak · level). This is one of the
- * ONLY surfaces allowed to render `--energy` (invariant #4 / DESIGN.md §4): if
- * amber is on screen, the user earned it. Display face + tabular figures.
+ * A stat cluster item. `tone="energy"` is amber and is one of the ONLY surfaces
+ * allowed to render `--energy` (invariant #4 / DESIGN §4: XP / streak / level-up) —
+ * so it must be used only when the value is genuinely EARNED. `tone="muted"` renders
+ * a base/zero value in `--ink-3`, keeping amber meaningful.
  */
-export function StatPill({ icon, children }: { icon?: ReactNode; children: ReactNode }) {
+export function StatPill({
+  icon,
+  children,
+  tone = "energy",
+}: {
+  icon?: ReactNode;
+  children: ReactNode;
+  tone?: "energy" | "muted";
+}) {
   return (
-    <span className="inline-flex items-center gap-1 font-display text-caption tabular-nums text-energy">
+    <span
+      className={`inline-flex items-center gap-1 font-display text-caption tabular-nums ${tone === "energy" ? "text-energy" : "text-ink-3"}`}
+    >
       {icon}
       {children}
     </span>

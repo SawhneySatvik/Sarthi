@@ -31,9 +31,9 @@ function LaterRow({ item }: { item: TodayItem }) {
 function CompletedRow({ item }: { item: TodayItem }) {
   const done = item.status === "done";
   return (
-    <li className="flex items-center gap-3 px-4 py-2 text-ink-2">
+    <li className="flex items-center gap-3 px-4 py-2">
       <Check size={16} strokeWidth={1.5} aria-hidden className={done ? "text-ok" : "text-ink-3"} />
-      <span className="flex-1 font-ui text-body line-through decoration-1">{item.title}</span>
+      <span className="flex-1 font-ui text-body text-ink-3">{item.title}</span>
       {item.viaCapture && <ViaCaptureBadge />}
     </li>
   );

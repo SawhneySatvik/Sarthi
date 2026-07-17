@@ -71,7 +71,7 @@ export function buildHealthView(input: HealthInput): HealthView {
 
   const entries: HealthEntryRow[] = [];
   for (const m of input.meals) {
-    entries.push({ id: m.id, kind: "meal", title: "Meal", meta: `${m.kcal ?? 0} kcal`, estimated: m.estimated });
+    entries.push({ id: m.id, kind: "meal", title: m.note ?? "Meal", meta: `${m.kcal ?? 0} kcal`, estimated: m.estimated });
   }
   for (const w of input.waterLogs) {
     entries.push({ id: w.id, kind: "water", title: "Water", meta: `${w.millilitres} ml`, estimated: w.estimated });

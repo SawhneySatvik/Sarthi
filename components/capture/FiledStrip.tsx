@@ -22,16 +22,16 @@ export function FiledStrip({ proposals, onUndo }: { proposals: readonly Proposal
           </button>
         )}
       </p>
-      <ul className="flex flex-col gap-1">
+      <ul className="divide-y divide-line border-y border-line">
         {proposals.map((p) => {
           const view = displayProposal(p);
           const value = formatPrimary(view.primary);
           return (
-            <li key={p.proposalId} className="flex items-center gap-3 rounded-card bg-card px-3 py-2">
-              <span className={`h-2 w-2 shrink-0 rounded-chip ${DOMAIN_DOT[view.domain]}`} aria-hidden />
-              <Check size={15} strokeWidth={2} className="shrink-0 text-ok" aria-hidden />
-              <span className="flex-1 truncate font-ui text-body text-ink-1">{view.title}</span>
-              {value && <span className="shrink-0 font-ui text-caption tabular-nums text-ink-2">{value}</span>}
+            <li key={p.proposalId} className="flex items-center gap-3 px-1 py-2.5">
+              <span className={`h-1.5 w-1.5 shrink-0 rounded-chip ${DOMAIN_DOT[view.domain]}`} aria-hidden />
+              <Check size={14} strokeWidth={2} className="shrink-0 text-ok" aria-hidden />
+              <span className="flex-1 truncate font-ui text-body text-ink-2">{view.title}</span>
+              {value && <span className="shrink-0 font-ui text-caption tabular-nums text-ink-3">{value}</span>}
             </li>
           );
         })}

@@ -9,6 +9,7 @@ import type { CommitResult } from "@/core/capture/commit";
 import type { ClarificationQuestion, Proposal } from "@/core/capture/contract";
 import { ACCEPT_ALL_MIN_CONFIDENCE_BPS, blockedProposalIds, routeDraft } from "@/core/capture/route";
 
+import { DOMAIN_DOT } from "../today/domain";
 import { CaptureOrb } from "./CaptureOrb";
 import { commitProposals, parseText, undoCommit, type CommitResponse } from "./captureClient";
 import { EstimateDeck } from "./EstimateDeck";
@@ -16,6 +17,7 @@ import { FiledStrip } from "./FiledStrip";
 import { LevelUpBloom } from "./LevelUpBloom";
 import { MOTION } from "./motion";
 import { ParseShimmer } from "./ParseShimmer";
+import { displayProposal, formatPrimary } from "./proposalText";
 import { QuestionCard } from "./QuestionCard";
 
 type Phase = "parsing" | "confirm" | "error";
@@ -40,6 +42,7 @@ export function CaptureSheet({ rawText, onClose }: { rawText: string; onClose: (
   const [leveledUp, setLeveledUp] = useState(false);
   const [lastCommitId, setLastCommitId] = useState<string | null>(null);
   const [wroteAnything, setWroteAnything] = useState(false);
+  const [confirmed, setConfirmed] = useState<Proposal[]>([]);
 
   function recordCommit(result: CommitResult) {
     setXpGained((v) => v + result.progressEffects.reduce((s, e) => s + e.xpDelta, 0));
@@ -119,6 +122,7 @@ export function CaptureSheet({ rawText, onClose }: { rawText: string; onClose: (
     const res = await commitProposals([proposal], "accept", "tap");
     if (res.ok && res.result) {
       recordCommit(res.result);
+      setConfirmed((c) => [...c, proposal]);
       return;
     }
     // Resolution failed → the card comes back (never vanishes) + its demotion question.
@@ -138,9 +142,13 @@ export function CaptureSheet({ rawText, onClose }: { rawText: string; onClose: (
     const eligibleIds = new Set(eligible.map((p) => p.proposalId));
     setDeck((d) => d.filter((p) => !eligibleIds.has(p.proposalId))); // optimistic
     const res = await commitProposals(eligible, "accept");
-    if (res.ok && res.result) recordCommit(res.result);
+    const refusedIds = new Set((res.unresolved ?? []).map((u) => u.proposalId));
+    if (res.ok && res.result) {
+      recordCommit(res.result);
+      setConfirmed((c) => [...c, ...eligible.filter((p) => !refusedIds.has(p.proposalId))]);
+    }
     redeck(eligible, res);
-    if (!res.ok && (res.unresolved ?? []).length === 0) {
+    if (!res.ok && refusedIds.size === 0) {
       // Transport/400 failure with no per-item info → put every eligible card back (R1).
       setDeck((d) => [...eligible.filter((p) => !d.some((x) => x.proposalId === p.proposalId)), ...d]);
     }
@@ -181,7 +189,7 @@ export function CaptureSheet({ rawText, onClose }: { rawText: string; onClose: (
       <div className="mx-auto flex max-w-[45rem] flex-col gap-5">
         <div className="flex items-center justify-between px-4">
           <p className="font-ui text-caption uppercase tracking-wide text-ink-3">Capture</p>
-          <button type="button" onClick={onClose} className="font-ui text-caption text-ink-2">
+          <button type="button" onClick={onClose} className="-mr-2 px-2 py-1.5 font-ui text-caption text-ink-2">
             Close
           </button>
         </div>
@@ -223,6 +231,24 @@ export function CaptureSheet({ rawText, onClose }: { rawText: string; onClose: (
             />
             {done && (
               <div className="px-4">
+                {confirmed.length > 0 && (
+                  <div className="mb-4">
+                    <p className="mb-1 font-ui text-caption uppercase tracking-wide text-ink-3">Confirmed by you</p>
+                    <ul className="divide-y divide-line border-y border-line">
+                      {confirmed.map((p) => {
+                        const view = displayProposal(p);
+                        const value = formatPrimary(view.primary);
+                        return (
+                          <li key={p.proposalId} className="flex items-center gap-3 px-1 py-2">
+                            <span className={`h-1.5 w-1.5 shrink-0 rounded-chip ${DOMAIN_DOT[view.domain]}`} aria-hidden />
+                            <span className="flex-1 truncate font-ui text-body text-ink-2">{view.title}</span>
+                            {value && <span className="shrink-0 font-ui text-caption tabular-nums text-ink-3">{value}</span>}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                )}
                 {leveledUp && <LevelUpBloom />}
                 {xpGained > 0 && <p className="text-center font-display text-title tabular-nums text-energy">+{xpGained} XP</p>}
                 <p className="mt-2 text-center font-coach text-body text-ink-2">

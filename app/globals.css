@@ -67,9 +67,10 @@
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --leading-coach: 1.65;
 
-  /* Lens-local Health ring hues (aqua / tan) — theme-independent brand accents. */
-  --health-water: #5aa9c9;
-  --health-protein: #c99a5a;
+  /* Lens-local Health ring hues — slate-teal water / clay protein. Per-mode below
+   * (deeper on light for AA); these :root values are the Ember-Dark fallback. */
+  --health-water: #6f9fae;
+  --health-protein: #a8815c;
 
   --space-1: 4px;
   --space-2: 8px;
@@ -159,7 +160,7 @@
   --bg-canvas: #131211;
   --bg-card: #181614;
   --bg-raised: #201d1a;
-  --line: #302d2a;
+  --line: #3a3633;
   --ink-1: #f4f1ec;
   --ink-2: #a3a09b;
   --ink-3: #6f6c67;
@@ -252,6 +253,12 @@
   --scrim: rgb(244 247 242 / 72%);
   --ring: #1a211a;
   --elev-card: 0 1px 8px rgb(30 45 30 / 8%);
+}
+
+/* Health ring hues deepen on light for AA (the :root/dark defaults are lighter). */
+[data-mode="light"] {
+  --health-water: #3f7e93;
+  --health-protein: #8a6238;
 }
 
 * {
