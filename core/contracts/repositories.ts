@@ -219,6 +219,17 @@ export interface CommitRepository {
   rows: AppendOnlyRepository<CommitRowRecord, CommitRowCreate, CommitRowQuery>;
   progressEffects: AppendOnlyRepository<CommitProgressEffectRecord, CommitProgressEffectCreate, CommitProgressEffectQuery>;
   planEffects: AppendOnlyRepository<CommitPlanEffectRecord, CommitPlanEffectCreate, CommitPlanEffectQuery>;
+  /**
+   * Guarded audit-state transitions (D-E / NB-4). The commit envelope's lifecycle
+   * `status` was always designed to move (`committed` → `undone` | `superseded`);
+   * these are the ONLY mutations the audit group permits, and they touch only the
+   * envelope status (+ `undoneAt`) — never the business payload, and never the
+   * append-only ledgers (`rows`/`progressEffects`/`planEffects`). Both transition
+   * only from `status: 'committed'`; any other from-state (or a foreign/absent id)
+   * throws `RepositoryError`.
+   */
+  markUndone(commitId: string, undoneAt: string): Promise<CommitRecord>;
+  markSuperseded(commitId: string): Promise<CommitRecord>;
 }
 
 export interface BillingRepository {
