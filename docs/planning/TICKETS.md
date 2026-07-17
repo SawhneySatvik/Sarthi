@@ -81,6 +81,7 @@
 
 ### SAR-006 — Health vertical slice and capture-sheet hero
 
+- **Status:** 🟢 **Landed 2026-07-18** (code; two-pass Sol review ACCEPTABLE TO LAND — 4 blocking findings fixed; 101 tests + build + invariants + route-loop smoke green, keyless; F3 runnable). **Open DoD before CLOSE:** visual screenshot-verify at 390px + desktop (Satvik's local pass). `SAR-001`–`SAR-005` accepted/landed.
 - **Agent:** `pipeline` (Terra) · **Size:** XL · **Depends:** `SAR-004`, `SAR-005`
 - **Docs:** `docs/screens/SCREEN-CAPTURE.md` · `docs/screens/SCREEN-LENSES.md` §§2, 7 · `docs/experience/DESIGN-PROMPTS.md` P1, P3a · `docs/experience/FLOWS.md` F3–F4 · `docs/architecture/ARCHITECTURE.md` §5
 - **Acceptance (verbatim P1):** “the two confirm zones are unmistakably different at a glance; all four gestures work; the question card blocks nothing else; level-up is inline and brief; the whole loop runs on mock data end-to-end.”
