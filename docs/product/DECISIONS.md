@@ -148,3 +148,10 @@ Work starts as soon as its predecessors satisfy their ticket acceptance, and a c
 
 **D-036 · AI SDK package line → align all runtime adapters on AI SDK 7.**
 Pin `ai@7.0.28`, `@ai-sdk/google@4.0.16`, `@ai-sdk/openai@4.0.15`, and `@ai-sdk/anthropic@4.0.15`; the current `zod@4.1.13` and Node 22 satisfy their shared contracts. This replaces the incompatible `@ai-sdk/openai@2.0.24` pin, which belongs to the AI SDK 5 provider contract and cannot share a typed gateway with the Google/Anthropic pins. Runtime model IDs and the provider-blind port remain unchanged. `generateObject` remains available in AI SDK 7 for the locked capture pipeline, though the later migration path is `generateText` with `Output.object`. Verified against [OpenAI provider metadata](https://registry.npmjs.org/%40ai-sdk/openai/4.0.15) and [AI core metadata](https://registry.npmjs.org/ai/7.0.28). · **Locked**
+
+---
+
+## 2026-07-17 — SAR-003 build decisions
+
+**D-037 · Database driver line → SQLite dev/CI via `@libsql/client`; Postgres prod via `postgres-js`; one async repository over both.**
+Pin `@libsql/client@0.17.4` and `postgres@3.4.9` against `drizzle-orm@0.44.7` on Node 22. `@libsql/client` provides async transactions matching `postgres-js`, so a single async `RepositoryFactory` runs over both dialects (no divergent per-dialect implementation). SQLite is the migration source (`drizzle.config` points at `data/schema/sqlite.ts` only, so drizzle-kit does not read the `pgTable` file); the Postgres dialect declares composition-ready and is verified by a dual-dialect parity test, with the live Postgres migration/connection deferred to `SAR-021`. §4.1's enum unions and Zod support shapes stay in the drizzle-free `data/schema/contract.ts` (kept literal, per Satvik's call — no deviation); `core/` imports only its type-only DTOs. Referential integrity is application-level via the typed repositories — no database foreign-key constraints in v1 (revisit at `SAR-021`). · **Locked**

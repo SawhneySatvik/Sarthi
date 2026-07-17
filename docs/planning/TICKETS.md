@@ -47,6 +47,7 @@
 
 ### SAR-003 — Dialect schema and bound repository factory
 
+- **Status:** ✅ **Accepted 2026-07-17** (Sol two-pass review; 46 tests + build + invariants green). `SAR-001` and `SAR-002` also accepted.
 - **Agent:** `pipeline` (Terra) · **Size:** XL · **Depends:** `SAR-001`
 - **Docs:** `docs/architecture/ARCHITECTURE.md` §§3–4, 9 · `docs/product/DECISIONS.md` D-030–D-033 · `AGENTS.md` §2
 - **Acceptance:**

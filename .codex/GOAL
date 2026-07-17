@@ -1,0 +1,7 @@
+CURRENT GATE — FLOWS F3 end-to-end on the fake stack, keyless, with Health.
+
+State: SAR-001 (scaffold) · SAR-002 (provider/fake stack) · SAR-003 (dialect schema + bound repository factory + local auth) are ACCEPTED. The typed persistence floor is built and validated (pnpm check 46 tests, build, invariants clean); working tree uncommitted on main pending branch+commit.
+
+NEXT: plan SAR-004 (capture routing → typed commit → XP → 5-min undo — the moat) for sign-off, then SAR-005 (token shell + Today spine) → SAR-006 (Health slice + capture sheet) → SAR-007 (F3 fake-stack eval). F3 is the Day-1 acceptance gate and must pass keyless before fan-out.
+
+Invariants: nothing estimated writes unconfirmed; integer units (paise/ml/minutes/grams); provider-blind keyless core; repository-bound userId scoping (callers never pass userId); tokens-only UI; typed per-domain writes; no new domain concepts mid-build; never paywall the demo path.
