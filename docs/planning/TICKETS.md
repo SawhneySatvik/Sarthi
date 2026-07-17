@@ -98,6 +98,7 @@
   - Cover `canonical-cross-domain`, `estimated-meal-photo`, `ambiguous-skill`, and `undo-batch` exactly as architecture gate 3 requires.
   - Make `wrongSilentWrites === 0` a hard assertion and save mobile/desktop F3 state screenshots to `.verify/screens/`.
   - Tests and eval code only; do not edit production modules.
+- **Status:** ✅ **F3 GATE MET (automated) 2026-07-18** — `tests/eval/` drives all four gate-3 fixtures keyless; `wrongSilentWrites === 0` holds as a hard aggregate; 106 tests + build + invariants green; Sol-reviewed. Manual remainder: visual F3-state screenshots (browser-pending). Fan-out (SAR-008/009/010) is now unblocked.
 - **Moves:** **F3 GATE — must pass before fan-out or non-provisioning Phase-1 work begins.** If it fails, stop that downstream work and finish F3; no cut line fires merely because time elapsed.
 
 ## 3. Demo-spine fan-out and experience

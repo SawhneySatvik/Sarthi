@@ -1,125 +1,108 @@
-# SAR-006 — Health Vertical Slice and Capture-Sheet Hero (F3)
+# SAR-007 — F3 Fake-Stack Integration Evaluation (THE GATE)
 
 | | |
 |---|---|
-| **Status** | **LANDED 2026-07-18** (code) — built keyless; `pnpm check` 101 tests, build, invariants, boundary green; route-loop + Today/Health render smokes proven; **two-pass Sol gate review** (4 blocking findings — phantom strip rows, undo divergence, amber-on-orb, auto-batch provenance/re-route — fixed; 2 hardening MEDIUMs closed; re-review ACCEPTABLE TO LAND). **Open DoD before CLOSE: visual screenshot-verify** (needs a browser). Stacks on `sar-003-schema-repository`. |
-| **Owner** | `pipeline` (Terra) · high effort (the hero + the F3 gate) |
-| **Depends on** | `SAR-004` (parse → route → resolve → commit → undo core) and `SAR-005` (token shell, capture-bar entry, Today spine, `getSession`) — both landed. |
-| **Authority** | `docs/screens/SCREEN-CAPTURE.md` · `docs/screens/SCREEN-LENSES.md` §§0, 2, 6 · `docs/experience/DESIGN-PROMPTS.md` P1, P3a · `docs/experience/FLOWS.md` F3–F4 · `docs/experience/DESIGN.md` §5 (motion) · `docs/architecture/ARCHITECTURE.md` §§1, 5 · `docs/planning/TICKETS.md` SAR-006 · `AGENTS.md` §§2–4 |
-| **Out of scope (do NOT borrow)** | Real voice PTT / STT (SAR-013 — fake transcript only here) · photo/vision capture (SAR-011) · the WebGL Capture-Orb shader (D-024 — static orb only, shader after F3) · Money/Habits/Skills real lenses (SAR-008/009/010 — stay placeholders) · the Habits satisfied-by **row UI** (SAR-009 — SAR-006 only produces its writes) · the CoachEngine/registry (SAR-014 — only the one fast-tier capture line) · the F3 eval harness (SAR-007) · production onboarding / default-category bootstrap (SAR-016) · any schema/migration change (none needed) · any live-provider change. |
+| **Status** | **LANDED 2026-07-18 — F3 GATE MET (automated).** The eval drives all four gate-3 fixtures keyless; `wrongSilentWrites === 0` holds as a hard aggregate. `pnpm check` 106 tests, build, invariants green; D-040 corrected. Sol diff-review dispatched. **Manual remainder: visual F3-state screenshots.** Stacks on `sar-003-schema-repository`. |
+| **Owner** | `test-eval` (Terra) · medium effort · **tests + eval code ONLY — no production module edits.** |
+| **Depends on** | `SAR-002`–`SAR-006` — all landed. Drives their code; changes none of it. |
+| **Authority** | `docs/architecture/ARCHITECTURE.md` §8 (eval harness) + §9 gate 3 · `docs/experience/FLOWS.md` F3 · `docs/product/DECISIONS.md` D-030, D-040 · `docs/planning/TICKETS.md` SAR-007 · `AGENTS.md` §3 |
+| **Out of scope (do NOT build)** | The **full §8.2 `EvalReport`** (all 12 fixtures, parse/routing accuracy, adaptation-sanity, state-match, cost/latency **A/B across Gemini vs GPT-5.6**) — that is **SAR-020** (depends on SAR-007+018+019). Any live-provider run. Any production-code change (fixtures + harness + a doc note only). The capture UI (SAR-006). Real vision/photo pipeline (SAR-011) — the photo fixture is fabricated test data, not a vision run. |
 
 ---
 
 ## Context
 
-SAR-006 is the **hero** and the ticket that makes **FLOWS F3 runnable end-to-end on the fake stack, keyless** — the Day-1 acceptance gate (SAR-007 then evals it). It wires the SAR-004 pipeline (`parseDump → route → resolve → commit → undo`) to a real capture sheet UI mounted on the SAR-005 shell, and delivers the Health vertical slice (typed Health writes already exist in SAR-004; SAR-006 adds the Health lens rings). The moat and the persistence floor exist; SAR-006 is the visible loop over them: **hold mic/type → parse → route-by-confidence → auto-file strip + estimate deck → swipe accept/discard/edit/why + domain-flip → typed Health write → XP + inline level-up → Today items check `via capture`**, plus F4 correction/backdate, all on the deterministic `fake` stack.
+SAR-007 is the **F3 GATE**: a deterministic, keyless integration eval that proves the F3 loop over the four Architecture **gate-3 fixtures** and makes **`wrongSilentWrites === 0` a hard aggregate** across every scenario (D-030 · §8.2 — the one remaining piece N-6 of `handsoff_04` says is still owed). It must pass **before fan-out (SAR-008/9/10) or non-provisioning Phase-1 work** (TICKETS SAR-007 "Moves"). It builds only tests + an eval harness that drives the LANDED `core/capture` pipeline (SAR-004) + repositories (SAR-003) on the `fake` stack — it edits no production module.
 
-Invariants: **#1** — the strip only ever holds explicit `route:'auto'` proposals; everything estimated/low-confidence/unknown is a deck card that writes only on explicit accept; every resolved batch carries one 5-min undo; `wrongSilentWrites === 0`. **#4 tokens-only UI** — every value a CSS variable; `--energy` amber only on XP/streak/level-up. **#9 core import-clean** — the sheet is `app/`+`components/`; new *pure* logic (Health read-model, any deck helpers) lives in `core/` importing only `core/*` + type-only DTOs. **#5/#6** — all writes go through the SAR-004 typed commit service; no new persistence path. **#3** — the whole loop runs keyless on `FakeLlmGateway`+`FakeVoiceProvider`+SQLite.
+Invariants proven (not touched): **#1** — nothing estimated writes without an explicit accept; the harness's whole reason for being is `wrongSilentWrites === 0`. **#3** — keyless: provider keys unset + `globalThis.fetch` sentineled + `FakeLlmGateway` + `memory-db` (the exact posture of `tests/commit.test.ts`). **#6** — typed writes only, asserted by counting typed-table rows.
 
-**Deliverable of this planning step:** this plan only. On sign-off a todo list is created and handed to Terra (`pipeline`). No code before sign-off.
+**Deliverable of this planning step:** this plan only. No code before sign-off.
 
-## Current state (verified by reading the landed SAR-004/005 code + specs)
+## Current state (verified via the SAR-004/006 code + ARCHITECTURE §8/§9)
 
-- **SAR-004 API to wire (`core/capture/`, all framework-clean):** `parseDump(input, llm) → {ok,draft}|{ok:false,retryable}` (needs `llm`); `routeDraft(draft) → RoutedProposal[]` + `routeProposal`, `blockedProposalIds`, `applyUserEdit(proposal, patch)`, `isAcceptAllEligible(pending, blockedIds)`, `AUTO_WRITE_CONFIDENCE_BPS=9000`, `ACCEPT_ALL_MIN_CONFIDENCE_BPS=8000` (**all pure, client-safe**); `resolveProposal(proposal, repos, status)` + `prepareDraft(draft, repos) → {autoCommit, pending}` (**need repos**); `createCommitService({repos, llm, now?}).commit(input)→CommitResult` / `.undoLatest({commitId, now})→UndoResult` (**need repos+llm**). Types: `CaptureDraft`, `Proposal`, `ResolvedProposal`, `PendingCard{proposal,reasons,question}`, `CommitResult{commitId,status,entries,progressEffects,coachNoteId,undoExpiresAt}`, `UndoResult`.
-- **Fake stack is content-blind:** `FakeLlmGateway.generateObject('capture-parse')` returns `CANONICAL_CAPTURE_DRAFT_FIXTURE` for ANY input; `generateText('capture-line')` returns the canned coach line; `FakeVoiceProvider.transcribe()` returns the canonical transcript for any audio. So text and (fake) voice produce identical drafts — text is the simplest testable path.
-- **SAR-005 to build on:** `app/lib/session.ts` `getSession() → {user, repos}` (server-only); `components/shell/CaptureBar.tsx` (currently **static/disabled** — its own comment says SAR-006 wires it); `app/(app)/today/actions.ts` (the **established server-action seam**: `"use server"` → `getSession()` → repo call → `revalidatePath('/today')`); `core/domains/today.ts` already surfaces `viaCapture` (`completionSource==='capture'`) — Today updates automatically on revalidate, no change needed.
-- **Real canonical routing (verified against `route.ts`, NOT the docs' illustrative mock):** with the seeded entities present → **strip** = `{transaction 34000p, skillSession 90min}`; **deck** = `{meal (est 7600), water (millilitres:null), habitLog (8600<9000)}`; `questions: []` (no question card in THIS fixture — `ambiguous-skill` exercises that state). Docs SCREEN-CAPTURE §4a / P1 show a different illustrative strip — build against the real fixture.
-- **⚠ Demo-critical seed gap (finding, D-K below):** the two explicit proposals auto-file ONLY if `money.categories` has "Food & dining" and `skills.skills` has "System design" (case-insensitive name resolve, `resolve.ts`); the wake habit ("Wake by 5:30 AM") must exist for its card to accept. `scripts/seed-dev.ts` creates **none** of these, and no default-category bootstrap exists. Unaddressed, the strip renders empty and F3 step 3's trust moment breaks. Per D-C (SAR-004: no auto-create of category/skill/habit), the fix is to **seed** them, not invent them.
-- **Deps:** `framer-motion` and `three.js` are **absent** from `package.json`. `three.js` stays absent (D-G, static orb). `framer-motion` is added (D-I).
-- **No schema/migration change:** all Health tables + `commits`/`commit_rows`/effects exist and are exercised by `commit.ts`.
+- **§8.2 `EvalReport`** (ARCHITECTURE §8.2) is the *full* shape (runId/stack/fixtures[]/metrics{parseAccuracy,routingAccuracy,wrongSilentWrites,estimateMae,stateMatchRate,adaptationSanityRate,latency,cost}). **SAR-007 builds a strict SUBSET** — the gate-relevant fields only; the A/B + adaptation + cost fields are **SAR-020**'s (TICKETS SAR-020, Size L). Building the full harness now is over-scope for an M ticket.
+- **Gate 3 (ARCHITECTURE §9)** requires exactly four fixtures keyless: **`canonical-cross-domain`, `estimated-meal-photo`, `ambiguous-skill`, `undo-batch`**. No others.
+- **Fixtures:** `tests/fixtures/capture/index.ts` already has 7 `CaptureFixture`s incl. `canonical-cross-domain`, `ambiguous-skill`, `undo-batch`. **`estimated-meal-photo` does NOT exist as a `CaptureFixture`** — but its raw numbers do (`providers/fake/fixtures.ts` `ESTIMATED_MEAL_PHOTO_FIXTURE`: kcal 520 / protein 18 / carbs 82 / fat 14, `source:"photo"`, `estimated:true`, `confidenceBps:7400`), and `captureSourceEnum` already includes `"photo"`. It's synthesizable as a hand-built `CaptureDraft` (the `mkDraft` pattern) with **no vision wiring** (D-B, OQ).
+- **Driver API (all landed):** `parseDump(input, createLlmGateway("fake"))`, `prepareDraft(draft, repos)→{autoCommit,pending}`, `resolveProposal(p, repos, status)`, `createCommitService({repos,llm}).commit/undoLatest`, `routeDraft`, `seedCanonicalEntities(repos)` (SAR-006 — "SAR-007 reuses it"), `createMemoryDb()`. `tests/commit.test.ts`/`undo.test.ts` are the exact template (fetch sentinel + unset keys → memoryDb → seed → prepareDraft → commit → assert rows → undoLatest).
+- **⚠ D-040 provenance correction (finding):** D-040 states auto rows "persist `status:'auto'`" and accepted rows "`status:'accepted'`" — **there is no such column.** Typed tables carry `source`/`confidenceBps`/`estimated`/`evidenceId`; `commit.ts` writes `source:"capture"` for BOTH paths. The resolved `status` is an in-memory `ResolvedProposal` field, never persisted to a domain row. The only durable auto-vs-accepted signal is **`commits.kind`** (`"capture"` = auto-batch vs `"tap"/"edit"` = accepted) joinable via `commit_rows`. The trust guarantee is unaffected (it rests on the server re-route refusing estimated-as-auto, D-040), but SAR-007's counter reads **`estimated` + the `expected.auto` allowlist (+ optional `commits.kind`)**, and **SAR-007 corrects D-040's wording** (a doc edit — allowed; not production code).
+- **Fixture parse-path split:** the fake gateway is content-blind (returns the canonical draft for any input), so only **`canonical-cross-domain`** is driven through the real `parseDump` hop (proving F3 step 2 literally); the other three are hand-built `CaptureDraft`s fed straight into `prepareDraft`/`commit` (parse can't produce them keylessly).
 
-### File map (affected files, by change type)
+### File map (all under tests/ — no production edit)
 
 | File | Change |
 |---|---|
-| `app/api/capture/{parse,commit,undo}/route.ts` | **new** — route handlers (`POST`) wrapping `core/capture` via `getSession` (ARCHITECTURE §1.1) |
-| `components/capture/CaptureSheet.tsx` (+ `CaptureOrb`, `InputBar`, `ParseShimmer`, `FiledStrip`, `EstimateDeck`, `EstimateCard`, `QuestionCard`, `FanOut`, `LevelUpBloom`, `UndoToast`) | **new** — the client sheet tree (framer-motion) |
-| `components/shell/CaptureBar.tsx` | **edit** — wire text + fake-mic entry → open the sheet (replace the static disabled state) |
-| `components/capture/deck.ts` (or `core/capture/deck.ts` if pure) | **new** — client-side deck state helpers over `routeDraft`/`applyUserEdit`/`isAcceptAllEligible` |
-| `core/domains/health.ts` + export from `core/domains/index.ts` | **new** — pure `buildHealthView` (ring aggregates + entry rows) |
-| `components/lenses/HealthLens.tsx` (+ `Ring`, `EntryRow`) | **new** — the 3-ring Health lens body |
-| `components/today/DomainSwitcher.tsx` | **edit** — render the real `HealthLens` in the Health slot (Money/Habits/Skills stay placeholders) |
-| `scripts/seed-dev.ts` + a shared `data/seed/canonical.ts` (or `core/`-free seed helper) | **edit/new** — create the "Food & dining" category, "System design" skill, "Wake by 5:30 AM" habit (D-K); SAR-007 reuses it |
-| `tests/health.test.ts` · `tests/capture-deck.test.ts` | **new** — pure Health read-model + deck-helper unit tests |
-| `package.json` | **edit** — add `framer-motion`; add `test:domains`/`test:ui` entries as needed |
-| `docs/product/{DECISIONS,CHANGELOG}.md` | **edit (append-only)** — D-040 (transport seam) + truthful entry after evidence |
+| `tests/fixtures/capture/index.ts` | **edit** — add `estimatedMealPhotoFixture` (D-B) + export in `allCaptureFixtures` |
+| `tests/eval/report.ts` | **new** — the minimal `EvalReport` subset type + the pure `wrongSilentWrites` aggregator |
+| `tests/eval/f3-gate.eval.test.ts` | **new** — the harness: loops the 4 gate-3 fixtures keyless, drives the F3 loop, accumulates the report, hard-asserts `wrongSilentWrites === 0` + per-fixture expectations |
+| `tests/eval/harness.ts` | **new** — shared driver (seed + prepareDraft + commit/undo + row-count helpers) reused by the eval |
+| `package.json` | **edit** — add `test:eval` chained into `test` |
+| `docs/product/{DECISIONS,CHANGELOG}.md` | **edit** — correct D-040's provenance clause + a truthful entry after evidence |
 
-`core/` gains only framework-clean pure modules. No schema/migration/provider/`core/contracts`/`data/repository` change.
+No `core/`, `data/`, `providers/`, schema, or migration change.
 
 ---
 
 ## Locked decisions for this ticket (sign these off)
 
-**D-A · Parse/commit transport = route handlers (ARCHITECTURE §1.1) — LOCKED (OQ-1 = route handlers).** The three server calls are Next route handlers under `app/api/capture/`: `POST /api/capture/parse` (body `{text}`) → `CaptureDraft` (calls `getSession` + `parseDump` with the injected fake gateway); `POST /api/capture/commit` (body `{proposals, idempotencyKey}`) → `CommitResult` (`resolveProposal`/`prepareDraft` + `createCommitService.commit`); `POST /api/capture/undo` (body `{commitId}`) → `UndoResult`. The client sheet `fetch`es these, holds deck state between parse and commit, and calls `router.refresh()` after commit/undo so the Today spine re-pulls its `via capture` state. The capture LOGIC stays in `core/capture` (framework-clean, portable — the mobile/external client D-027 hits the same HTTP surface); the route handler is the thin transport that composes `getSession` + the core functions. Matches the signed architecture — **no new decision entry needed.**
+**D-A · Scope = the 4 gate-3 fixtures + a MINIMAL report; the full harness is SAR-020.** SAR-007 proves `canonical-cross-domain`, `estimated-meal-photo`, `ambiguous-skill`, `undo-batch` keyless and produces a `tests/eval/report.ts` `EvalReport` that is a strict subset of ARCHITECTURE §8.2 — `{runId, generatedAt, fixtures: [{id, pass, expectedRows, actualRows, wrongSilentWrites}], metrics: {wrongSilentWrites}}` (the A/B / adaptation / cost / latency fields are omitted or `null`, owned by SAR-020). The report is asserted in-test (and optionally written to `.verify/eval/` as an artifact); no live provider, no A/B.
 
-**D-B · The sheet is a client tree over pure client-safe helpers; server only for parse/commit/undo.** `CaptureSheet` (client) holds the deck as React state (`Proposal[]` + resolved/blocked/committed sets). Client-side pure helpers: `routeDraft` (partition strip vs deck), `applyUserEdit` (edit-in-place), `isAcceptAllEligible`, `blockedProposalIds`. The client mints ONE `idempotencyKey` (crypto.randomUUID) per commit attempt for retry-safety (ARCHITECTURE §5.2). Repos/llm/commit are NEVER imported into a client component — only reachable via the D-A route handlers (`fetch`).
+**D-B · `estimated-meal-photo` = a synthesized keyless fixture [OQ-1].** Add `estimatedMealPhotoFixture` to `tests/fixtures/capture/` as a hand-built `CaptureDraft` (`mkDraft`) with `source:"photo"`, one `meal` proposal (`estimated:true`, `confidenceBps:7400`, kcal 520 / protein 18 / carbs 82 / fat 14 from `providers/fake/fixtures.ts`), `expected:{auto:[], pending:[<id>]}`. **No vision-adapter wiring** — it is fabricated test data, exactly like the other six non-canonical fixtures. This satisfies gate 3's literal fixture-id requirement keyless. *(OQ-1 alt: defer to SAR-011 and mark gate 3 partially met — risks the gate never closing before fan-out.)*
 
-**D-C · Two visually-distinct confirm zones (P1 "unmistakably different at a glance").** (1) **Filed-automatically strip** — quiet settled micro-rows for `route:'auto'` proposals, `--ok` check + domain-hued left tick, 40ms stagger; tap → inline edit, swipe-left → undo that write. (2) **Estimate deck** — an active foreground Tinder stack (next two peek 96%/92%), domain chip top-left, confidence dot top-right, footer `estimated` + "why?". Distinct grammar (strip = calm/done; deck = live/foreground) is the "different at a glance" signal.
+**D-C · `wrongSilentWrites` = a HARD aggregate over every scenario (the gate metric).** Operational definition using only columns that exist: for each fixture, after driving its expected auto-phase (`prepareDraft` → `commit(autoCommit)`), count as a violation (a) **any** typed-domain-table row with `estimated === true` (routing guarantees estimated never enters `autoCommit`, so any such row after the auto-phase is a silent estimate write by construction), and (b) any auto-written row whose originating `proposalId` is outside the fixture's `expected.auto` allowlist (unexpected auto-write). Optional cross-check: any row reachable from a `commit_rows` entry whose owning `commits.kind === 'capture'` yet is `estimated`. **Sum across all four fixtures into `report.metrics.wrongSilentWrites` and hard-assert `=== 0` at the harness level** (not per-`test()`), which is the exact difference from SAR-004's per-scenario emptiness asserts (closes N-6). This reads `estimated` + the allowlist, NOT a row `status` column (which does not exist — see D-040 correction).
 
-**D-D · The four gestures + domain-flip + why (SCREEN-CAPTURE §4b).** accept (swipe-right/✓ → `POST /api/capture/commit` that card → toss right); discard (swipe-left/✕ → toss, no write); edit (tap/✎ → inline stepper/field → `applyUserEdit` → accept); why (long-press → flip to a Fraunces back face showing `proposal.why`). Domain-flip = the top-left chip (4-chip row) re-routes `proposal.domain` (a **separate** affordance, not one of the four). **a11y (spec-silent → decided):** mirror buttons ✕ · ✎ · ✓ under the deck, and a footer **"why?"** tap is the keyboard/screen-reader-accessible equivalent of long-press. **Accept all** shows only when every remaining card ≥ 8000 bps (`isAcceptAllEligible`).
+**D-D · Harness = `tests/eval/*` + `pnpm test:eval`, keyless, deterministic.** The eval lives in `tests/eval/` (`*.eval.test.ts` — a `*.test.ts` file under an `eval/` dir, honoring both `test-eval.toml`'s "/eval" instruction and the repo's `tests/*.test.ts` + named-script convention). `tests/eval/harness.ts` holds the shared driver (fetch sentinel + unset keys, `createMemoryDb`, `seedCanonicalEntities`, prepareDraft/commit/undo, typed-row counters). `pnpm test:eval` runs it and is chained into `pnpm test` → `pnpm check`. Deterministic + network-free (the `now` clock is injected as in SAR-004).
 
-**D-E · The question card (ask-don't-invent).** A `ClarificationQuestion` renders as a chip card that blocks ONLY its `blocksProposalIds` (via `blockedProposalIds`) — the rest of the deck stays fully usable (P1 "the question card blocks nothing else"). Answering resolves/edits the blocked proposal; nothing it blocks can accept until answered. (The canonical fixture has none; `ambiguous-skill` exercises this — build the state, test with that fixture.)
+**D-E · The four gate-3 assertions (F3 DoD, FLOWS F3 steps 2–6).**
+- **canonical-cross-domain** — `parseDump(canonical, fakeGateway)` → draft (step 2); with `seedCanonicalEntities`, `prepareDraft` → `autoCommit={transaction,skillSession}` + `pending={meal,water,habitLog}` (step 3); `commit(autoCommit)` → exactly 2 typed rows + envelope + XP; **the 3 pending wrote nothing** (invariant #1); accepting the meal card → meal + mealItems written (step 4); `wrongSilentWrites===0`.
+- **estimated-meal-photo** — the estimated meal is pending; **no `meals` row exists until an explicit accept** commit; on accept it writes with `estimated:true` (confirmed ≠ unconfirmed).
+- **ambiguous-skill** — the skill name doesn't resolve → `prepareDraft` demotes to pending with a question; **no `skills`/`skill_sessions` row invented**; nothing auto-writes.
+- **undo-batch** — `commit` → typed rows + XP + plan effects; `undoLatest` → all reversed atomically (row counts back to 0, progress restored); refuses a second undo.
 
-**D-F · Commit → fan-out → level-up → undo (F3 steps 5–6).** On any accept (card, accept-all, or a strip auto-write), `POST /api/capture/commit` returns `CommitResult`; the client renders **fan-out** (accepted entries fly to their domain chip), **XP roll** (from `progressEffects`), an **inline level-up bloom ≤900ms** ONLY when a `progressEffect` crosses a level (`levelBefore≠levelAfter`; never modal), and the **fast-tier coach line** (`coachNoteId`). One **5-min Undo** per resolved batch via `POST /api/capture/undo` (a toast with the window). A `router.refresh()` after commit/undo makes matching Today items show/clear `via capture`. `prefers-reduced-motion`: springs→150ms fades, bloom→static amber flash, shimmer→static skeleton (DESIGN §5).
-
-**D-G · Static Capture Orb only (D-024 / AGENTS §4.5).** States A/B render a static layered-gradient orb (domain-hued tokens + grain), NOT a WebGL shader; three.js stays absent. Parsing = the "parse shimmer" skeleton (the single allowed CSS-keyframe), never a spinner. The shader is a post-F3 follow-up.
-
-**D-H · Input = text + fake-voice, keyless (voice PTT = SAR-013).** Wire the SAR-005 capture bar: a **text field** (primary testable path) + a **hold-to-talk mic** that on the fake stack calls `FakeVoiceProvider.transcribe()` → canonical transcript → `POST /api/capture/parse`. Both feed the same route. Real STT = SAR-013; camera = SAR-011 (stays disabled).
-
-**D-I · Motion via framer-motion (DESIGN §7, mandated).** Add `framer-motion` (exact-pinned) for the swipe spring (stiffness~300/damping~30), bloom, fan-out, and 40ms stagger. Every duration/easing from the motion tokens (`--t-*`, `--ease-standard`); no scattered CSS animations except the parse shimmer keyframe. No hardcoded ms in components (invariant #4).
-
-**D-J · Health lens = 3 rings + entry list, over a pure read-model (SCREEN-LENSES §2, P3a).** `core/domains/health.ts` `buildHealthView(input) → HealthView` (pure, framework-clean, integer-safe, unit-tested) aggregates the day's Health entries into three ring values: **energy** (kcal in vs out incl. workout burn), **water** (ml vs target), **protein** (g vs target). `HealthLens` renders three glanceable SVG rings (lens-local tokens) + the Health entry rows (meals/water/workouts/weighIns) with the standard row grammar (domain tick · content · meta · confidence chip on estimates · swipe-left delete via undo). Rendered in the Today `DomainSwitcher` Health slot (Money/Habits/Skills stay placeholders). The **satisfied-by row is a Habits-lens element (SAR-009)** — SAR-006 only produces its writes (already built, `commit.ts` §2g); the P3a criterion fully closes only when SAR-009 also lands. **Release valve:** if the Health lens threatens the F3 gate, ship the capture sheet + F3 wiring first (gate-critical), Health lens second — same ticket.
-
-**D-K · Demo-critical seed of the canonical entities (no auto-create).** SAR-006 extends `scripts/seed-dev.ts` (via a shared `data/seed/canonical.ts` helper SAR-007 also uses) to create, for `local-dev`: the **"Food & dining"** money category, the **"System design"** skill, and the **"Wake by 5:30 AM"** habit — so the canonical fixture's explicit proposals resolve and file into the strip (F3 step 3). Per D-C (SAR-004), SAR-006 does **NOT** auto-create categories/skills/habits at capture time; production onboarding (SAR-016) owns the real bootstrap.
+**D-F · Screenshots = deferred/manual DoD.** The harness proves the F3 *state data* (row counts, XP, undo, wrongSilentWrites). The TICKETS "mobile/desktop F3 state screenshots to `.verify/screens/`" require a browser, and none is wired in the repo (no playwright/puppeteer) — so, like SAR-005/006, the **visual** F3-state screenshots are a manual pass (Satvik / a browser-tooled session) and an open DoD before the gate is *visually* signed; the **automated** gate (the eval) is what SAR-007 delivers.
 
 ---
 
 ## Implementation steps (ordered — become the todo list)
 
-1. **Transport seam + deps + seed (D-A/D-I/D-K).** Add `framer-motion`; author `app/api/capture/{parse,commit,undo}/route.ts` (route handlers over `getSession`+`core/capture`); extend the dev seed with the canonical category/skill/habit (shared helper). Smoke: `POST /api/capture/parse` returns the canonical draft keyless.
-2. **Sheet shell + input + parse states (D-B/D-G/D-H).** `CaptureSheet` opened from the (now-wired) capture bar; static orb; text field + fake hold-to-talk; parse shimmer; render the parsed `CaptureDraft`.
-3. **Strip + deck + gestures + question card (D-C/D-D/D-E).** `FiledStrip` (auto proposals) + `EstimateDeck` (framer-motion stack) with the 4 gestures + domain-flip + why-flip + mirror buttons + accept-all + the `QuestionCard`. Pure deck helpers unit-tested (`tests/capture-deck.test.ts`).
-4. **Commit wiring + fan-out + level-up + undo (D-F).** Wire accept/accept-all/strip-undo to the commit+undo routes; fan-out, XP roll, inline level-up bloom, coach line, 5-min undo toast; confirm Today shows `via capture` after `router.refresh()`. Correction (F4a) + backdate (F4b) via the sheet.
-5. **Health lens (D-J).** `core/domains/health.ts` + `tests/health.test.ts`; `HealthLens` (3 rings + entry rows) in the DomainSwitcher Health slot.
-6. **F3 end-to-end + screenshot-verify (THE GATE).** Run the full F3 loop on the fake stack keyless (text + fake mic): parse → strip+deck → each gesture → typed Health write → XP/level → Today `via capture`; plus F4a/F4b. Screenshot every capture state (input/shimmer/strip/deck/question/edit/why/fan-out/level-up/E1–E4) + the Health lens at 390px + desktop, Ember Dark+Light minimum → `.verify/screens/`.
-7. **Validate + record.** `pnpm check` (incl. new pure tests) + `pnpm build` + `check-invariants.sh`; append **D-040** + a truthful `CHANGELOG` entry after evidence; hand to the Sol diff review + confirm the F3 gate is demonstrably met (SAR-007 formally evals it next).
+1. **`estimated-meal-photo` fixture (D-B).** Add `estimatedMealPhotoFixture` + include in `allCaptureFixtures`; a contract test that it parses under `captureDraftSchema` and routes to pending.
+2. **Harness + report (D-C/D-D).** `tests/eval/report.ts` (minimal `EvalReport` + the `wrongSilentWrites` aggregator over typed tables) + `tests/eval/harness.ts` (keyless driver: seed, prepareDraft, commit/undo, per-table row counters).
+3. **The four gate-3 scenarios (D-E).** `tests/eval/f3-gate.eval.test.ts`: drive each fixture, assert per-fixture expectations, accumulate the report, hard-assert `report.metrics.wrongSilentWrites === 0`.
+4. **Wire + run (D-D).** Add `test:eval` to `package.json`, chain into `test`; confirm keyless (`pnpm test:eval` green with keys unset + fetch sentinel).
+5. **Validate + record.** `pnpm check` (incl. `test:eval`) + build + invariants; **correct D-040's provenance clause** in DECISIONS + a truthful CHANGELOG entry after evidence; declare the **F3 GATE met** (automated) with the visual screenshot pass flagged as the manual remainder. Sol diff review.
 
-## Acceptance checklist (mirrors P1 + FLOWS F3 + invariant proofs)
+## Acceptance checklist (mirrors TICKETS SAR-007 + gate 3)
 
-- [x] **P1:** the two confirm zones are unmistakably different at a glance; all four gestures (+ domain-flip + why) work; the question card blocks only its own proposals; level-up is inline and ≤900ms; **the whole loop runs on the fake stack keyless end-to-end**.
-- [x] **F3 trust (invariant #1):** explicit ≥9000 proposals file into the strip (seeded entities resolve); estimates/low-confidence/unknown-quantity → deck; **nothing estimated writes without a card**; each resolved batch has one 5-min undo; `wrongSilentWrites === 0`.
-- [x] Accept (card / accept-all / strip) commits through the **real SAR-004 commit service** → typed Health rows + XP + level + plan/satisfied-by effects; undo reverses all atomically; a replayed `idempotencyKey` never double-writes.
-- [x] Today's matching items show **`via capture`** after commit (revalidate). **[~] F4a/F4b (correction/backdate) via the sheet — the server path exists (SAR-004) but the content-blind fake gateway only yields a create-draft, so no sheet affordance exercises it keyless; deferred to SAR-007/later, recorded in the handoff.**
-- [x] Health lens: three glanceable rings (energy/water/protein) over a **pure framework-clean** `core/domains/health.ts`; entry rows with the standard grammar.
-- [x] `core/` boundary-clean (sheet in `app/`+`components/`; pure logic in `core/`); tokens-only UI (amber only on XP/streak/level-up); no schema/migration change; `framer-motion` the only new runtime dep; static orb only (no three.js).
-- [x] `pnpm typecheck`/`lint`/`check:core-boundary`/`test`/`build` + `.codex/hooks/check-invariants.sh` pass. **[ ] screenshots saved + verified at 390px + desktop — OPEN (needs a browser; Satvik runs the visual pass locally).**
+- [x] Deterministic keyless tests for the four gate-3 fixtures: canonical explicit rows auto-file; estimates/question-dependent proposals **write nothing until accepted**; accepted Health (meal) card writes correctly; undo reverses rows/XP/plan effects atomically.
+- [x] **`wrongSilentWrites === 0` is a HARD aggregate** over every fixture (harness-level assert), reading `estimated` + the `expected.auto` allowlist — not a non-existent row `status`.
+- [x] `estimated-meal-photo` covered keyless (per OQ-1); a minimal `EvalReport` (subset of §8.2) is produced.
+- [x] Tests + eval code ONLY — `core/`, `data/`, `providers/`, schema, migrations untouched (the only non-test edit is the D-040 wording correction + the CHANGELOG).
+- [x] `pnpm typecheck`/`lint`/`check:core-boundary`/`test` (incl. `test:eval`)/`build` + `.codex/hooks/check-invariants.sh` pass, all keyless. Visual F3-state screenshots flagged as the manual DoD remainder.
 
-## Verification (how Terra proves it, then Sol reviews)
+## Verification
 
 ```sh
-pnpm install --frozen-lockfile          # framer-motion added — lockfile updates expected
-pnpm check                              # typecheck + lint + core-boundary + all suites incl. new pure tests
-pnpm build                              # Next build stays green
-bash .codex/hooks/check-invariants.sh
-pnpm db:seed:dev && pnpm dev            # F3 walkthrough on the fake stack, keyless (Satvik + screenshot pass)
+pnpm install --frozen-lockfile      # no new deps
+pnpm check                          # typecheck + lint + core-boundary + all suites incl. test:eval
+pnpm test:eval                      # the F3 gate in isolation — keyless, deterministic
+pnpm build ; bash .codex/hooks/check-invariants.sh
 ```
 
-Keyless proof: the entire loop runs with provider keys unset — `FakeLlmGateway` (canonical draft + coach line) + `FakeVoiceProvider` (canonical transcript) + local SQLite. Eval linkage: SAR-006 implements F3; **SAR-007** formally evals `canonical-cross-domain`, `estimated-meal-photo`, `ambiguous-skill`, `undo-batch` and asserts `wrongSilentWrites === 0`.
+Keyless proof: provider keys unset + `globalThis.fetch` sentineled + `FakeLlmGateway` + `memory-db`. **This is the F3 GATE** — on green, fan-out (SAR-008/9/10) may begin; on red, downstream stops until F3 is fixed (no cut line fires on elapsed time, D-035).
 
 ## Open questions — RESOLVED at sign-off (2026-07-18)
 
-- **OQ-1 (D-A) · parse/commit transport → route handlers** `app/api/capture/{parse,commit,undo}/route.ts` per the signed ARCHITECTURE §1.1. The client `fetch`es them and `router.refresh()`es after commit/undo. Capture logic stays in `core/capture`; no new decision entry (matches the signed doc).
+- **OQ-1 (D-B) · `estimated-meal-photo` → (a) synthesize** a keyless `CaptureFixture` now (no vision wiring). All four gate-3 fixtures close keyless.
 
-## Handoff to Terra (`pipeline`)
+## Handoff to Terra (`test-eval`)
 
-Build the capture sheet + F3 wiring + the Health lens over the EXISTING SAR-004 pipeline and SAR-005 shell — do not reimplement parse/route/resolve/commit/undo, and do not touch `core/capture`/`core/game`/`core/contracts`/`data/`/schema/migrations/providers except the additive seed helper. All writes flow through `createCommitService` — if you find yourself writing a Health row outside the commit service, stop. The strip holds ONLY `route:'auto'` proposals; if an estimated/unknown value ever reaches the strip, that is the failure this ticket exists to prevent. Build against the REAL `CANONICAL_CAPTURE_DRAFT_FIXTURE` (not the docs' illustrative mock). Static orb only. Screenshot-verify before claiming done. If the same acceptance item fails twice, stop and escalate (deep/Sol).
+Build ONLY the fixture + harness + eval tests + the D-040 wording fix + the CHANGELOG. Touch NO production module (`core/`, `data/`, `providers/`, schema, migrations). Reuse `seedCanonicalEntities` and the `tests/commit.test.ts` keyless setup pattern — do not hand-roll a divergent seed. The `wrongSilentWrites` counter reads persisted `estimated` + the fixture allowlist; if you reach for a row `status` column, stop — it does not exist (that is the D-040 correction). The full 12-fixture / A/B `EvalReport` is SAR-020 — build the gate-3 subset only. If the same acceptance item fails twice, stop and escalate.
 
 ---
 
-### Post-approval sequence
-1. OQ-1 resolved = route handlers (no D-040). ✓
-2. Create the TodoWrite/task list from the 7 ordered steps.
-3. Build steps 1–7 in the main session (per Satvik's workflow), spawning parallel agents only where useful; screenshot-verify; then a read-only Sol diff review + confirm the F3 gate before SAR-007.
+### Post-approval sequence (after sign-off)
+1. Fold the OQ-1 answer into D-B.
+2. Create the TodoWrite/task list from the 5 ordered steps.
+3. Build steps 1–5 in the main session; then a read-only Sol diff review; on green, declare the F3 GATE met (automated) and record the visual-screenshot remainder.
 4. `/handoff` at session end.
 
-**LANDED 2026-07-18 (code) — two-pass Sol review ACCEPTABLE TO LAND; 101 tests/build/invariants green; F3 runnable keyless; D-040 + CHANGELOG appended. Open DoD: visual screenshot-verify (Satvik's local pass). Next: SAR-007 (F3 eval gate).**
+**LANDED 2026-07-18 — F3 GATE MET (automated). 106 tests/build/invariants green; wrongSilentWrites===0 hard aggregate; D-040 corrected + CHANGELOG. Manual remainder: visual F3-state screenshots. Next: fan-out (SAR-008 Money).**
