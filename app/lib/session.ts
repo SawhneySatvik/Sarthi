@@ -2,9 +2,10 @@ import "server-only";
 
 import { cache } from "react";
 
-import type { AuthenticatedUser, UserScopedRepositories } from "@/core/contracts";
+import type { AuthenticatedUser, LlmGateway, UserScopedRepositories } from "@/core/contracts";
 import { createSqliteRepositoryFactory } from "@/data/repository";
 import { createAuthProvider } from "@/providers/auth";
+import { createLlmGateway } from "@/providers";
 
 import { getRuntimeConfig } from "./runtime";
 
@@ -17,6 +18,8 @@ import { getRuntimeConfig } from "./runtime";
 export interface Session {
   user: AuthenticatedUser;
   repos: UserScopedRepositories;
+  /** The runtime LLM gateway (fake on the dev/keyless stack) — for the capture routes. */
+  llm: LlmGateway;
 }
 
 // The factory owns a single shared db connection (data/repository/factory.ts), so it
@@ -44,5 +47,6 @@ export const getSession = cache(async (): Promise<Session> => {
   const auth = createAuthProvider(config.authProvider);
   const user = await auth.requireUser();
   const repos = factoryFor(config.databaseUrl).forUser(user);
-  return { user, repos };
+  const llm = createLlmGateway(config.llmProvider);
+  return { user, repos, llm };
 });

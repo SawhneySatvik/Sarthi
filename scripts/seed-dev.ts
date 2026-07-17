@@ -12,6 +12,7 @@ import { createClient } from "@libsql/client";
 
 import type { AuthenticatedUser } from "../core/contracts";
 import { createSqliteRepositoryFactory } from "../data/repository";
+import { seedCanonicalEntities } from "../data/seed/canonical";
 
 const DB_URL = process.env.DB_URL ?? "file:./sarthi.dev.db";
 const FILE = DB_URL.replace(/^file:/, "");
@@ -43,6 +44,9 @@ async function main(): Promise<void> {
   await applyMigrations();
 
   const repos = createSqliteRepositoryFactory(DB_URL).forUser(USER);
+
+  // The entities the canonical capture fixture resolves against (F3 strip; D-K).
+  await seedCanonicalEntities(repos);
 
   const arc = await repos.plans.arcs.create({
     domain: "overall",
@@ -81,6 +85,17 @@ async function main(): Promise<void> {
   await item({ domain: "habits", title: "Evening walk", status: "pending" });
   await item({ domain: "health", title: "Drink water", status: "done", completionSource: "capture" });
   await item({ domain: "habits", title: "Meditate 10m", status: "done", completionSource: "manual" });
+
+  // A couple of Health entries so the Health lens rings render with data.
+  await repos.health.meals.create({
+    occurredAt: `${today}T07:30:00.000Z`, localDate: today, timezone: "UTC",
+    kcal: 620, proteinGrams: 24, carbsGrams: 78, fatGrams: 18,
+    source: "capture", confidenceBps: 9000, estimated: false, evidenceId: null, note: "Breakfast",
+  });
+  await repos.health.waterLogs.create({
+    occurredAt: `${today}T09:00:00.000Z`, localDate: today, timezone: "UTC",
+    millilitres: 900, source: "capture", confidenceBps: 9500, estimated: false,
+  });
 
   await repos.coach.notes.create({
     scope: "daily",
