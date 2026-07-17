@@ -1,0 +1,16 @@
+# docs/product/CHANGELOG.md — Sarthi Build Provenance
+
+## 2026-07-17 — Session 1 kickoff
+
+- **DOC SET FINALIZED 2026-07-17**
+- Codex `/feedback` session ID: `019f6cc9-957e-7ae3-8ffa-c54fc699eb44`
+- Codex accelerated the kickoff environment audit: verified repository hooks, profiles, provenance tracking, and build gates before implementation.
+- Codex accelerated the document lock: cross-indexed the D-026–D-029 drift, resolved trust/auth/billing decisions into D-030–D-034, and reconciled the fake local track with the production sellable rail.
+- Codex accelerated session continuity: reorganized the doc set by product, architecture, experience, screens, planning, operations, and roadmap; updated every build-harness and internal reference.
+- Codex accelerated the architecture lock: independently verified the runtime model matrix and AI SDK structured-output constraints before the provider contract was frozen.
+- **ARCHITECTURE LOCKED 2026-07-17** — `docs/architecture/ARCHITECTURE.md` is now the signed build blueprint.
+- **D-035 LOCKED 2026-07-17** — execution advances on dependency and acceptance gates, never elapsed-day checkpoints; the external submission deadline remains fixed.
+- **TICKETS LOCKED 2026-07-17** — `docs/planning/TICKETS.md` is the approved Phase-0/1 execution register; build is intentionally deferred before `SAR-001`.
+- **SAR-001 SCAFFOLD ACCEPTED 2026-07-17** — Codex accelerated the framework-clean foundation: created the keyless typed runtime selector and AST-enforced import boundary with forbidden-import fixtures; frozen install, check, production build, and final gate review passed.
+- **D-036 LOCKED 2026-07-17** — Codex accelerated runtime wiring safety: verified an ABI conflict in the original provider pins, aligned the full AI SDK 7 package set, and preserved every locked runtime model ID before SAR-002 implementation.
+- **SAR-002 PROVIDER PORTS ACCEPTED 2026-07-17** — Codex accelerated the provider-safe fake stack: added framework-clean LLM/voice/vision ports, immutable verified-model routing, and deterministic no-key/no-network fixtures with schema-validation coverage. The ambiguous “bottle” fixture remains an explicitly unknown, estimated pending value rather than a silent quantity; frozen install, checks, build, invariant validation, and final gate review passed.
