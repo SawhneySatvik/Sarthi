@@ -36,6 +36,7 @@ function mkDraft(
   draftId: string,
   proposals: Proposal[],
   questions: ClarificationQuestion[] = [],
+  source: CaptureDraft["source"] = "text",
 ): CaptureDraft {
   return {
     version: 1,
@@ -43,7 +44,7 @@ function mkDraft(
     rawText: draftId,
     capturedAt: AT,
     timezone: TZ,
-    source: "text",
+    source,
     transcriptConfidenceBps: null,
     evidenceRefs: [],
     proposals,
@@ -180,6 +181,34 @@ export const undoBatchFixture: CaptureFixture = {
   expected: { auto: ["undo-skill"], pending: [], note: "seed skill 'System design'; commit then undoLatest restores rows + XP + minutes" },
 };
 
+/** An estimated meal derived from a photo (SAR-007 gate-3). Always pending — no meal
+ *  row until the card is accepted. Fabricated test data (no vision pipeline). */
+export const estimatedMealPhotoFixture: CaptureFixture = {
+  id: "estimated-meal-photo",
+  draft: mkDraft(
+    "estimated-meal-photo",
+    [
+      {
+        proposalId: "emp-meal",
+        domain: "health",
+        kind: "meal",
+        intent: "create",
+        occurredAt: AT,
+        localDate: DAY,
+        timezone: TZ,
+        estimated: true,
+        confidenceBps: 7400,
+        why: { basis: "estimated from a meal photo", assumptions: ["portion size inferred from the image"] },
+        evidenceRefs: [],
+        payload: { kcal: 520, proteinGrams: 18, carbsGrams: 82, fatGrams: 14, items: [], note: null },
+      },
+    ],
+    [],
+    "photo",
+  ),
+  expected: { auto: [], pending: ["emp-meal"], note: "estimated photo meal → pending card; no meal row until accepted" },
+};
+
 /** The parse never produces a draft — the gateway fails; capture stays a retryable draft, zero rows. */
 export const providerFailureFixture: CaptureFixture = {
   id: "provider-failure",
@@ -195,5 +224,6 @@ export const allCaptureFixtures: CaptureFixture[] = [
   correctionExistingEntryFixture,
   backdateHabitFixture,
   undoBatchFixture,
+  estimatedMealPhotoFixture,
   providerFailureFixture,
 ];
