@@ -15,16 +15,22 @@
     "check:core-boundary": "node scripts/check-core-boundary.mjs",
     "test:core-boundary": "node --test tests/core-boundary.test.mjs",
     "test:providers": "tsx --test tests/providers.test.ts",
-    "test": "pnpm test:core-boundary && pnpm test:providers",
-    "check": "pnpm typecheck && pnpm lint && pnpm check:core-boundary && pnpm test"
+    "test:data": "tsx --test tests/schema.test.ts tests/parity.test.ts tests/repository.test.ts tests/transaction.test.ts tests/auth.test.ts",
+    "test:migrations": "tsx --test tests/migrations.test.ts",
+    "test": "pnpm test:core-boundary && pnpm test:providers && pnpm test:data && pnpm test:migrations",
+    "check": "pnpm typecheck && pnpm lint && pnpm check:core-boundary && pnpm test",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "4.0.15",
     "@ai-sdk/google": "4.0.16",
     "@ai-sdk/openai": "4.0.15",
+    "@libsql/client": "0.17.4",
     "ai": "7.0.28",
     "drizzle-orm": "0.44.7",
     "next": "16.1.6",
+    "postgres": "3.4.9",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "zod": "4.1.13"
