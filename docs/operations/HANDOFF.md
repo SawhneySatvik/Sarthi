@@ -3,9 +3,9 @@
 | | |
 |---|---|
 | **Written** | 2026-07-17 — Session 1 document reconciliation |
-| **For** | The next action: plan `SAR-004` (capture routing/commit/undo — the moat) only, then continue the F3-first build |
+| **For** | The next action: build `SAR-005` (token shell + thin Today spine) → `SAR-006` (Health slice + capture sheet) → `SAR-007` (F3 fake-stack eval), driving toward the F3 gate |
 | **Read order** | AGENTS.md → docs/product/PROJECT.md → docs/architecture/TECH-STACK.md → docs/experience/FLOWS.md → rest as needed |
-| **State of play** | Phase-0/1 contract reconciled. 37 decisions, signed architecture, and locked tickets; `SAR-001`, `SAR-002`, and `SAR-003` are accepted. The typed persistence floor + user-scoped repository factory + local auth gate are built, validated (`pnpm check` 46 tests, build, invariants clean), and gate-reviewed. Working tree is uncommitted on `main` pending Satvik's branch+commit call. |
+| **State of play** | Phase-0/1 contract reconciled. 38 decisions, signed architecture, and locked tickets; `SAR-001`, `SAR-002`, `SAR-003`, and **`SAR-004` (the capture moat)** are accepted. The typed persistence floor + user-scoped repository factory + local auth gate + the full capture pipeline (parse → route-by-confidence → exhaustive typed commit + XP/plan/satisfied-by effects → 5-min undo) are built, validated keyless (`pnpm check` **85 tests**, build, invariants clean), and gate-reviewed (SAR-004 two-pass — one blocking finding, the backdate streak recompute, fixed). SAR-003 is committed on branch `sar-003-schema-repository`; SAR-004 stacks uncommitted on it, pending Satvik's branch/commit/merge call. |
 
 ## 1. What Sarthi is
 A voice-and-photo life coach. One messy spoken sentence is parsed into typed entries across four

@@ -59,6 +59,7 @@
 
 ### SAR-004 — Capture routing, typed commit, XP, and undo core
 
+- **Status:** ✅ **Accepted 2026-07-17** (Sol two-pass review — one blocking finding, backdate streak recompute, fixed; 85 tests + build + invariants green, keyless). `SAR-001`–`SAR-003` also accepted.
 - **Agent:** `pipeline` (Terra) · **Size:** XL · **Depends:** `SAR-002`, `SAR-003`
 - **Docs:** `docs/architecture/ARCHITECTURE.md` §§5–6, 9 · `docs/product/DECISIONS.md` D-030 · `docs/experience/FLOWS.md` F3–F4 · `AGENTS.md` §2
 - **Acceptance:**
