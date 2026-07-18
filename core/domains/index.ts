@@ -3,3 +3,4 @@ export * from "./today";
 export * from "./health";
 export * from "./money";
 export * from "./habits";
+export * from "./skills";

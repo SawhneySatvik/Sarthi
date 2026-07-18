@@ -4,6 +4,7 @@ import { TodayBody } from "@/components/today/TodayBody";
 import { buildHabitsView, resolveRuleDayTotals } from "@/core/domains/habits";
 import { buildHealthView } from "@/core/domains/health";
 import { buildMoneyView } from "@/core/domains/money";
+import { buildSkillsView } from "@/core/domains/skills";
 import { buildTodayView } from "@/core/domains/today";
 
 // Reads the per-user SQLite scope at request time — never statically generated.
@@ -15,7 +16,7 @@ export default async function TodayPage() {
   // `timezone`) is owned by the SAR-006 capture edge; seed + page agree meanwhile.
   const localDate = new Date().toISOString().slice(0, 10);
 
-  const [items, progress, arcs, notes, meals, waterLogs, workouts, weighIns, transactions, categories, budgets, recurringRules, habits, habitLogs, satisfactionRules] =
+  const [items, progress, arcs, notes, meals, waterLogs, workouts, weighIns, transactions, categories, budgets, recurringRules, habits, habitLogs, satisfactionRules, skills, skillMilestones, skillSessions] =
     await Promise.all([
       repos.plans.items.list({ localDate }),
       repos.plans.progress.list({}),
@@ -34,6 +35,11 @@ export default async function TodayPage() {
       repos.habits.habits.list({}),
       repos.habits.logs.list({}),
       repos.habits.satisfactionRules.list({}),
+      // Skills: active tracks + full milestone/session history — mastery is the per-skill
+      // session-minute SUM computed in buildSkillsView (never domain_progress.cumulativeMinutes).
+      repos.skills.skills.list({ isArchived: false }),
+      repos.skills.milestones.list({}),
+      repos.skills.sessions.list({}),
     ]);
 
   // Live per-rule source aggregates for the satisfied-by badges (repos-injected core helper).
@@ -49,11 +55,18 @@ export default async function TodayPage() {
   const healthView = buildHealthView({ meals, waterLogs, workouts, weighIns });
   const moneyView = buildMoneyView({ localDate, transactions, categories, budgets, recurringRules });
   const habitsView = buildHabitsView({ localDate, habits, logs: habitLogs, rules: satisfactionRules, ruleTotals });
+  const skillsView = buildSkillsView({ localDate, skills, milestones: skillMilestones, sessions: skillSessions });
 
   return (
     <>
       <AppHeader title="Today" />
-      <TodayBody view={view} healthView={healthView} moneyView={moneyView} habitsView={habitsView} />
+      <TodayBody
+        view={view}
+        healthView={healthView}
+        moneyView={moneyView}
+        habitsView={habitsView}
+        skillsView={skillsView}
+      />
     </>
   );
 }

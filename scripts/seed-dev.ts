@@ -188,6 +188,76 @@ async function main(): Promise<void> {
   await repos.money.budgets.create({ categoryId: foodCat.id, periodStart: monthStart, periodEnd: monthEnd, limitPaise: 800000 });
   await repos.money.budgets.create({ categoryId: transportCat.id, periodStart: monthStart, periodEnd: monthEnd, limitPaise: 200000 });
 
+  // ── Skills slice (SAR-010 D-F): give the canonical "System design" skill a 500h target,
+  // a curriculum, and a believable session history (many 45–180 min blocks, no mega-row) so
+  // the mastery counter is the non-trivial hero (7,710 min = 128:30, past the 100h tier),
+  // plus a sparse "DSA" track left dormant (>14d since a session) for the dimmed-card state.
+  // Integer minutes only — one estimated session carries the glass-box `~`. Mastery is the
+  // per-skill session SUM, never the per-domain domain_progress.cumulativeMinutes.
+  const skillMilestone = (skillId: string, sortOrder: number, label: string, completedDelta: number | null) =>
+    repos.skills.milestones.create({
+      skillId,
+      label,
+      sortOrder,
+      completedAt: completedDelta === null ? null : `${isoDaysFromToday(completedDelta)}T10:00:00.000Z`,
+    });
+  const skillSession = (
+    skillId: string,
+    delta: number,
+    minutes: number,
+    over: Partial<Parameters<typeof repos.skills.sessions.create>[0]> = {},
+  ) => {
+    const d = isoDaysFromToday(delta);
+    return repos.skills.sessions.create({
+      skillId,
+      occurredAt: `${d}T18:00:00.000Z`,
+      localDate: d,
+      timezone: "UTC",
+      minutes,
+      source: "typed",
+      note: null,
+      confidenceBps: 10000,
+      estimated: false,
+      ...over,
+    });
+  };
+
+  const seededSkills = await repos.skills.skills.list({});
+  const systemDesign = seededSkills.find((s) => s.name.toLowerCase() === "system design")!;
+  await repos.skills.skills.update(systemDesign.id, { targetMinutes: 30000 }); // 500h target
+  await skillMilestone(systemDesign.id, 1, "Fundamentals: latency, throughput, CAP", -20);
+  await skillMilestone(systemDesign.id, 2, "Caching & CDNs", -9);
+  await skillMilestone(systemDesign.id, 3, "Data partitioning & sharding", null); // ▸ current
+  await skillMilestone(systemDesign.id, 4, "Consensus & replication", null);
+  await skillMilestone(systemDesign.id, 5, "Design a global feed", null);
+  // System design mastery accretes over believable 45–180 min blocks — never one
+  // implausible mega-row. The drill log shows only the 10 most-recent (SESSION_LOG_CAP);
+  // the older blocks below are backfilled purely to feed the lifetime SUM. One recent
+  // capture is estimated (~90 min → the glass-box `~`). Recent 10 = 1,110 min.
+  await skillSession(systemDesign.id, 0, 120, { source: "capture", confidenceBps: 9000, note: "Deep work: system design" });
+  await skillSession(systemDesign.id, -1, 90, { note: "Consistent hashing deep-dive" });
+  await skillSession(systemDesign.id, -2, 90, { source: "capture", estimated: true, confidenceBps: 6200, note: "Design review prep" });
+  await skillSession(systemDesign.id, -3, 150, { note: "DDIA ch. 6 — partitioning" });
+  await skillSession(systemDesign.id, -4, 75, { note: "Kafka internals" });
+  await skillSession(systemDesign.id, -6, 135, { note: "Distributed systems course" });
+  await skillSession(systemDesign.id, -7, 60, { note: "Rate limiter design" });
+  await skillSession(systemDesign.id, -9, 165, { note: "Sharding strategies" });
+  await skillSession(systemDesign.id, -11, 105, { note: "CAP theorem review" });
+  await skillSession(systemDesign.id, -13, 120, { note: "Load balancing patterns" });
+  // Backfill older than the 10-row log window: 36 × 180 + 1 × 120 = 6,600 min. Deterministic,
+  // no RNG. Lifetime mastery = 1,110 + 6,600 = 7,710 min = 128:30 (past the 100h tier).
+  for (let d = 15; d <= 50; d += 1) await skillSession(systemDesign.id, -d, 180, { note: "Focused practice block" });
+  await skillSession(systemDesign.id, -51, 120, { note: "Focused practice block" });
+
+  // Dormant track: last practiced 20 days ago (>14d) → the lens dims its card decoration.
+  const dsa = await repos.skills.skills.create({ name: "DSA", targetMinutes: 6000, isArchived: false });
+  await skillMilestone(dsa.id, 1, "Arrays & hashing", -20);
+  await skillMilestone(dsa.id, 2, "Two pointers", null); // ▸ current
+  await skillMilestone(dsa.id, 3, "Sliding window", null);
+  await skillSession(dsa.id, -25, 120, { source: "capture", note: "Linked lists" });
+  await skillSession(dsa.id, -22, 150, { note: "Arrays + hashing drills" });
+  await skillSession(dsa.id, -20, 90, { note: "Two-pointer patterns" });
+
   await repos.coach.notes.create({
     scope: "daily",
     localDate: today,

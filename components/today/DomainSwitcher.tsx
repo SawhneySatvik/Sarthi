@@ -5,10 +5,12 @@ import { useState } from "react";
 import { HabitsLens } from "@/components/lenses/HabitsLens";
 import { HealthLens } from "@/components/lenses/HealthLens";
 import { MoneyLens } from "@/components/lenses/MoneyLens";
+import { SkillsLens } from "@/components/lenses/SkillsLens";
 import { Chip } from "@/components/ui/Chip";
 import type { HabitsView } from "@/core/domains/habits";
 import type { HealthView } from "@/core/domains/health";
 import type { MoneyView } from "@/core/domains/money";
+import type { SkillsView } from "@/core/domains/skills";
 import type { TodayDomain } from "@/core/domains/today";
 
 const LABELS: Record<TodayDomain, string> = {
@@ -19,21 +21,23 @@ const LABELS: Record<TodayDomain, string> = {
 };
 
 /*
- * The domain switcher chip bar. "All" shows the plan spine (passed as children);
- * Health, Money, and Habits resolve to their lenses; Skills stays a LABELED
- * PLACEHOLDER until SAR-010 lands.
+ * The domain switcher chip bar. "All" shows the plan spine (passed as children); each of
+ * the four domains resolves to its own lens — Skills (SAR-010) retires the last
+ * placeholder, so all four chips now swap in a real lens body.
  */
 export function DomainSwitcher({
   domains,
   healthView,
   moneyView,
   habitsView,
+  skillsView,
   children,
 }: {
   domains: readonly TodayDomain[];
   healthView: HealthView;
   moneyView: MoneyView;
   habitsView: HabitsView;
+  skillsView: SkillsView;
   children: React.ReactNode;
 }) {
   const [selected, setSelected] = useState<"all" | TodayDomain>("all");
@@ -58,12 +62,7 @@ export function DomainSwitcher({
       ) : selected === "habits" ? (
         <HabitsLens view={habitsView} />
       ) : (
-        <div className="px-4 pt-10 text-center">
-          <p className="font-ui text-body text-ink-2">{LABELS[selected]} lens</p>
-          <p className="mt-1 font-ui text-caption text-ink-3">
-            The {LABELS[selected]} lens arrives in a later ticket.
-          </p>
-        </div>
+        <SkillsLens view={skillsView} />
       )}
     </div>
   );
