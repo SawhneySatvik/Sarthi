@@ -19,9 +19,13 @@ import {
 } from "@/core/onboarding";
 
 import { ConfirmCards } from "./ConfirmCards";
+import { DetailFlow } from "./detail/DetailFlow";
+import { DetailIntro } from "./detail/DetailIntro";
+import { Landing } from "./Landing";
 import { MOTION } from "./motion";
 import { SpineGeneration } from "./SpineGeneration";
 import type { SpineOutcome } from "./spineClient";
+import { ThemeStep } from "./ThemeStep";
 import { B1Name } from "./steps/B1Name";
 import { B2Dob } from "./steps/B2Dob";
 import { B3Body } from "./steps/B3Body";
@@ -33,8 +37,9 @@ import { Welcome } from "./steps/Welcome";
 const DRAFT_KEY = "sarthi-onboarding-draft";
 const ORDER = onboardingScreenEnum.options; // welcome → name → … → timeBudget
 
-/** The post-CORE phases: spine generation (C) → confirm & trim (D). */
-type Phase = "core" | "spine" | "confirm";
+/** The post-CORE phases: spine generation (C) → confirm & trim (D) → then the post-accept
+ *  polish sequence — E interstitial → E DETAIL grid → F theme → G landing (Pass 3). */
+type Phase = "core" | "spine" | "confirm" | "detailIntro" | "detail" | "theme" | "landing";
 
 /** The thin `--energy` CORE progress hairline (§1). Fills across CORE only; the post-CORE
  *  phases (C/D) hold it FULL, so the reviewed plan never feels like unfinished progress. */
@@ -63,13 +68,14 @@ function BackChevron({ onClick }: { onClick: () => void }) {
 }
 
 /*
- * OnboardingFlow — SAR-012 (Pass 1 CORE + Pass 2 spine/confirm/accept). The client phase
- * machine for Phase A (Welcome) + Phase B (CORE B1–B6) + Phase C (spine generation, keyless
- * through the gateway) + Phase D (confirm & trim). Transitions crossfade + rise 12px
- * (`--t-base`); reduced-motion = crossfade only. Every CORE answer persists to a versioned
- * local draft; NOTHING is written to the DB until the D-accept tap (the swipe-gate extended
- * to onboarding). On accept the draft clears and the flow lands on Today (Phase E→G polish
- * is Pass 3; this minimal redirect keeps the F1 walk testable end-to-end).
+ * OnboardingFlow — SAR-012 (Pass 1 CORE + Pass 2 spine/confirm/accept + Pass 3 detail/theme/
+ * landing). The client phase machine: Phase A (Welcome) → B (CORE B1–B6) → C (spine generation,
+ * keyless through the gateway) → D (confirm & trim) → the D-accept tap → E interstitial → E
+ * DETAIL grid → F theme → G landing → Today. Transitions crossfade + rise 12px (`--t-base`);
+ * reduced-motion = crossfade only. Every CORE answer persists to a versioned local draft;
+ * NOTHING is written to the DB until the D-accept tap (the swipe-gate extended to onboarding).
+ * On accept the draft clears and the flow advances CLIENT-SIDE through E→G within the same
+ * session; a reload with a `complete` profile routes to Today (E gaps already enqueued, D-B).
  */
 export function OnboardingFlow({ authMode }: { authMode: AuthenticatedUser["mode"] }) {
   const reduce = useReducedMotion();
@@ -163,7 +169,9 @@ export function OnboardingFlow({ authMode }: { authMode: AuthenticatedUser["mode
           } catch {
             /* private-mode storage — harmless */
           }
-          router.replace("/today");
+          // The write is committed; advance CLIENT-SIDE into the post-accept polish (E→G).
+          setAccepting(false);
+          setPhase("detailIntro");
           return;
         }
       } catch {
@@ -171,7 +179,7 @@ export function OnboardingFlow({ authMode }: { authMode: AuthenticatedUser["mode
       }
       setAccepting(false);
     },
-    [completeAnswers, router],
+    [completeAnswers],
   );
 
   const handleSpineComplete = useCallback((settled: SpineOutcome[]) => {
@@ -198,6 +206,20 @@ export function OnboardingFlow({ authMode }: { authMode: AuthenticatedUser["mode
       );
     }
 
+    // Post-accept polish (Pass 3): the profile is written; these advance client-side only.
+    if (phase === "detailIntro") {
+      return <DetailIntro onSharpen={() => setPhase("detail")} onLater={() => setPhase("theme")} />;
+    }
+    if (phase === "detail") {
+      return <DetailFlow skillName={completeAnswers?.goals.skillName ?? null} onDone={() => setPhase("theme")} />;
+    }
+    if (phase === "theme") {
+      return <ThemeStep onDone={() => setPhase("landing")} />;
+    }
+    if (phase === "landing") {
+      return <Landing name={completeAnswers?.displayName ?? null} onEnter={() => router.replace("/today")} />;
+    }
+
     const step = { answers, patch, onContinue: next };
     switch (screen) {
       case "welcome":
@@ -220,15 +242,25 @@ export function OnboardingFlow({ authMode }: { authMode: AuthenticatedUser["mode
   }
 
   const stageKey = phase !== "core" ? phase : screen;
-  const showChrome = !(phase === "core" && screen === "welcome");
+  const isWelcome = phase === "core" && screen === "welcome";
+  // Post-accept phases (E→G) drop the back chevron — the D-accept write is committed, so there is
+  // nothing to step back INTO — AND drop the amber hairline: the plan already exists, so a full
+  // standing bar would read as vestigial progress. The hairline is therefore scoped to the
+  // plan-creation arc ONLY (A→D: core/spine/confirm, where it fills across CORE then holds full).
+  // The header ROW still renders on every non-welcome phase, preserving the top spacing.
+  const postAccept = phase === "detailIntro" || phase === "detail" || phase === "theme" || phase === "landing";
+  const showHairline = !isWelcome && !postAccept;
+  const showHeader = !isWelcome;
+  const showBack = !isWelcome && !postAccept;
 
   return (
     <>
-      {showChrome && <Hairline fraction={fraction} />}
-      {/* Back chevron on its own top header row (never occluding the Display headline). */}
-      {showChrome && (
+      {showHairline && <Hairline fraction={fraction} />}
+      {/* Back chevron on its own top header row (never occluding the Display headline); the
+       *  row stays (preserving top spacing) even when the chevron is suppressed post-accept. */}
+      {showHeader && (
         <header className="flex shrink-0 items-center pt-7">
-          <BackChevron onClick={back} />
+          {showBack && <BackChevron onClick={back} />}
         </header>
       )}
       <AnimatePresence mode="wait" initial={false}>

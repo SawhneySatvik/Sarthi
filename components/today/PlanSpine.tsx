@@ -7,7 +7,7 @@ import { DOMAIN_DOT } from "./domain";
 import { NextUpCard } from "./NextUpCard";
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
-  return <p className="mb-2 font-ui text-caption uppercase tracking-wide text-ink-3">{children}</p>;
+  return <p className="mb-2 font-ui text-caption uppercase tracking-wide text-ink-2">{children}</p>;
 }
 
 function ViaCaptureBadge() {

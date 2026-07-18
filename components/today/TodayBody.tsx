@@ -8,6 +8,7 @@ import { CoachLine } from "./CoachLine";
 import { DomainSwitcher } from "./DomainSwitcher";
 import { PlanSpine } from "./PlanSpine";
 import { StatCluster } from "./StatCluster";
+import { TodayHintRow } from "./TodayHintRow";
 
 /** Composes the thin Today spine from the pure read-model. No logic here — the view is prebuilt. */
 export function TodayBody({
@@ -27,6 +28,8 @@ export function TodayBody({
     <div>
       <StatCluster stat={view.stat} />
       <CoachLine text={view.coachLine} />
+      {/* Day-1 only: the one-time mic hint (SAR-012 Phase G), dismissible + persisted. */}
+      <TodayHintRow dayOne={view.stat.dayOfArc === 1} />
       <DomainSwitcher
         domains={view.domains}
         healthView={healthView}

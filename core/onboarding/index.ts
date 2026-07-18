@@ -5,3 +5,4 @@ export * from "./fill";
 export * from "./spine";
 export * from "./generate";
 export * from "./accept";
+export * from "./detail";

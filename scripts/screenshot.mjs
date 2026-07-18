@@ -378,6 +378,119 @@ async function onboardingVariants(browser, themes, widths) {
   }
 }
 
+// SAR-012 Pass 3 — Phase E (interstitial + section grid + E1/E2/E5) and Phase F (the three
+// live theme previews + a post-apply proof). MOCKS /api/onboarding/accept (canned ok, NO
+// write) so the client advances past D into E→F WITHOUT writing a `complete` profile to the
+// shared SEED_STATE=fresh DB — so the earlier onboarding walks (which re-goto /onboarding)
+// keep working. Every section shot is taken before any Save posts (Skip fires no request).
+async function onboardingDetail(browser, themes, widths) {
+  for (const [theme, mode] of themes) {
+    for (const width of widths) {
+      await withPage(browser, { theme, mode, width }, async (page) => {
+        const snap = async (name) => {
+          await page.waitForTimeout(SETTLE_MS);
+          await shot(page, name);
+        };
+        await page.route("**/api/onboarding/accept", (r) =>
+          r.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({ ok: true, result: { status: "accepted" } }),
+          }),
+        );
+        await page.goto(`${BASE}/onboarding`, { waitUntil: "networkidle" });
+        await page.evaluate(
+          (draft) => localStorage.setItem("sarthi-onboarding-draft", JSON.stringify(draft)),
+          coreDraft({ health: ["gym"], money: ["budget"], habits: ["focus"], skillName: "system design" }),
+        );
+        await page.reload({ waitUntil: "networkidle" });
+        await page.getByRole("button", { name: "Continue" }).click().catch(() => {});
+        await page.getByRole("button", { name: "Looks right — start Day 1" }).waitFor({ timeout: 6000 }).catch(() => {});
+        await page.getByRole("button", { name: "Looks right — start Day 1" }).click().catch(() => {});
+
+        // Phase E interstitial.
+        await page.getByRole("button", { name: "Later — take me in" }).waitFor({ timeout: 4000 }).catch(() => {});
+        await snap(`onboarding-e-intro-${width}-${theme}-${mode}`);
+
+        // The order-free section grid.
+        await page.getByRole("button", { name: "Sharpen it" }).click().catch(() => {});
+        await page.getByRole("button", { name: "Done" }).waitFor({ timeout: 4000 }).catch(() => {});
+        await snap(`onboarding-e-grid-${width}-${theme}-${mode}`);
+
+        // E1 food · E2 screen · E5 money — open, shoot, Skip back to the grid (no write).
+        await page.getByRole("button", { name: /Food pattern/ }).click().catch(() => {});
+        await page.getByText(/How do you eat/).waitFor({ timeout: 4000 }).catch(() => {});
+        await snap(`onboarding-e-food-${width}-${theme}-${mode}`);
+        await page.getByRole("button", { name: "Skip" }).click().catch(() => {});
+
+        await page.getByRole("button", { name: /Screen time/ }).click().catch(() => {});
+        await page.getByText(/honestly/).waitFor({ timeout: 4000 }).catch(() => {});
+        await snap(`onboarding-e-screen-${width}-${theme}-${mode}`);
+        await page.getByRole("button", { name: "Skip" }).click().catch(() => {});
+
+        await page.getByRole("button", { name: /Money picture/ }).click().catch(() => {});
+        await page.getByText(/Your money picture/).waitFor({ timeout: 4000 }).catch(() => {});
+        // Fill a monthly income (8 × ₹5,000 = ₹40,000) + one fixed bill so the ₹/paise integer
+        // display + stepper increments are visible in the shot, not the empty "—" state. The snap
+        // fires BEFORE Skip, so this is client-state only — no /api/onboarding/detail write posts.
+        for (let i = 0; i < 8; i += 1) {
+          await page.getByRole("button", { name: "Increase income" }).click().catch(() => {});
+        }
+        await page.getByRole("button", { name: "Add a bill" }).click().catch(() => {});
+        await page.getByLabel("Bill name").fill("Rent").catch(() => {});
+        await page.getByLabel("Bill amount in rupees").fill("15000").catch(() => {});
+        await snap(`onboarding-e-money-${width}-${theme}-${mode}`);
+        await page.getByRole("button", { name: "Skip" }).click().catch(() => {});
+
+        // Done → Phase F: the three live theme previews, then a Moss pick proving the live switch.
+        await page.getByRole("button", { name: "Done" }).click().catch(() => {});
+        await page.getByRole("button", { name: "Use this" }).waitFor({ timeout: 4000 }).catch(() => {});
+        await snap(`onboarding-f-theme-${width}-${theme}-${mode}`);
+        await page.getByRole("button", { name: "moss theme" }).click().catch(() => {});
+        // Applying a preview re-runs applyTheme with the ThemeStep's default `system` mode, which
+        // resolves → light in headless Chromium and overrides the page's dark setup — so the dark
+        // shot was rendering light (byte-identical to -light). Re-assert the walk's intended mode
+        // via the Dark/Light chip so `-dark` is genuinely dark and `-light` genuinely light. Moss
+        // stays the selected theme; only data-mode changes.
+        await page.getByRole("button", { name: mode === "dark" ? "Dark" : "Light", exact: true }).click().catch(() => {});
+        await snap(`onboarding-f-applied-${width}-${theme}-${mode}`);
+      });
+    }
+  }
+}
+
+// SAR-012 Pass 3 — Phase G landing on Today, Day 1 (the one-time mic hint row + the coach's
+// accept-written first line). This does a REAL accept (writes a `complete` profile + a Day-1
+// arc), so it MUST run LAST in the onboarding set — afterwards /onboarding bounces to /today
+// (D-B). The first iteration walks the accept once; each fresh context then renders /today,
+// where `dayOfArc === 1` surfaces the hint row and the coach note renders.
+async function onboardingLanding(browser, themes, widths) {
+  let accepted = false;
+  for (const [theme, mode] of themes) {
+    for (const width of widths) {
+      await withPage(browser, { theme, mode, width }, async (page) => {
+        if (!accepted) {
+          await page.goto(`${BASE}/onboarding`, { waitUntil: "networkidle" });
+          await page.evaluate(
+            (draft) => localStorage.setItem("sarthi-onboarding-draft", JSON.stringify(draft)),
+            coreDraft({ health: ["gym"], money: ["budget"], habits: ["focus"], skillName: "system design" }),
+          );
+          await page.reload({ waitUntil: "networkidle" });
+          await page.getByRole("button", { name: "Continue" }).click().catch(() => {});
+          await page.getByRole("button", { name: "Looks right — start Day 1" }).waitFor({ timeout: 6000 }).catch(() => {});
+          await page.getByRole("button", { name: "Looks right — start Day 1" }).click().catch(() => {});
+          // Confirm the REAL accept landed (the E interstitial appears) before moving on.
+          await page.getByRole("button", { name: "Later — take me in" }).waitFor({ timeout: 6000 }).catch(() => {});
+          accepted = true;
+        }
+        await page.goto(`${BASE}/today`, { waitUntil: "networkidle" });
+        await page.waitForTimeout(SETTLE_MS);
+        await shot(page, `onboarding-g-landing-${width}-${theme}-${mode}`);
+      });
+    }
+  }
+}
+
 // A 1×1 PNG — the fake vision adapter is toggle-driven, so image content is irrelevant.
 const PNG_1x1 = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGNgYGAAAAAEAAH2FzhVAAAAAElFTkSuQmCC",
@@ -453,11 +566,14 @@ try {
     await captureFlow(browser, EMBER, [MOBILE]);
     await photoFlow(browser, EMBER, [MOBILE, DESKTOP]);
   } else if (SHOTS === "onboarding") {
-    // SAR-012 Pass 1+2 — drive against a SEED_STATE=fresh DB (see the ticket Verification
+    // SAR-012 Pass 1–3 — drive against a SEED_STATE=fresh DB (see the ticket Verification
     // block): the CORE walk + Phase C shimmer + Phase D cards/edited-row, then the
-    // 1-domain-only and failed-spine retry variants.
+    // 1-domain-only and failed-spine retry variants, then Phase E/F (mocked accept — no
+    // write), then Phase G landing (a REAL accept — MUST be last, it flips the DB complete).
     await onboarding(browser, EMBER, [MOBILE, DESKTOP]);
     await onboardingVariants(browser, EMBER, [MOBILE, DESKTOP]);
+    await onboardingDetail(browser, EMBER, [MOBILE, DESKTOP]);
+    await onboardingLanding(browser, EMBER, [MOBILE, DESKTOP]);
   } else if (SHOTS === "empty") {
     await today(browser, "empty", [["ember", "dark"]], [MOBILE, DESKTOP]);
   } else if (SHOTS === "alldone") {
