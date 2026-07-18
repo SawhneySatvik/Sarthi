@@ -2,25 +2,41 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { Camera, Mic, Send } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
-import { CaptureSheet } from "./CaptureSheet";
+import { CaptureSheet, type CaptureInput } from "./CaptureSheet";
 
 /*
- * The interactive capture bar + sheet host (SAR-006, D-H). Replaces the SAR-005
- * static bar. Text is the primary keyless path; the mic simulates hold-to-talk on
- * the fake stack (FakeVoiceProvider returns the canonical transcript regardless, and
- * FakeLlmGateway ignores the prompt) — real STT is SAR-013, camera is SAR-011.
+ * The interactive capture bar + sheet host (SAR-006 · SAR-011). Text is the primary
+ * keyless path; the mic simulates hold-to-talk on the fake stack; the camera (SAR-011)
+ * opens a hidden file input, then the sheet runs the PHOTO ramp — pick/snap → preview +
+ * meal/receipt toggle → parse (fake vision, keyless) → the SAME route-by-confidence
+ * deck. Real STT is SAR-013; real content-based vision is a later ticket.
  */
 export function CaptureLauncher() {
   const [text, setText] = useState("");
-  const [session, setSession] = useState<string | null>(null);
+  const [session, setSession] = useState<CaptureInput | null>(null);
+  const [nonce, setNonce] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  function open(raw: string) {
+  function openText(raw: string) {
     const trimmed = raw.trim();
     if (!trimmed) return;
-    setSession(trimmed);
+    setSession({ mode: "text", text: trimmed });
+    setNonce((n) => n + 1);
     setText("");
+  }
+
+  function openPhoto(file: File) {
+    setSession({ mode: "photo", file });
+    setNonce((n) => n + 1);
+  }
+
+  function onFilePicked(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    // Clear the input so re-picking the same file fires `change` again.
+    event.target.value = "";
+    if (file) openPhoto(file);
   }
 
   return (
@@ -40,14 +56,14 @@ export function CaptureLauncher() {
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            open(text);
+            openText(text);
           }}
           className="pointer-events-auto mx-auto flex max-w-[45rem] items-center gap-3 rounded-card border border-line bg-raised p-3 shadow-[var(--elev-card)]"
         >
           <button
             type="button"
             aria-label="Hold to talk"
-            onClick={() => open("Voice capture")}
+            onClick={() => openText("Voice capture")}
             className="flex h-16 w-16 shrink-0 items-center justify-center rounded-chip bg-ink-1 text-canvas"
           >
             <Mic size={26} strokeWidth={1.5} aria-hidden />
@@ -70,13 +86,23 @@ export function CaptureLauncher() {
           ) : (
             <button
               type="button"
-              disabled
-              aria-label="Add a photo (available soon)"
+              aria-label="Add a photo"
+              onClick={() => fileInputRef.current?.click()}
               className="flex h-11 w-11 shrink-0 items-center justify-center rounded-chip border border-line text-ink-2"
             >
               <Camera size={20} strokeWidth={1.5} aria-hidden />
             </button>
           )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            capture="environment"
+            onChange={onFilePicked}
+            className="hidden"
+            aria-hidden
+            tabIndex={-1}
+          />
         </form>
       </div>
 
@@ -92,7 +118,7 @@ export function CaptureLauncher() {
               className="fixed inset-0 z-40"
               style={{ background: "var(--scrim)" }}
             />
-            <CaptureSheet key={session} rawText={session} onClose={() => setSession(null)} />
+            <CaptureSheet key={nonce} input={session} onClose={() => setSession(null)} />
           </>
         )}
       </AnimatePresence>

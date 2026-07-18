@@ -65,6 +65,14 @@ export function routeProposal(proposal: Proposal, blockedIds: ReadonlySet<string
   if (!primaryQuantityKnown(proposal)) {
     reasons.push("a required quantity is unknown");
   }
+  // Rule 4: a photo/vision-derived value NEVER auto-writes — even an explicit,
+  // high-confidence printed receipt amount routes to pending. Keyed on a non-empty
+  // `evidenceRefs` (SAR-011); every text/voice proposal is empty here, so this
+  // regresses nothing. The commit route's auto re-route (D-040) makes it
+  // server-enforced against a mislabelled client.
+  if (proposal.evidenceRefs.length > 0) {
+    reasons.push("photo-derived value requires confirmation");
+  }
   if (blockedIds.has(proposal.proposalId)) {
     reasons.push("a clarification question must be answered first");
   }

@@ -3,4 +3,5 @@ export * from "./contract";
 export * from "./route";
 export * from "./resolve";
 export * from "./parse";
+export * from "./vision";
 export * from "./commit";

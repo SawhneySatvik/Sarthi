@@ -153,17 +153,21 @@ test("fake adapters are keyless, deterministic, and never invoke fetch", async (
       languageCode: "en-IN",
     });
 
+    // SAR-011 override #1: meal vs receipt is chosen by the toggle-derived PROMPT the
+    // FakeVisionProvider keys on ("receipt" ⇒ receipt fixture), never the filename. The
+    // filenames below are deliberately CROSSED (meal bytes named receipt.jpg and vice
+    // versa) to document that the old filename cue is dead — the prompt alone decides.
     const vision = createVisionProvider("fake");
     const meal = await vision.analyze({
-      images: [{ bytes: new Uint8Array([1]), mimeType: "image/jpeg", filename: "meal.jpg" }],
+      images: [{ bytes: new Uint8Array([1]), mimeType: "image/jpeg", filename: "receipt.jpg" }],
       schema: mealSchema,
-      prompt: "Identify this meal",
+      prompt: "Analyze this meal photo and return the estimated nutrition as a typed meal entry.",
       tier: "balanced",
     });
     const receipt = await vision.analyze({
-      images: [{ bytes: new Uint8Array([2]), mimeType: "image/jpeg", filename: "receipt.jpg" }],
+      images: [{ bytes: new Uint8Array([2]), mimeType: "image/jpeg", filename: "meal.jpg" }],
       schema: receiptSchema,
-      prompt: "Read this receipt",
+      prompt: "Read this receipt photo and return the printed transactions as typed money entries.",
       tier: "deep",
     });
     assert.equal(meal.provider, "fake");

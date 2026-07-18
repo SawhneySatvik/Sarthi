@@ -48,6 +48,24 @@ export async function parseText(text: string): Promise<ParseResponse> {
   return postJson("/api/capture/parse", { text, timezone }, { ok: false, error: "network" });
 }
 
+/** Photo parse (SAR-011): multipart to the sibling route. `type` is the meal/receipt
+ *  UI toggle. Same degrade-to-`ok:false` posture as `parseText` — a fetch rejection
+ *  never throws into the sheet; the caller shows the retry state. */
+export async function parsePhoto(file: File, photoType: "meal" | "receipt"): Promise<ParseResponse> {
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const form = new FormData();
+  form.append("photo", file);
+  form.append("timezone", timezone);
+  form.append("type", photoType);
+  try {
+    // No explicit content-type header: the browser sets the multipart boundary.
+    const res = await fetch("/api/capture/parse-photo", { method: "POST", body: form });
+    return (await res.json()) as ParseResponse;
+  } catch {
+    return { ok: false, error: "network" };
+  }
+}
+
 export async function commitProposals(
   proposals: readonly Proposal[],
   mode: "auto" | "accept",

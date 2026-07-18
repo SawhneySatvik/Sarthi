@@ -15,7 +15,8 @@ import {
   type ClarificationQuestion,
   type Proposal,
 } from "../../../core/capture/contract";
-import { CANONICAL_CAPTURE_DRAFT_FIXTURE } from "../../../providers/fake/fixtures";
+import { draftFromVisionResult, visionResultSchema } from "../../../core/capture/vision";
+import { CANONICAL_CAPTURE_DRAFT_FIXTURE, RECEIPT_BATCH_FIXTURE } from "../../../providers/fake/fixtures";
 
 export interface CaptureFixture {
   id: string;
@@ -209,6 +210,33 @@ export const estimatedMealPhotoFixture: CaptureFixture = {
   expected: { auto: [], pending: ["emp-meal"], note: "estimated photo meal → pending card; no meal row until accepted" },
 };
 
+/**
+ * A photographed receipt (ARCHITECTURE §8.1). Built through the REAL SAR-011 mapper
+ * from the fake receipt fixture: two explicit (estimated:false) transactions carrying
+ * photo evidence, so both route PENDING (the evidence rule dominates the auto
+ * threshold) — Accept-all only through an explicit user action. Proposal ids are
+ * deterministic (`<draftId>-txn-N`). The eval seeds "Transport" so the batch fully
+ * resolves on accept.
+ */
+const RECEIPT_BATCH_DRAFT_ID = "photo-receipt-batch";
+export const receiptBatchFixture: CaptureFixture = {
+  id: "receipt-batch",
+  draft: captureDraftSchema.parse(
+    draftFromVisionResult(visionResultSchema.parse(RECEIPT_BATCH_FIXTURE), {
+      draftId: RECEIPT_BATCH_DRAFT_ID,
+      capturedAt: AT,
+      timezone: TZ,
+      caption: null,
+      mimeType: "image/jpeg",
+    }),
+  ),
+  expected: {
+    auto: [],
+    pending: [`${RECEIPT_BATCH_DRAFT_ID}-txn-0`, `${RECEIPT_BATCH_DRAFT_ID}-txn-1`],
+    note: "photo evidence ⇒ pending cards; Accept-all only through explicit action; seed 'Transport' + 'Food & dining'",
+  },
+};
+
 /** The parse never produces a draft — the gateway fails; capture stays a retryable draft, zero rows. */
 export const providerFailureFixture: CaptureFixture = {
   id: "provider-failure",
@@ -225,5 +253,6 @@ export const allCaptureFixtures: CaptureFixture[] = [
   backdateHabitFixture,
   undoBatchFixture,
   estimatedMealPhotoFixture,
+  receiptBatchFixture,
   providerFailureFixture,
 ];

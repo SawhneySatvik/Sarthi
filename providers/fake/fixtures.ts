@@ -112,10 +112,14 @@ export const CANONICAL_CAPTURE_DRAFT_FIXTURE = {
   questions: [],
 } as const;
 
+// Conformed to `visionResultSchema` (SAR-011): `kind` discriminant + structured meal
+// items + `note`. The schema strips the extra `fixtureId`/`fixtureVersion`/`source`/
+// `estimated` keys (kept for the provider-shape tests); amounts/macros are unchanged.
 export const ESTIMATED_MEAL_PHOTO_FIXTURE = {
   fixtureId: "estimated-meal-photo",
   fixtureVersion: FAKE_FIXTURE_VERSION,
   source: "photo",
+  kind: "meal",
   estimated: true,
   confidenceBps: 7400,
   meal: {
@@ -123,19 +127,31 @@ export const ESTIMATED_MEAL_PHOTO_FIXTURE = {
     proteinGrams: 18,
     carbsGrams: 82,
     fatGrams: 14,
-    items: ["2 rotis", "dal"],
+    items: [
+      { name: "roti", quantity: 2, unit: "piece" },
+      { name: "dal", quantity: 1, unit: "bowl" },
+    ],
+    note: null,
   },
 } as const;
 
+// Conformed to `visionReceiptResultSchema` (SAR-011): `kind` + `confidenceBps` +
+// receipt-level `merchant`/`purchasedLocalDate` + per-txn `note`. Integer paise only;
+// 8600 bps is honest (not gamed under a threshold) — pending comes from the photo
+// evidence rule, and ≥8000 keeps the batch Accept-all eligible (F5).
 export const RECEIPT_BATCH_FIXTURE = {
   fixtureId: "receipt-batch",
   fixtureVersion: FAKE_FIXTURE_VERSION,
   source: "photo",
+  kind: "receipt",
   estimated: false,
   requiresExplicitAcceptance: true,
+  confidenceBps: 8600,
+  merchant: null,
+  purchasedLocalDate: null,
   transactions: [
-    { amountPaise: 34000, direction: "expense", categoryName: "Food & dining", merchant: "Lunch counter" },
-    { amountPaise: 12000, direction: "expense", categoryName: "Transport", merchant: "Metro" },
+    { amountPaise: 34000, direction: "expense", categoryName: "Food & dining", merchant: "Lunch counter", note: null },
+    { amountPaise: 12000, direction: "expense", categoryName: "Transport", merchant: "Metro", note: null },
   ],
 } as const;
 

@@ -4,9 +4,11 @@ import { ESTIMATED_MEAL_PHOTO_FIXTURE, RECEIPT_BATCH_FIXTURE } from "./fixtures"
 
 const FAKE_VISION_USAGE = Object.freeze({ inputTokens: 31, outputTokens: 16 });
 
-function shouldUseReceiptFixture(input: { images: readonly { filename?: string }[]; prompt: string }): boolean {
-  const firstFilename = input.images[0]?.filename?.toLowerCase() ?? "";
-  return firstFilename.includes("receipt") || input.prompt.toLowerCase().includes("receipt");
+function shouldUseReceiptFixture(input: { prompt: string }): boolean {
+  // SAR-011 override #1: the meal/receipt UI toggle is the SOLE driver — it selects the
+  // fixture via the toggle-derived prompt, NOT the filename (a live camera snap has no
+  // meaningful name, and a misleading name must never win). Deterministic and keyless.
+  return input.prompt.toLowerCase().includes("receipt");
 }
 
 export class FakeVisionProvider implements VisionProvider {

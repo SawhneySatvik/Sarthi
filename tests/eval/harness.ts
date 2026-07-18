@@ -7,7 +7,7 @@
 import { createCommitService } from "../../core/capture";
 import { createRepositoryFactory } from "../../data/repository";
 import { seedCanonicalEntities } from "../../data/seed/canonical";
-import { createLlmGateway } from "../../providers";
+import { createLlmGateway, createVisionProvider } from "../../providers";
 import { createMemoryDb } from "../helpers/memory-db";
 
 export const EVAL_USER = { userId: "local-dev", email: null, mode: "local" as const };
@@ -19,6 +19,7 @@ export async function evalSetup() {
   const repos = createRepositoryFactory(db).forUser(EVAL_USER);
   await seedCanonicalEntities(repos);
   const llm = createLlmGateway("fake");
+  const vision = createVisionProvider("fake");
   const service = createCommitService({ repos, llm, now: () => EVAL_NOW });
-  return { repos, llm, service };
+  return { repos, llm, vision, service };
 }

@@ -12,7 +12,6 @@ import test, { after, before } from "node:test";
 import { parseDump, prepareDraft, resolveProposal } from "../../core/capture";
 import {
   ambiguousSkillFixture,
-  canonicalFixture,
   estimatedMealPhotoFixture,
   undoBatchFixture,
 } from "../fixtures/capture";

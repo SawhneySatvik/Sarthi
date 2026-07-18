@@ -2,10 +2,10 @@ import "server-only";
 
 import { cache } from "react";
 
-import type { AuthenticatedUser, LlmGateway, UserScopedRepositories } from "@/core/contracts";
+import type { AuthenticatedUser, LlmGateway, UserScopedRepositories, VisionProvider } from "@/core/contracts";
 import { createSqliteRepositoryFactory } from "@/data/repository";
 import { createAuthProvider } from "@/providers/auth";
-import { createLlmGateway } from "@/providers";
+import { createLlmGateway, createVisionProvider } from "@/providers";
 
 import { getRuntimeConfig } from "./runtime";
 
@@ -20,6 +20,8 @@ export interface Session {
   repos: UserScopedRepositories;
   /** The runtime LLM gateway (fake on the dev/keyless stack) — for the capture routes. */
   llm: LlmGateway;
+  /** The runtime vision provider (fake on the dev/keyless stack) — for the photo parse route (SAR-011). */
+  vision: VisionProvider;
 }
 
 // The factory owns a single shared db connection (data/repository/factory.ts), so it
@@ -48,5 +50,6 @@ export const getSession = cache(async (): Promise<Session> => {
   const user = await auth.requireUser();
   const repos = factoryFor(config.databaseUrl).forUser(user);
   const llm = createLlmGateway(config.llmProvider);
-  return { user, repos, llm };
+  const vision = createVisionProvider(config.visionProvider);
+  return { user, repos, llm, vision };
 });
