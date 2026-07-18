@@ -125,6 +125,8 @@
 
 ### SAR-010 — Skills typed store and curriculum lens
 
+- **Status:** ✅ **LANDED 2026-07-18 (D-044)** — read-model + lens with per-skill mastery = summed session minutes (not `cumulativeMinutes`), the hero mastery counter, and a lens-local milestone drill (push/return). Sol code review 0 blocking + D-041 design review passed after 2 mobile-blocking fixes (dormant AA in light, 44px back-chip). `pnpm check` 146 tests + invariants green, keyless; evidence in `.verify/screens/skills-*`. Retires the last placeholder — all four lenses real. Shared P3b criterion with SAR-008 now holds. Deferrals recorded in D-044 (generate_roadmap AI, live-tick timer, coach-read, empty-invite).
+
 - **Agent:** `pipeline` (Terra) · **Size:** M · **Depends:** `SAR-007`
 - **Docs:** `docs/screens/SCREEN-LENSES.md` §§4, 7 · `docs/experience/DESIGN-PROMPTS.md` P3b · `docs/architecture/ARCHITECTURE.md` §§4–6 · `docs/experience/FLOWS.md` F3, F8
 - **Skills scope:** apply the Skills half of P3b: typed sessions, integer minutes, curriculum milestones, drill navigation, and no invented skill when the capture proposal requires clarification.
