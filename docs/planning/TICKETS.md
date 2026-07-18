@@ -105,6 +105,7 @@
 
 ### SAR-008 — Money typed store and ledger lens
 
+- **Status:** ✅ **LANDED 2026-07-18 (D-042)** — read-model + lens + drills over the already-typed Money store (integer paise, no float); Sol code review 0 blocking + D-041 design review passed after 2 mobile-blocking fixes (capture-bar clearance, budget-bar `--warn`). `pnpm check` 119 tests + invariants green, keyless; evidence in `.verify/screens/money-*`. Deferred to own tickets: leak-strip AI, coach-read line, interactive est-chip. Shared P3b criterion pends SAR-010.
 - **Agent:** `pipeline` (Terra) · **Size:** L · **Depends:** `SAR-007`
 - **Docs:** `docs/screens/SCREEN-LENSES.md` §§1, 7 · `docs/experience/DESIGN-PROMPTS.md` P3b · `docs/architecture/ARCHITECTURE.md` §§4–5 · `docs/experience/FLOWS.md` F3, F5, F8
 - **Money scope:** implement the P3b ledger, budgets, recurring shelf, safe-to-spend math, and category drill with typed transaction/budget/recurring-rule repositories and no money float.
