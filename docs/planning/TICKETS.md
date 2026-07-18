@@ -154,8 +154,9 @@
 - **Additional data scope:** no persistence before the Phase-D confirmation; one accepted transaction creates the profile, profile gaps, plan arcs/items, and Day-1 snapshots through scoped typed repositories.
 - **Moves:** F1 and production new-account path.
 
-### SAR-013 — Voice PTT and transcript safety
+### SAR-013 — Voice PTT and transcript safety ✅ LANDED 2026-07-18
 
+- **Status:** LANDED — bounded browser `MediaRecorder` PTT (hold + tap-to-toggle + keyboard) → transient `VoiceProvider` transcription route → visibly pinned/editable transcript → the existing parse/route/commit seam. Fake remains deterministic/keyless; no real voice adapter/key, persistence, outbox, schema, or migration. `pnpm check` 197 green; Sol code review + D-041 390px Ember dark/light and desktop smoke gate pass. Screenshot evidence: `.verify/screens/voice-*`.
 - **Agent:** `pipeline` (Terra) · **Size:** M · **Depends:** `SAR-002`, `SAR-006`
 - **Docs:** `docs/architecture/ARCHITECTURE.md` §§2, 5 · `docs/screens/SCREEN-CAPTURE.md` §§2, 7, 10 · `docs/experience/FLOWS.md` F3 · `docs/architecture/TECH-STACK.md` §3
 - **Acceptance:**
