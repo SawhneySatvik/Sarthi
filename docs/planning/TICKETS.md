@@ -177,7 +177,9 @@
   - Deterministically calculate XP, levels, streaks, mastery, plan effects, re-entry lightening, and evidence counts from typed rows.
 - **Moves:** F2/F6/F7/F9 and `adaptationSanityRate`.
 
-### SAR-015 — Coach reading room and Stats/Journey views
+### SAR-015 — Coach reading room and Stats/Journey views ✅ LANDED 2026-07-18
+
+- **Status:** LANDED — scoped server composition plus framework-clean Coach/Stats/Journey views; Coach reads daily/weekly notes, presentational proposed adaptations, typed gap backfill, session-only Ask, and F9's visible proposal; Stats supplies Current/Potential-unavailable/Day-1 faces; Journey renders typed evidence, derived milestones, grouped proofs, and a keyboard viewer. F6's `View recap` and Today lens hand-offs are wired. Weekly evidence is Sunday-gated and derives only from the signed weekly note; Potential stays explicitly unavailable rather than fabricated. `pnpm check` 213 green, build/invariants/diff clean. **D-041 manual visual gate accepted by Satvik**; captured evidence is under `.verify/screens/{coach,stats,journey}-*`.
 
 - **Agent:** `screens` (Terra) · **Size:** L · **Depends:** `SAR-014`
 - **Docs:** `docs/screens/SCREEN-COACH.md` · `docs/screens/SCREEN-STATS.md` · `docs/screens/SCREEN-JOURNEY.md` · `docs/experience/DESIGN-PROMPTS.md` P5–P7 · `docs/experience/FLOWS.md` F6–F7, F9–F11
