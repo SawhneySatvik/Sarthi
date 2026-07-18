@@ -135,6 +135,8 @@
 
 ### SAR-011 — Meal/receipt vision path
 
+- **Status:** ✅ **LANDED 2026-07-18 (D-045)** — camera → photo preview + meal/receipt toggle → `parse-photo` route → `FakeVisionProvider` → `core/capture/vision.ts` mapper → the same estimate-card loop → typed writes (meal→Health, receipt→Money F5), keyless. Photo evidence ⇒ pending (invariant #1, server-enforced; `f5-receipt` eval `wrongSilentWrites===0`); the CaptureSheet refactor is Sol-verified non-regressive for text F3. Sol code review 0 blocking + D-041 design review passed after 1 mobile-blocking fix (sheet `--bg-raised` elevation). `pnpm check` 155 tests + invariants green; evidence in `.verify/screens/photo-*` (390 + desktop). Deferrals in D-045 (F5 merchant/date context, meal-card photo region, confirm-sheet min-height, real content-vision).
+
 - **Agent:** `pipeline` (Terra) · **Size:** M · **Depends:** `SAR-006`, `SAR-008`
 - **Docs:** `docs/architecture/ARCHITECTURE.md` §§2, 5, 8 · `docs/screens/SCREEN-CAPTURE.md` §§2, 7 · `docs/experience/FLOWS.md` F5
 - **Acceptance:**
