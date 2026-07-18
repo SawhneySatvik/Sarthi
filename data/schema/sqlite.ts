@@ -509,6 +509,7 @@ export const adaptations = sqliteTable(
     status: text('status').notNull(),
     keptAt: text('keptAt'),
     revertedAt: text('revertedAt'),
+    appliedCommitId: text('appliedCommitId'),
   },
   (t) => [index('adaptations_userId_status_createdAt_idx').on(t.userId, t.status, t.createdAt)],
 );

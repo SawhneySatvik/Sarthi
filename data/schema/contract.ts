@@ -1530,6 +1530,8 @@ const adaptationsBusinessShape = {
   status: adaptationStatusEnum,
   keptAt: z.string().nullable(),
   revertedAt: z.string().nullable(),
+  /** Exact tool commit that applied a kept plan patch; null until an explicit Keep. */
+  appliedCommitId: z.string().nullable(),
 };
 
 export const adaptationsRecord = z.object({
@@ -1563,6 +1565,7 @@ const adaptationsTable: TableDescriptor = {
     { name: 'status', type: 'text', notNull: true, enum: 'adaptationStatus' },
     { name: 'keptAt', type: 'timestamp', notNull: false },
     { name: 'revertedAt', type: 'timestamp', notNull: false },
+    { name: 'appliedCommitId', type: 'uuid', notNull: false, references: 'commits' },
   ],
   primaryKey: ['id'],
   unique: [],

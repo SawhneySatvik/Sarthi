@@ -180,6 +180,25 @@ export const DETERMINISTIC_BRIEF_FIXTURE = {
   text: "You made a concrete start: money, water, and focused practice are all visible. Confirm only the estimates you trust.",
 } as const;
 
+export const DETERMINISTIC_WEEKLY_BRIEF_FIXTURE = {
+  fixtureId: "deterministic-weekly-brief",
+  fixtureVersion: FAKE_FIXTURE_VERSION,
+  scope: "weekly",
+  text: "This week has grounded evidence across your life. Keep the next adjustment visible and reversible.",
+} as const;
+
+export const DETERMINISTIC_COACH_ASK_FIXTURE = {
+  fixtureId: "deterministic-coach-ask",
+  fixtureVersion: FAKE_FIXTURE_VERSION,
+  text: "I can only reflect what is recorded here. Choose one small next action and keep any plan change visible before it takes effect.",
+} as const;
+
+export const DETERMINISTIC_ADAPTATION_FIXTURE = {
+  fixtureId: "deterministic-reentry-adaptation",
+  fixtureVersion: FAKE_FIXTURE_VERSION,
+  reason: "You have been away for a few days; this reduces one numeric target so restarting stays light.",
+} as const;
+
 export const CANONICAL_TRANSCRIPTION_FIXTURE = {
   fixtureId: "canonical-transcription",
   fixtureVersion: FAKE_FIXTURE_VERSION,

@@ -14,6 +14,7 @@ import { randomUUID } from "node:crypto";
 
 import type { UserScopedRepositories } from "@/core/contracts";
 import type { LlmGateway } from "@/core/contracts";
+import type { AdaptationRecord } from "@/data/schema/contract";
 import { applyProgress, computeStreak, GRACE_DAYS, nextStreak, type ProgressEffect, type ProgressState } from "@/core/game";
 import { xpForProposal } from "@/core/game";
 
@@ -61,7 +62,21 @@ export class UndoNotAvailableError extends Error {
 
 export interface CommitService {
   commit(input: CommitInput): Promise<CommitResult>;
+  /**
+   * The only mutating adaptation resolution. The proposal's typed plan snapshot
+   * is validated server-side, then committed under the same latest-batch undo
+   * envelope as capture. Callers never supply snapshots or a plan-item patch.
+   */
+  applyAdaptationPlanPatch(input: {
+    adaptationId: string;
+    idempotencyKey: string;
+  }): Promise<AdaptationCommitResult>;
   undoLatest(input: { commitId: string; now: string }): Promise<UndoResult>;
+}
+
+export interface AdaptationCommitResult {
+  adaptation: AdaptationRecord;
+  commit: CommitResult;
 }
 
 export interface CreateCommitServiceOptions {
@@ -96,6 +111,11 @@ function businessColumns(columns: Record<string, Scalar>): Record<string, Scalar
     }
   }
   return patch;
+}
+
+/** A proposal is stale if its plan snapshot no longer describes the scoped row. */
+function matchesSnapshot(record: Record<string, unknown>, columns: Record<string, Scalar>): boolean {
+  return Object.entries(columns).every(([key, value]) => record[key] === value);
 }
 
 /** entryKind → the scoped repository that owns it (for snapshots + undo). */
@@ -719,6 +739,99 @@ export function createCommitService(options: CreateCommitServiceOptions): Commit
     });
   }
 
+  async function applyAdaptationPlanPatch(input: {
+    adaptationId: string;
+    idempotencyKey: string;
+  }): Promise<AdaptationCommitResult> {
+    return withLock(async () => {
+      const existing = (await repos.commits.commits.list({})).find(
+        (commit) => commit.idempotencyKey === input.idempotencyKey,
+      );
+      const adaptation = await repos.coach.adaptations.byId(input.adaptationId);
+      if (existing) {
+        if (!adaptation || adaptation.appliedCommitId !== existing.id) {
+          throw new Error("adaptation idempotency key does not belong to this scoped proposal");
+        }
+        return { adaptation, commit: await reconstruct(existing.id) };
+      }
+      if (!adaptation || adaptation.status !== "proposed") {
+        throw new Error("adaptation is not an open scoped proposal");
+      }
+      const before = adaptation.beforeJson;
+      const after = adaptation.afterJson;
+      if (
+        before.entryKind !== "planItem" ||
+        after.entryKind !== "planItem" ||
+        before.entryId !== adaptation.planItemId ||
+        after.entryId !== adaptation.planItemId
+      ) {
+        throw new Error("adaptation must contain one matching typed plan-item snapshot");
+      }
+
+      const current = await repos.plans.items.byId(adaptation.planItemId);
+      if (!current || !matchesSnapshot(current as unknown as Record<string, unknown>, before.columns)) {
+        throw new Error("adaptation plan snapshot is stale or unavailable");
+      }
+
+      const nowIso = now();
+      const commitId = randomUUID();
+      const undoExpiresAt = new Date(Date.parse(nowIso) + UNDO_WINDOW_MS).toISOString();
+      let kept: AdaptationRecord | null = null;
+
+      await repos.transaction(async () => {
+        const active = (await repos.commits.commits.list({})).filter((commit) => commit.status === "committed");
+        for (const previous of active) {
+          await repos.commits.markSuperseded(previous.id);
+        }
+        await repos.commits.commits.create({
+          id: commitId,
+          draftId: null,
+          idempotencyKey: input.idempotencyKey,
+          kind: "tool",
+          status: "committed",
+          undoExpiresAt,
+          undoneAt: null,
+          summary: "Kept one proposed plan adjustment",
+        });
+        const updatedPlan = await repos.plans.items.update(
+          adaptation.planItemId,
+          businessColumns(after.columns),
+        );
+        await repos.commits.rows.create({
+          commitId,
+          entryKind: "planItem",
+          entryId: adaptation.planItemId,
+          operation: "update",
+          beforeJson: before,
+          afterJson: {
+            entryKind: "planItem",
+            entryId: adaptation.planItemId,
+            columns: scalarColumns(updatedPlan as unknown as Record<string, unknown>),
+          },
+        });
+        kept = await repos.coach.adaptations.update(adaptation.id, {
+          status: "kept",
+          keptAt: nowIso,
+          revertedAt: null,
+          appliedCommitId: commitId,
+        });
+      });
+
+      if (!kept) throw new Error("adaptation keep did not persist");
+      return {
+        adaptation: kept,
+        commit: {
+          commitId,
+          status: "committed",
+          entries: [],
+          progressEffects: [],
+          coachNoteId: null,
+          undoExpiresAt,
+        },
+      };
+    });
+  }
+
   async function undoLatest(input: { commitId: string; now: string }): Promise<UndoResult> {
     return withLock(async () => {
       const envelope = await repos.commits.commits.byId(input.commitId);
@@ -758,6 +871,19 @@ export function createCommitService(options: CreateCommitServiceOptions): Commit
             restoredEntryIds.push(row.entryId);
           }
         }
+        // A kept adaptation is coherent only while its plan-patch commit is
+        // active. Undoing that latest patch restores the plan snapshot above and
+        // makes the visible adaptation explicitly reverted in the same transaction.
+        const linkedAdaptations = (await repos.coach.adaptations.list({})).filter(
+          (adaptation) => adaptation.status === "kept" && adaptation.appliedCommitId === input.commitId,
+        );
+        for (const adaptation of linkedAdaptations) {
+          await repos.coach.adaptations.update(adaptation.id, {
+            status: "reverted",
+            revertedAt: input.now,
+            appliedCommitId: null,
+          });
+        }
         await repos.commits.markUndone(input.commitId, input.now);
       });
 
@@ -770,5 +896,5 @@ export function createCommitService(options: CreateCommitServiceOptions): Commit
     });
   }
 
-  return { commit, undoLatest };
+  return { commit, applyAdaptationPlanPatch, undoLatest };
 }

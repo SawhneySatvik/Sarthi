@@ -5,17 +5,19 @@ import {
   CANNED_ONBOARDING_FILLS,
   CANONICAL_CAPTURE_DRAFT_FIXTURE,
   CANNED_COACH_LINE_FIXTURE,
+  DETERMINISTIC_COACH_ASK_FIXTURE,
   DETERMINISTIC_BRIEF_FIXTURE,
+  DETERMINISTIC_WEEKLY_BRIEF_FIXTURE,
 } from "./fixtures";
 
 const FAKE_LATENCY_MS = 7;
 const FAKE_USAGE = Object.freeze({ inputTokens: 42, outputTokens: 18 });
 
-function fixtureForObject(operation: ObjectRequest<z.ZodType>["telemetry"]["operation"]): unknown {
+function fixtureForObject(operation: ObjectRequest<z.ZodType>["telemetry"]["operation"], prompt: string): unknown {
   if (operation === "capture-parse") {
     return CANONICAL_CAPTURE_DRAFT_FIXTURE;
   }
-  return DETERMINISTIC_BRIEF_FIXTURE;
+  return /"scope":"weekly"/.test(prompt) ? DETERMINISTIC_WEEKLY_BRIEF_FIXTURE : DETERMINISTIC_BRIEF_FIXTURE;
 }
 
 /** SAR-012 (D-D) — the deterministic voice-fill dispatch: read the question key out of
@@ -42,7 +44,7 @@ function spineFromPrompt(prompt: string): unknown {
 }
 
 function fixtureForText(operation: TextRequest["telemetry"]["operation"]): string {
-  return operation === "capture-line" ? CANNED_COACH_LINE_FIXTURE.text : DETERMINISTIC_BRIEF_FIXTURE.text;
+  return operation === "capture-line" ? CANNED_COACH_LINE_FIXTURE.text : DETERMINISTIC_COACH_ASK_FIXTURE.text;
 }
 
 export class FakeLlmGateway implements LlmGateway {
@@ -55,7 +57,7 @@ export class FakeLlmGateway implements LlmGateway {
         ? spineFromPrompt(request.prompt)
         : operation === "onboarding-fill"
           ? fixtureForFill(request.prompt)
-          : fixtureForObject(operation);
+          : fixtureForObject(operation, request.prompt);
     const object = request.schema.parse(raw);
     return {
       object,
