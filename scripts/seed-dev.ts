@@ -107,6 +107,57 @@ async function main(): Promise<void> {
     millilitres: 900, source: "capture", confidenceBps: 9500, estimated: false,
   });
 
+  // ── Money slice (SAR-008 D-F): a hand-checkable current-month ledger so the Money lens
+  // renders real content (not Day-1 empty). Integer paise only. Food ≈78%, Transport 95% (warn bar).
+  const [yy, mm] = today.split("-").map(Number);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const monthStart = `${yy}-${pad(mm)}-01`;
+  const monthEnd = `${yy}-${pad(mm)}-${pad(new Date(Date.UTC(yy, mm, 0)).getUTCDate())}`;
+  const nextMonthFirst = mm === 12 ? `${yy + 1}-01-01` : `${yy}-${pad(mm + 1)}-01`;
+  // A second in-month date (yesterday, unless today is the 1st) and a future in-month date for rules.
+  const earlier = Number(today.slice(8, 10)) > 1 ? isoDaysFromToday(-1) : today;
+  const aheadInMonth = (delta: number): string => {
+    const target = isoDaysFromToday(delta);
+    return target > today && target <= monthEnd ? target : monthEnd;
+  };
+
+  const moneyCats = await repos.money.categories.list({});
+  const foodCat = moneyCats.find((c) => c.name.toLowerCase() === "food & dining")!;
+  const transportCat = await repos.money.categories.create({ name: "Transport", kind: "expense", colorKey: null, isSystem: false });
+  const rentCat = await repos.money.categories.create({ name: "Rent", kind: "expense", colorKey: null, isSystem: false });
+  const salaryCat = await repos.money.categories.create({ name: "Salary", kind: "income", colorKey: null, isSystem: false });
+
+  const salaryRule = await repos.money.recurringRules.create({
+    direction: "credit", amountPaise: 12000000, categoryId: salaryCat.id, merchant: "Acme Payroll", cadence: "monthly", nextPostDate: nextMonthFirst, isPaused: false,
+  });
+  await repos.money.recurringRules.create({
+    direction: "debit", amountPaise: 2500000, categoryId: rentCat.id, merchant: "Rent", cadence: "monthly", nextPostDate: aheadInMonth(3), isPaused: false,
+  });
+  await repos.money.recurringRules.create({
+    direction: "debit", amountPaise: 11900, categoryId: null, merchant: "Spotify", cadence: "monthly", nextPostDate: aheadInMonth(5), isPaused: false,
+  });
+
+  const tx = (over: Partial<Parameters<typeof repos.money.transactions.create>[0]>) =>
+    repos.money.transactions.create({
+      occurredAt: `${today}T12:00:00.000Z`, localDate: today, timezone: "UTC",
+      direction: "debit", amountPaise: 0, categoryId: null, merchant: null, note: null,
+      source: "capture", confidenceBps: 9000, estimated: false, evidenceId: null, recurringRuleId: null,
+      ...over,
+    });
+  // Salary posted this month (credit, links the shelf chip's ↻).
+  await tx({ direction: "credit", amountPaise: 12000000, categoryId: salaryCat.id, merchant: "Acme Payroll", localDate: earlier, occurredAt: `${earlier}T09:00:00.000Z`, recurringRuleId: salaryRule.id });
+  // Food & dining → 6,240 of the 8,000 budget (78%).
+  await tx({ amountPaise: 34000, categoryId: foodCat.id, merchant: "Lunch", occurredAt: `${today}T13:00:00.000Z` });
+  await tx({ amountPaise: 52000, categoryId: foodCat.id, merchant: "Swiggy dinner", estimated: true, confidenceBps: 6200, occurredAt: `${today}T20:30:00.000Z` });
+  await tx({ amountPaise: 538000, categoryId: foodCat.id, merchant: "BigBasket", localDate: earlier, occurredAt: `${earlier}T18:00:00.000Z` });
+  // Transport → 1,900 of 2,000 (95% → warn bar).
+  await tx({ amountPaise: 190000, categoryId: transportCat.id, merchant: "Uber", occurredAt: `${today}T08:15:00.000Z` });
+  // One uncategorized debit (nullable categoryId → Uncategorized bucket).
+  await tx({ amountPaise: 25000, categoryId: null, note: "Chai + snacks", occurredAt: `${today}T16:00:00.000Z` });
+
+  await repos.money.budgets.create({ categoryId: foodCat.id, periodStart: monthStart, periodEnd: monthEnd, limitPaise: 800000 });
+  await repos.money.budgets.create({ categoryId: transportCat.id, periodStart: monthStart, periodEnd: monthEnd, limitPaise: 200000 });
+
   await repos.coach.notes.create({
     scope: "daily",
     localDate: today,

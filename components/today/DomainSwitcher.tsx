@@ -3,8 +3,10 @@
 import { useState } from "react";
 
 import { HealthLens } from "@/components/lenses/HealthLens";
+import { MoneyLens } from "@/components/lenses/MoneyLens";
 import { Chip } from "@/components/ui/Chip";
 import type { HealthView } from "@/core/domains/health";
+import type { MoneyView } from "@/core/domains/money";
 import type { TodayDomain } from "@/core/domains/today";
 
 const LABELS: Record<TodayDomain, string> = {
@@ -16,15 +18,18 @@ const LABELS: Record<TodayDomain, string> = {
 
 /*
  * The domain switcher chip bar. "All" shows the plan spine (passed as children);
- * a domain shows a LABELED PLACEHOLDER — the real per-domain lenses are SAR-008/9/10.
+ * Health and Money resolve to their lenses; Habits/Skills stay LABELED PLACEHOLDERS
+ * until SAR-009/010 land.
  */
 export function DomainSwitcher({
   domains,
   healthView,
+  moneyView,
   children,
 }: {
   domains: readonly TodayDomain[];
   healthView: HealthView;
+  moneyView: MoneyView;
   children: React.ReactNode;
 }) {
   const [selected, setSelected] = useState<"all" | TodayDomain>("all");
@@ -44,6 +49,8 @@ export function DomainSwitcher({
         children
       ) : selected === "health" ? (
         <HealthLens view={healthView} />
+      ) : selected === "money" ? (
+        <MoneyLens view={moneyView} />
       ) : (
         <div className="px-4 pt-10 text-center">
           <p className="font-ui text-body text-ink-2">{LABELS[selected]} lens</p>

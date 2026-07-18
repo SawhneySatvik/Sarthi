@@ -25,6 +25,17 @@ export function CaptureLauncher() {
 
   return (
     <>
+      {/*
+       * Opaque backing that occludes scrolling content ghosting through the gap
+       * between the floating capture bar (z-20, bottom-16) and the bottom nav
+       * (z-30, bottom-0/64px). Sits below both (z-10); the opaque nav overdraws
+       * its bottom edge. Canvas→transparent fade keeps the Premium Dark feel.
+       */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-10 h-32"
+        style={{ background: "linear-gradient(to top, var(--bg-canvas) 45%, transparent)" }}
+      />
       <div className="pointer-events-none fixed inset-x-0 bottom-16 z-20 px-4 md:bottom-6 md:pl-16">
         <form
           onSubmit={(e) => {
