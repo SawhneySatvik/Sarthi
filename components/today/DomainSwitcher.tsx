@@ -32,6 +32,7 @@ export function DomainSwitcher({
   habitsView,
   skillsView,
   children,
+  initialDomain,
 }: {
   domains: readonly TodayDomain[];
   healthView: HealthView;
@@ -39,8 +40,10 @@ export function DomainSwitcher({
   habitsView: HabitsView;
   skillsView: SkillsView;
   children: React.ReactNode;
+  initialDomain?: string;
 }) {
-  const [selected, setSelected] = useState<"all" | TodayDomain>("all");
+  const safeInitial = initialDomain && domains.includes(initialDomain as TodayDomain) ? initialDomain as TodayDomain : "all";
+  const [selected, setSelected] = useState<"all" | TodayDomain>(safeInitial);
   return (
     <div>
       <div className="flex gap-2 overflow-x-auto px-4 py-3">

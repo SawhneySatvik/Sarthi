@@ -77,15 +77,21 @@ async function seedBody(repos: UserScopedRepositories, state: DemoSeedState): Pr
     domain: "overall",
     mode: "build",
     title: "First 30 days",
-    startDate: isoDaysFromToday(-4),
-    endDate: isoDaysFromToday(25),
-    dayNumber: 5,
+    startDate: isoDaysFromToday(-11),
+    endDate: isoDaysFromToday(18),
+    dayNumber: 12,
     status: "active",
   });
 
-  await repos.plans.progress.create({ domain: "overall", xp: 640, level: 3, streak: 6, bestStreak: 8, cumulativeMinutes: 1240, lastActiveDate: today });
+  await repos.plans.progress.create({ domain: "overall", xp: 1240, level: 4, streak: 6, bestStreak: 8, cumulativeMinutes: 7710, lastActiveDate: today });
   await repos.plans.progress.create({ domain: "health", xp: 120, level: 2, streak: 4, bestStreak: 4, cumulativeMinutes: 0, lastActiveDate: today });
   await repos.plans.progress.create({ domain: "skills", xp: 260, level: 2, streak: 6, bestStreak: 6, cumulativeMinutes: 900, lastActiveDate: today });
+  await repos.plans.progress.create({ domain: "money", xp: 140, level: 2, streak: 3, bestStreak: 5, cumulativeMinutes: 0, lastActiveDate: today });
+  await repos.plans.progress.create({ domain: "habits", xp: 180, level: 2, streak: 6, bestStreak: 8, cumulativeMinutes: 0, lastActiveDate: today });
+  // Day-one is a before/after baseline for the four real domains only; Overall is derived.
+  for (const domain of ["health", "money", "habits", "skills"] as const) {
+    await repos.plans.dayOneSnapshots.create({ domain, snapshotDate: isoDaysFromToday(-11), statsJson: { domain, asOfLocalDate: isoDaysFromToday(-11), xp: 0, level: 1, streak: 0, bestStreak: 0, cumulativeMinutes: 0, metrics: [] } });
+  }
 
   const item = (over: Partial<Parameters<typeof repos.plans.items.create>[0]>) =>
     repos.plans.items.create({
@@ -114,10 +120,16 @@ async function seedBody(repos: UserScopedRepositories, state: DemoSeedState): Pr
   await item({ domain: "habits", title: "Meditate 10m", status: "done", completionSource: "manual" });
 
   // A couple of Health entries so the Health lens rings render with data.
-  await repos.health.meals.create({
+  const breakfast = await repos.health.meals.create({
     occurredAt: `${today}T07:30:00.000Z`, localDate: today, timezone: "UTC",
     kcal: 620, proteinGrams: 24, carbsGrams: 78, fatGrams: 18,
     source: "capture", confidenceBps: 9000, estimated: false, evidenceId: null, note: "Breakfast",
+  });
+  const recoveryMealDate = isoDaysFromToday(-6);
+  const recoveryMeal = await repos.health.meals.create({
+    occurredAt: `${recoveryMealDate}T12:30:00.000Z`, localDate: recoveryMealDate, timezone: "UTC",
+    kcal: 710, proteinGrams: 38, carbsGrams: 84, fatGrams: 22,
+    source: "capture", confidenceBps: 9000, estimated: false, evidenceId: null, note: "Post-workout lunch",
   });
   await repos.health.waterLogs.create({
     occurredAt: `${today}T09:00:00.000Z`, localDate: today, timezone: "UTC",
@@ -143,9 +155,9 @@ async function seedBody(repos: UserScopedRepositories, state: DemoSeedState): Pr
   };
   // Global active days = {0,-1,-3,-4,-6,-8}; the empty -2/-5/-7 days sit between active
   // neighbours ≤ GRACE_DAYS+1 apart → each renders a hollow grace ring, not a gap.
-  for (const delta of [0, -1, -3, -4, -6, -8]) await habitLog(meditateHabit.id, delta);
-  for (const delta of [0, -1, -3, -4]) await habitLog(noSugarHabit.id, delta);
-  for (const delta of [-1, -3, -6, -8]) await habitLog(wakeHabit.id, delta); // unlogged today → a tickable rule-free row
+  const meditateLogs = await Promise.all([0, -1, -3, -4, -6, -8].map((delta) => habitLog(meditateHabit.id, delta)));
+  await Promise.all([0, -1, -3, -4].map((delta) => habitLog(noSugarHabit.id, delta)));
+  const wakeLogs = await Promise.all([-1, -3, -6, -8].map((delta) => habitLog(wakeHabit.id, delta))); // unlogged today → a tickable rule-free row
   if (done) {
     // alldone: cross the 2,000 ml threshold and materialize the satisfied-by completion.
     await repos.health.waterLogs.create({ occurredAt: `${today}T15:00:00.000Z`, localDate: today, timezone: "UTC", millilitres: 1400, source: "capture", confidenceBps: 9500, estimated: false });
@@ -193,7 +205,7 @@ async function seedBody(repos: UserScopedRepositories, state: DemoSeedState): Pr
   // Food & dining → 6,240 of the 8,000 budget (78%).
   await tx({ amountPaise: 34000, categoryId: foodCat.id, merchant: "Lunch", occurredAt: `${today}T13:00:00.000Z` });
   await tx({ amountPaise: 52000, categoryId: foodCat.id, merchant: "Swiggy dinner", estimated: true, confidenceBps: 6200, occurredAt: `${today}T20:30:00.000Z` });
-  await tx({ amountPaise: 538000, categoryId: foodCat.id, merchant: "BigBasket", localDate: earlier, occurredAt: `${earlier}T18:00:00.000Z` });
+  const groceries = await tx({ amountPaise: 538000, categoryId: foodCat.id, merchant: "BigBasket", localDate: earlier, occurredAt: `${earlier}T18:00:00.000Z` });
   // Transport → 1,900 of 2,000 (95% → warn bar).
   await tx({ amountPaise: 190000, categoryId: transportCat.id, merchant: "Uber", occurredAt: `${today}T08:15:00.000Z` });
   // One uncategorized debit (nullable categoryId → Uncategorized bucket).
@@ -249,8 +261,8 @@ async function seedBody(repos: UserScopedRepositories, state: DemoSeedState): Pr
   await skillSession(systemDesign.id, -4, 75, { note: "Kafka internals" });
   await skillSession(systemDesign.id, -6, 135, { note: "Distributed systems course" });
   await skillSession(systemDesign.id, -7, 60, { note: "Rate limiter design" });
-  await skillSession(systemDesign.id, -9, 165, { note: "Sharding strategies" });
-  await skillSession(systemDesign.id, -11, 105, { note: "CAP theorem review" });
+  const shardingSession = await skillSession(systemDesign.id, -9, 165, { note: "Sharding strategies" });
+  const capReviewSession = await skillSession(systemDesign.id, -11, 105, { note: "CAP theorem review" });
   await skillSession(systemDesign.id, -13, 120, { note: "Load balancing patterns" });
   // Backfill older than the 10-row log window: 36 × 180 + 1 × 120 = 6,600 min. Lifetime
   // mastery = 1,110 + 6,600 = 7,710 min = 128:30 (past the 100h tier).
@@ -275,6 +287,29 @@ async function seedBody(repos: UserScopedRepositories, state: DemoSeedState): Pr
     evidenceJson: { generatedForLocalDate: today, items: [] },
     stalenessKey: "seed:today",
   });
+  await repos.coach.notes.create({
+    scope: "weekly", localDate: isoDaysFromToday(-3),
+    text: "You train best when the morning starts early. Health held its ground, money stayed visible, and System Design kept compounding. Keep the next week light enough to repeat.",
+    modelProvider: "fake", modelId: "seed", evidenceJson: { generatedForLocalDate: isoDaysFromToday(-3), items: [] }, stalenessKey: "seed:weekly",
+  });
+  const adaptable = (await repos.plans.items.list({})).find((planItem) => planItem.title === "Deep work: system design");
+  if (adaptable && adaptable.targetValue !== null) {
+    await repos.coach.adaptations.create({
+      planItemId: adaptable.id,
+      beforeJson: { entryKind: "planItem", entryId: adaptable.id, columns: { title: adaptable.title, targetValue: adaptable.targetValue, targetUnit: adaptable.targetUnit, status: adaptable.status } },
+      afterJson: { entryKind: "planItem", entryId: adaptable.id, columns: { title: adaptable.title, targetValue: Math.max(1, adaptable.targetValue - 10), targetUnit: adaptable.targetUnit, status: adaptable.status } },
+      reason: "Keep the first restart block lighter so it is easy to begin.", status: "proposed", keptAt: null, revertedAt: null, appliedCommitId: null,
+    });
+  }
+  const evidence = (domain: "health" | "money" | "habits" | "skills", entryKind: string, entry: { id: string; occurredAt: string; localDate: string }, caption: string, suffix: string) => repos.evidence.create({ domain, entryKind, entryId: entry.id, storageProvider: "placeholder", storagePath: "", mimeType: "image/jpeg", sha256: `seed-${suffix}`, caption, occurredAt: entry.occurredAt, localDate: entry.localDate });
+  await evidence("health", "meal", breakfast, "Breakfast · 620 kcal", "breakfast");
+  await evidence("money", "transaction", groceries, "Grocery receipt · ₹5,380", "groceries");
+  await evidence("habits", "habitLog", meditateLogs[2]!, "Meditation check-in", "meditate-3");
+  await evidence("habits", "habitLog", meditateLogs[3]!, "Evening reset", "meditate-4");
+  await evidence("health", "meal", recoveryMeal, "Post-workout lunch · 710 kcal", "recovery-meal");
+  await evidence("habits", "habitLog", wakeLogs[1]!, "Early wake check-in", "wake-3");
+  await evidence("skills", "skillSession", shardingSession, "System Design notes · sharding", "sharding");
+  await evidence("skills", "skillSession", capReviewSession, "CAP theorem review", "cap-review");
 }
 
 /**

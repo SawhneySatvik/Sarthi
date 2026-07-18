@@ -3,3 +3,4 @@ export * from "./xp";
 export * from "./streak";
 export * from "./progress";
 export * from "./coach";
+export * from "./views";

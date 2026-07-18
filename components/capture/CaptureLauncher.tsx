@@ -2,7 +2,8 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { Camera, Mic, Send } from "lucide-react";
-import { useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 
 import { CaptureSheet, type CaptureInput } from "./CaptureSheet";
 import { usePressToTalk } from "./usePressToTalk";
@@ -19,11 +20,22 @@ const TAP_TOGGLE_MS = 250;
  * deck. Real STT is SAR-013; real content-based vision is a later ticket.
  */
 export function CaptureLauncher() {
+  const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [text, setText] = useState("");
   const [session, setSession] = useState<CaptureInput | null>(null);
   const [nonce, setNonce] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textInputRef = useRef<HTMLInputElement>(null);
   const pressStartedAtRef = useRef(0);
+
+  useEffect(() => {
+    if (searchParams.get("capture") !== "1") return;
+    const frame = window.requestAnimationFrame(() => textInputRef.current?.focus());
+    router.replace("/today", { scroll: false });
+    return () => window.cancelAnimationFrame(frame);
+  }, [router, searchParams]);
 
   function openText(raw: string) {
     const trimmed = raw.trim();
@@ -97,6 +109,8 @@ export function CaptureLauncher() {
     if (file) openPhoto(file);
   }
 
+  if (pathname === "/coach") return null;
+
   return (
     <>
       {/*
@@ -132,6 +146,7 @@ export function CaptureLauncher() {
             <Mic size={26} strokeWidth={1.5} aria-hidden />
           </button>
           <input
+            ref={textInputRef}
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="Tell Sarthi about your day…"

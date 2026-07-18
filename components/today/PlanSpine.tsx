@@ -1,4 +1,5 @@
 import { Check } from "lucide-react";
+import Link from "next/link";
 
 import { Card } from "@/components/ui/Card";
 import type { TodayItem, TodayView } from "@/core/domains/today";
@@ -55,6 +56,7 @@ function AllDone() {
         <Check size={26} strokeWidth={1.5} aria-hidden className="text-ok" />
         <p className="font-display text-title text-ink-1">All done for today</p>
         <p className="font-ui text-body text-ink-2">Every planned item is complete. Rest well.</p>
+        <Link href="/coach" className="mt-2 inline-flex min-h-11 items-center font-ui text-body text-ink-1 underline decoration-line underline-offset-4">View recap</Link>
       </Card>
     </div>
   );

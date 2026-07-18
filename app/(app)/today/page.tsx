@@ -10,7 +10,7 @@ import { buildTodayView } from "@/core/domains/today";
 // Reads the per-user SQLite scope at request time — never statically generated.
 export const dynamic = "force-dynamic";
 
-export default async function TodayPage() {
+export default async function TodayPage({ searchParams }: { searchParams: Promise<{ domain?: string }> }) {
   const { repos } = await getSession();
   // NOTE: UTC day boundary for now — the timezone-aware localDate (schema carries
   // `timezone`) is owned by the SAR-006 capture edge; seed + page agree meanwhile.
@@ -66,6 +66,7 @@ export default async function TodayPage() {
         moneyView={moneyView}
         habitsView={habitsView}
         skillsView={skillsView}
+        initialDomain={(await searchParams).domain}
       />
     </>
   );

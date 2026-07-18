@@ -17,12 +17,14 @@ export function TodayBody({
   moneyView,
   habitsView,
   skillsView,
+  initialDomain,
 }: {
   view: TodayView;
   healthView: HealthView;
   moneyView: MoneyView;
   habitsView: HabitsView;
   skillsView: SkillsView;
+  initialDomain?: string;
 }) {
   return (
     <div>
@@ -36,6 +38,7 @@ export function TodayBody({
         moneyView={moneyView}
         habitsView={habitsView}
         skillsView={skillsView}
+        initialDomain={initialDomain}
       >
         <PlanSpine view={view} />
       </DomainSwitcher>
