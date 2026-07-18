@@ -145,8 +145,9 @@
   - F5’s receipt batch writes typed Money rows once, never duplicates on retry, and saves no generic parsed blob.
 - **Moves:** F5; `estimated-meal-photo` and `receipt-batch` fixtures.
 
-### SAR-012 — Onboarding and real plan creation
+### SAR-012 — Onboarding and real plan creation ✅ LANDED 2026-07-18 (D-046)
 
+- **Status:** LANDED — full scope (A→G) built in 3 gated passes (`pipeline`/Terra, not `screens`, given the spine-gen + atomic write); Passes 1–2 Sol code + D-041 GATE PASS, Pass 3 closed without the final screenshot re-review at the human's call. `pnpm check` 192 green, keyless. Commits `7701ba7`/`9355d1b`/`a97cd3f` (P1), `c51b599`/`283df91` (P2), `a1236db`/`4e23fce` (P3) on `sar-003-schema-repository`.
 - **Agent:** `screens` (Terra) · **Size:** L · **Depends:** `SAR-003`, `SAR-010`
 - **Docs:** `docs/screens/SCREEN-ONBOARDING.md` · `docs/experience/DESIGN-PROMPTS.md` P4 · `docs/experience/FLOWS.md` F1 · `docs/architecture/ARCHITECTURE.md` §§3–4
 - **Acceptance (verbatim P4):** “core feels ~2 min; skipping detail feels safe (hairline already full); the confirm cards clearly derive from the answers; theme step actually switches tokens.”
