@@ -114,6 +114,26 @@ async function moneyLens(browser, themes, widths) {
   }
 }
 
+async function habitsLens(browser, themes, widths) {
+  for (const [theme, mode] of themes) {
+    for (const width of widths) {
+      await withPage(browser, { theme, mode, width }, async (page) => {
+        await page.goto(`${BASE}/today`, { waitUntil: "networkidle" });
+        await page.getByRole("button", { name: "Habits" }).click();
+        await page.getByText("done today").first().waitFor({ timeout: 4000 }).catch(() => {});
+        await page.waitForTimeout(350);
+        await shot(page, `habits-lens-${width}-${theme}-${mode}`);
+
+        // Satisfied-by refusal: tap the rule-bearing row → the rule hint reveals
+        // (transient ~900ms). Water is always the rule-bearing habit in the seed.
+        await page.getByRole("button", { name: /Water/ }).first().click().catch(() => {});
+        await page.waitForTimeout(150);
+        await shot(page, `habits-refuse-${width}-${theme}-${mode}`);
+      });
+    }
+  }
+}
+
 async function captureFlow(browser, themes, widths) {
   for (const [theme, mode] of themes) {
     for (const width of widths) {
@@ -175,10 +195,13 @@ try {
     // Health BEFORE the capture flow, so its rows show the clean seed (the flow commits meals).
     await healthLens(browser, [["ember", "dark"], ["ember", "light"], ["bone", "dark"], ["moss", "dark"]], [MOBILE, DESKTOP]);
     await moneyLens(browser, EMBER, [MOBILE, DESKTOP]); // Money before captureFlow (read-only; keeps the seed clean)
+    await habitsLens(browser, EMBER, [MOBILE, DESKTOP]);
     await captureFlow(browser, EMBER, [MOBILE]);
     await captureFlow(browser, [["ember", "dark"]], [DESKTOP]);
   } else if (SHOTS === "money") {
     await moneyLens(browser, EMBER, [MOBILE, DESKTOP]);
+  } else if (SHOTS === "habits") {
+    await habitsLens(browser, EMBER, [MOBILE, DESKTOP]);
   } else if (SHOTS === "empty") {
     await today(browser, "empty", [["ember", "dark"]], [MOBILE, DESKTOP]);
   } else if (SHOTS === "alldone") {
