@@ -115,6 +115,8 @@
 
 ### SAR-009 — Habits typed store and satisfied-by grid
 
+- **Status:** ✅ **LANDED 2026-07-18 (D-043)** — read-model + lens with grace-aware streaks (reusing `core/game/streak.ts`), a heatmap, the satisfied-by refusal grid (rule-bearing habits refuse manual ticks, enforced UI + server, DB-proven), and in-lens manual tap-tick for rule-free habits. Sol code review 0 blocking + D-041 design review passed after 1 mobile-blocking fix (Zap glyph) + glass-box goalpost coherence. `pnpm check` 133 tests + invariants green, keyless; evidence in `.verify/screens/habits-*`. Shared P3a criterion with SAR-006 now holds. Deviations recorded in D-043 (canonical-seed, timers).
+
 - **Agent:** `pipeline` (Terra) · **Size:** M · **Depends:** `SAR-007`
 - **Docs:** `docs/screens/SCREEN-LENSES.md` §§3, 7 · `docs/experience/DESIGN-PROMPTS.md` P3a · `docs/architecture/ARCHITECTURE.md` §§4–6 · `docs/experience/FLOWS.md` F2, F4, F8
 - **Habits scope:** apply the Habits half of P3a: typed habit logs, grace-aware streak calculation, heatmap, and deterministic satisfied-by rules driven only by committed source rows.
