@@ -17,7 +17,7 @@
     "test:providers": "tsx --test tests/providers.test.ts",
     "test:data": "tsx --test tests/schema.test.ts tests/parity.test.ts tests/repository.test.ts tests/transaction.test.ts tests/auth.test.ts tests/commit-state.test.ts",
     "test:migrations": "tsx --test tests/migrations.test.ts",
-    "test:capture": "tsx --test tests/capture-contract.test.ts tests/game.test.ts tests/route.test.ts tests/parse.test.ts tests/commit.test.ts tests/undo.test.ts tests/capture-vision.test.ts",
+    "test:capture": "tsx --test tests/capture-contract.test.ts tests/game.test.ts tests/route.test.ts tests/parse.test.ts tests/voice.test.ts tests/commit.test.ts tests/undo.test.ts tests/capture-vision.test.ts",
     "test:domains": "tsx --test tests/today.test.ts tests/health.test.ts tests/money-view.test.ts tests/habits-view.test.ts tests/skills-view.test.ts",
     "test:onboarding": "tsx --test tests/onboarding-contract.test.ts tests/onboarding-spine.test.ts tests/onboarding-accept.test.ts tests/onboarding-detail.test.ts",
     "test:ui": "tsx --test tests/tokens.test.ts tests/capture-deck.test.ts",

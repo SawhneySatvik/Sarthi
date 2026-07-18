@@ -45,6 +45,36 @@ test("parseDump on the fake stack returns the canonical draft (5 proposals)", as
   assert.equal(result.draft.proposals.length, 5);
 });
 
+test("parseDump retains proposals but the caller owns capture transport metadata", async () => {
+  const result = await parseDump(
+    {
+      rawText: "edited transcript",
+      timezone: "Asia/Kolkata",
+      capturedAt: "2026-07-18T10:00:00.000Z",
+      source: "voice",
+      transcriptConfidenceBps: 8700,
+    },
+    createLlmGateway("fake"),
+  );
+  assert.ok(result.ok);
+  assert.equal(result.draft.rawText, "edited transcript");
+  assert.equal(result.draft.capturedAt, "2026-07-18T10:00:00.000Z");
+  assert.equal(result.draft.timezone, "Asia/Kolkata");
+  assert.equal(result.draft.source, "voice");
+  assert.equal(result.draft.transcriptConfidenceBps, 8700);
+  assert.equal(result.draft.proposals.length, 5, "gateway proposals remain intact");
+});
+
+test("text parse defaults source and transcript confidence even if the gateway object differs", async () => {
+  const result = await parseDump(
+    { rawText: "typed capture", timezone: "UTC", capturedAt: "2026-07-18T10:00:00.000Z" },
+    createLlmGateway("fake"),
+  );
+  assert.ok(result.ok);
+  assert.equal(result.draft.source, "text");
+  assert.equal(result.draft.transcriptConfidenceBps, null);
+});
+
 test("a gateway failure yields a retryable draft — zero rows, zero outbox", async () => {
   const throwing: LlmGateway = {
     async generateObject() {

@@ -19,6 +19,8 @@ export interface ParseDumpInput {
   timezone: string;
   capturedAt: string;
   source?: CaptureSource;
+  /** STT confidence is transport metadata, never model-authored draft content. */
+  transcriptConfidenceBps?: number | null;
 }
 
 const SYSTEM_PROMPT =
@@ -42,7 +44,19 @@ export async function parseDump(input: ParseDumpInput, llm: LlmGateway): Promise
     if (!parsed.success) {
       return { ok: false, retryable: true, error: "capture-parse returned an object that failed the CaptureDraft schema" };
     }
-    return { ok: true, draft: parsed.data };
+    // The gateway owns proposals/questions only. Transport facts are supplied by the
+    // trusted caller and must override any model-authored values in its object.
+    return {
+      ok: true,
+      draft: {
+        ...parsed.data,
+        rawText: input.rawText,
+        capturedAt: input.capturedAt,
+        timezone: input.timezone,
+        source: input.source ?? "text",
+        transcriptConfidenceBps: input.transcriptConfidenceBps ?? null,
+      },
+    };
   } catch (error) {
     return { ok: false, retryable: true, error: error instanceof Error ? error.message : String(error) };
   }

@@ -14,6 +14,13 @@ export interface ParseResponse {
   error?: string;
 }
 
+export interface TranscriptionResponse {
+  ok: boolean;
+  transcription?: { text: string; confidenceBps: number | null; languageCode: string | null };
+  retryable?: boolean;
+  error?: string;
+}
+
 export interface Unresolved {
   proposalId: string;
   reason: string;
@@ -43,9 +50,30 @@ async function postJson<T>(url: string, body: unknown, onError: T): Promise<T> {
   }
 }
 
-export async function parseText(text: string): Promise<ParseResponse> {
+export async function parseText(
+  text: string,
+  metadata?: { source: "voice"; transcriptConfidenceBps: number | null },
+): Promise<ParseResponse> {
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  return postJson("/api/capture/parse", { text, timezone }, { ok: false, error: "network" });
+  // Preserve the original text body exactly unless this is a successful voice STT
+  // handoff. Voice metadata is transport context; parse still uses this same endpoint.
+  const body = metadata ? { text, timezone, ...metadata } : { text, timezone };
+  return postJson("/api/capture/parse", body, { ok: false, error: "network" });
+}
+
+/** Submit an ephemeral browser clip only to the STT seam. Network/non-JSON failures
+ * deliberately keep the caller's File untouched so the sheet can offer Retry. */
+export async function transcribeVoice(file: File, durationMs: number): Promise<TranscriptionResponse> {
+  const form = new FormData();
+  form.append("audio", file);
+  form.append("mimeType", file.type);
+  form.append("durationMs", String(durationMs));
+  try {
+    const res = await fetch("/api/capture/transcribe", { method: "POST", body: form });
+    return (await res.json()) as TranscriptionResponse;
+  } catch {
+    return { ok: false, retryable: true, error: "network" };
+  }
 }
 
 /** Photo parse (SAR-011): multipart to the sibling route. `type` is the meal/receipt

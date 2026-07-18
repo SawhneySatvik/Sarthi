@@ -12,7 +12,7 @@ import { ACCEPT_ALL_MIN_CONFIDENCE_BPS, blockedProposalIds, routeDraft } from "@
 
 import { DOMAIN_DOT } from "../today/domain";
 import { CaptureOrb } from "./CaptureOrb";
-import { commitProposals, parsePhoto, parseText, undoCommit, type CommitResponse } from "./captureClient";
+import { commitProposals, parsePhoto, parseText, transcribeVoice, undoCommit, type CommitResponse } from "./captureClient";
 import { EstimateDeck } from "./EstimateDeck";
 import { FiledStrip } from "./FiledStrip";
 import { LevelUpBloom } from "./LevelUpBloom";
@@ -21,11 +21,14 @@ import { ParseShimmer } from "./ParseShimmer";
 import { displayProposal, formatPrimary } from "./proposalText";
 import { QuestionCard } from "./QuestionCard";
 
-type Phase = "preview" | "parsing" | "confirm" | "error";
+type Phase = "preview" | "voice-transcribing" | "voice-preview" | "voice-error" | "parsing" | "confirm" | "error";
 type PhotoType = "meal" | "receipt";
 
-/** The capture sheet's input — text (voice/typed) or a picked/snapped photo (SAR-011). */
-export type CaptureInput = { mode: "text"; text: string } | { mode: "photo"; file: File };
+/** The capture sheet's input — typed text, transient voice, or a picked/snapped photo. */
+export type CaptureInput =
+  | { mode: "text"; text: string }
+  | { mode: "voice"; file: File; durationMs: number }
+  | { mode: "photo"; file: File };
 
 /*
  * The capture sheet orchestrator (SAR-006 · SAR-011). Runs FLOWS F3/F5 over the
@@ -39,7 +42,7 @@ export type CaptureInput = { mode: "text"; text: string } | { mode: "photo"; fil
 export function CaptureSheet({ input, onClose }: { input: CaptureInput; onClose: () => void }) {
   const router = useRouter();
   const reduce = useReducedMotion();
-  const [phase, setPhase] = useState<Phase>(input.mode === "photo" ? "preview" : "parsing");
+  const [phase, setPhase] = useState<Phase>(input.mode === "photo" ? "preview" : input.mode === "voice" ? "voice-transcribing" : "parsing");
   const [photoType, setPhotoType] = useState<PhotoType>("meal");
   // Client-only thumbnail — created once at mount (lazy init, never a setState-in-effect),
   // never uploaded or persisted; revoked on close by the cleanup effect below.
@@ -55,6 +58,9 @@ export function CaptureSheet({ input, onClose }: { input: CaptureInput; onClose:
   const [lastCommitId, setLastCommitId] = useState<string | null>(null);
   const [wroteAnything, setWroteAnything] = useState(false);
   const [confirmed, setConfirmed] = useState<Proposal[]>([]);
+  const [transcript, setTranscript] = useState("");
+  const [transcriptConfidenceBps, setTranscriptConfidenceBps] = useState<number | null>(null);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
   const mountedRef = useRef(true);
 
   const photoLabel = photoType === "receipt" ? "Receipt photo" : "Meal photo";
@@ -135,11 +141,16 @@ export function CaptureSheet({ input, onClose }: { input: CaptureInput; onClose:
     };
   }, [previewUrl]);
 
-  // Text mode parses on open; photo mode waits for the user to pick a type and Analyze.
+  // Text parses on open; photo waits for type selection; voice first transcribes and
+  // then waits for explicit transcript confirmation before it touches the parse seam.
   useEffect(() => {
-    if (input.mode !== "text") return;
+    if (input.mode !== "text" && input.mode !== "voice") return;
     let cancelled = false;
     void (async () => {
+      if (input.mode === "voice") {
+        await requestTranscription();
+        return;
+      }
       const res = await parseText(input.text);
       if (cancelled) return;
       if (!res.ok || !res.draft) {
@@ -158,6 +169,45 @@ export function CaptureSheet({ input, onClose }: { input: CaptureInput; onClose:
     if (input.mode !== "photo") return;
     setPhase("parsing");
     const res = await parsePhoto(input.file, photoType);
+    if (!mountedRef.current) return;
+    if (!res.ok || !res.draft) {
+      setPhase("error");
+      return;
+    }
+    await ingestDraft(res.draft, () => mountedRef.current);
+  }
+
+  /** This sends the in-memory File only to STT. It deliberately cannot parse, commit,
+   * award XP, or create any other write until the user confirms the transcript. */
+  async function requestTranscription() {
+    if (input.mode !== "voice") return;
+    setPhase("voice-transcribing");
+    setVoiceError(null);
+    const res = await transcribeVoice(input.file, input.durationMs);
+    if (!mountedRef.current) return;
+    if (!res.ok || !res.transcription) {
+      setVoiceError(
+        res.error === "invalid-duration"
+          ? "That recording is too long. Record a clip under 30 seconds."
+          : "Couldn’t transcribe that clip. Your recording is still here to retry.",
+      );
+      setPhase("voice-error");
+      return;
+    }
+    setTranscript(res.transcription.text);
+    setTranscriptConfidenceBps(res.transcription.confidenceBps);
+    setPhase("voice-preview");
+  }
+
+  async function parseVoiceTranscript() {
+    if (input.mode !== "voice") return;
+    const editedTranscript = transcript.trim();
+    if (!editedTranscript) {
+      setVoiceError("Add what you said before parsing.");
+      return;
+    }
+    setPhase("parsing");
+    const res = await parseText(editedTranscript, { source: "voice", transcriptConfidenceBps });
     if (!mountedRef.current) return;
     if (!res.ok || !res.draft) {
       setPhase("error");
@@ -262,6 +312,10 @@ export function CaptureSheet({ input, onClose }: { input: CaptureInput; onClose:
               <p className="font-ui text-caption uppercase tracking-wide text-ink-3">{photoLabel}</p>
             </div>
           )
+        ) : input.mode === "voice" ? (
+          transcript && phase !== "voice-preview" && phase !== "voice-transcribing" && phase !== "voice-error" ? (
+            <p className="px-4 font-coach text-body leading-[var(--leading-coach)] text-ink-2">“{transcript}”</p>
+          ) : null
         ) : (
           <p className="px-4 font-coach text-body leading-[var(--leading-coach)] text-ink-2">“{input.text}”</p>
         )}
@@ -312,12 +366,60 @@ export function CaptureSheet({ input, onClose }: { input: CaptureInput; onClose:
           </>
         )}
 
+        {phase === "voice-transcribing" && (
+          <>
+            <CaptureOrb active />
+            <ParseShimmer />
+            <p className="px-4 text-center font-ui text-caption text-ink-3">Transcribing your recording…</p>
+          </>
+        )}
+
+        {phase === "voice-preview" && input.mode === "voice" && (
+          <div className="flex flex-col gap-3 px-4">
+            <div className="flex items-center justify-between gap-3">
+              <p className="font-ui text-caption uppercase tracking-wide text-ink-3">What Sarthi heard</p>
+              <span className={`font-ui text-caption ${transcriptConfidenceBps !== null && transcriptConfidenceBps < 9000 ? "text-warn" : "text-ink-3"}`}>
+                {transcriptConfidenceBps === null ? "Confidence unavailable" : `${Math.round(transcriptConfidenceBps / 100)}% confidence`}
+              </span>
+            </div>
+            <textarea
+              value={transcript}
+              onChange={(event) => setTranscript(event.target.value)}
+              aria-label="Voice transcript"
+              className={`min-h-28 w-full rounded-input border bg-canvas p-3 font-coach text-body leading-[var(--leading-coach)] text-ink-1 focus:outline-none ${transcriptConfidenceBps !== null && transcriptConfidenceBps < 9000 ? "border-warn" : "border-line"}`}
+            />
+            {voiceError && <p className="font-ui text-caption text-warn">{voiceError}</p>}
+            <Button className="w-full" onClick={parseVoiceTranscript}>Parse transcript</Button>
+            <button type="button" onClick={onClose} className="font-ui text-caption text-ink-3 underline">Re-record instead</button>
+          </div>
+        )}
+
+        {phase === "voice-error" && (
+          <div className="px-4">
+            <p className="font-ui text-body text-ink-1">{voiceError}</p>
+            <div className="mt-3 flex gap-2">
+              <Button onClick={requestTranscription}>Retry</Button>
+              <Button variant="ghost" onClick={onClose}>Re-record</Button>
+            </div>
+          </div>
+        )}
+
         {phase === "error" && (
           <div className="px-4">
             <p className="font-ui text-body text-ink-1">Couldn’t read that — give it another try.</p>
-            <Button className="mt-3" onClick={onClose}>
-              Close
-            </Button>
+            {input.mode === "text" ? (
+              <Button className="mt-3" onClick={onClose}>Close</Button>
+            ) : (
+              <div className="mt-3 flex gap-2">
+                <Button onClick={() => {
+                  if (input.mode === "photo") void analyzePhoto();
+                  else void parseVoiceTranscript();
+                }}>
+                  Retry
+                </Button>
+                <Button variant="ghost" onClick={onClose}>Close</Button>
+              </div>
+            )}
           </div>
         )}
 

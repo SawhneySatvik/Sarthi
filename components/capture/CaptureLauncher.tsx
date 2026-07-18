@@ -5,10 +5,15 @@ import { Camera, Mic, Send } from "lucide-react";
 import { useRef, useState } from "react";
 
 import { CaptureSheet, type CaptureInput } from "./CaptureSheet";
+import { usePressToTalk } from "./usePressToTalk";
+import { MAX_VOICE_DURATION_MS } from "@/core/voice";
+
+/** A quick press switches into the documented tap-to-stop alternative. */
+const TAP_TOGGLE_MS = 250;
 
 /*
  * The interactive capture bar + sheet host (SAR-006 · SAR-011). Text is the primary
- * keyless path; the mic simulates hold-to-talk on the fake stack; the camera (SAR-011)
+ * keyless path; the mic records an ephemeral browser clip; the camera (SAR-011)
  * opens a hidden file input, then the sheet runs the PHOTO ramp — pick/snap → preview +
  * meal/receipt toggle → parse (fake vision, keyless) → the SAME route-by-confidence
  * deck. Real STT is SAR-013; real content-based vision is a later ticket.
@@ -18,6 +23,7 @@ export function CaptureLauncher() {
   const [session, setSession] = useState<CaptureInput | null>(null);
   const [nonce, setNonce] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const pressStartedAtRef = useRef(0);
 
   function openText(raw: string) {
     const trimmed = raw.trim();
@@ -31,6 +37,58 @@ export function CaptureLauncher() {
     setSession({ mode: "photo", file });
     setNonce((n) => n + 1);
   }
+
+  const recorder = usePressToTalk({
+    onAudio(file, durationMs) {
+      setSession({ mode: "voice", file, durationMs });
+      setNonce((n) => n + 1);
+    },
+  });
+
+  function startVoice(event: React.PointerEvent<HTMLButtonElement>) {
+    if (recorder.state === "tap-to-stop") {
+      recorder.finish(false);
+      return;
+    }
+    if (recorder.state !== "idle" && recorder.state !== "denied" && recorder.state !== "unsupported") return;
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    pressStartedAtRef.current = Date.now();
+    void recorder.start();
+  }
+
+  function releaseVoice() {
+    const quick = Date.now() - pressStartedAtRef.current < TAP_TOGGLE_MS;
+    recorder.release(quick);
+  }
+
+  /** Keyboard is the explicit tap-to-toggle alternative. Preventing native button
+   * activation keeps Space/Enter from synthesising an additional click gesture. */
+  function keyVoice(event: React.KeyboardEvent<HTMLButtonElement>) {
+    if (event.key !== " " && event.key !== "Enter") return;
+    event.preventDefault();
+    if (recorder.state === "tap-to-stop") {
+      recorder.finish(false);
+      return;
+    }
+    if (recorder.state === "idle" || recorder.state === "denied" || recorder.state === "unsupported") {
+      pressStartedAtRef.current = Date.now();
+      void recorder.start();
+    }
+  }
+
+  const recording = recorder.state === "recording" || recorder.state === "tap-to-stop" || recorder.state === "requesting";
+  const recorderMessage =
+    recorder.state === "tap-to-stop"
+      ? "Listening — tap mic to stop"
+      : recorder.state === "recording"
+        ? `Recording ${Math.ceil(recorder.elapsedMs / 1000)}s / ${MAX_VOICE_DURATION_MS / 1000}s`
+        : recorder.state === "requesting"
+          ? "Opening microphone…"
+          : recorder.state === "denied"
+            ? "Microphone unavailable — try again"
+            : recorder.state === "unsupported"
+              ? "Voice recording isn’t supported here"
+              : null;
 
   function onFilePicked(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -62,9 +120,14 @@ export function CaptureLauncher() {
         >
           <button
             type="button"
-            aria-label="Hold to talk"
-            onClick={() => openText("Voice capture")}
-            className="flex h-16 w-16 shrink-0 items-center justify-center rounded-chip bg-ink-1 text-canvas"
+            aria-label={recorder.state === "tap-to-stop" ? "Stop recording" : "Hold to talk"}
+            aria-pressed={recording}
+            onPointerDown={startVoice}
+            onPointerUp={releaseVoice}
+            onPointerCancel={() => recorder.finish(true)}
+            onKeyDown={keyVoice}
+            onContextMenu={(event) => event.preventDefault()}
+            className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-chip text-canvas ${recording ? "bg-ink-2" : "bg-ink-1"}`}
           >
             <Mic size={26} strokeWidth={1.5} aria-hidden />
           </button>
@@ -104,6 +167,16 @@ export function CaptureLauncher() {
             tabIndex={-1}
           />
         </form>
+        {recorderMessage && (
+          <div className="pointer-events-auto mx-auto mt-2 flex max-w-[45rem] items-center justify-between px-3 font-ui text-caption text-ink-2">
+            <span aria-live="polite">{recorderMessage}</span>
+            {recording && (
+              <button type="button" onClick={() => recorder.finish(true)} className="text-ink-1 underline">
+                Cancel recording
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       <AnimatePresence>
