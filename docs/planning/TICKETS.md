@@ -167,6 +167,7 @@
 
 ### SAR-014 — Coach engine, adaptations, and game mechanics
 
+- **Status:** ✅ **LANDED 2026-07-18** — one framework-clean `CoachEngine` reads exactly four `DomainSpec` entries (Health, Money, Habits, Skills) and produces deterministic fake capture lines plus staleness-keyed deep daily/weekly briefs grounded in typed evidence and open profile gaps. Glass-box re-entry creates a visible proposal only; **Keep** writes one typed, latest-batch-undoable plan patch through `CommitService`, while **Revert** preserves the plan. The schema's nullable `adaptations.appliedCommitId` keeps undo status coherent. `pnpm check` 205 tests, build, invariants, and Sol two-pass review pass keyless; no rendered screen changed, so the Coach D-041 shots remain SAR-015.
 - **Agent:** `pipeline` (Terra) · **Size:** XL · **Depends:** `SAR-008`–`SAR-010`, `SAR-012`
 - **Docs:** `docs/architecture/ARCHITECTURE.md` §§4, 6, 8–9 · `docs/screens/SCREEN-COACH.md` · `docs/experience/FLOWS.md` F2, F6, F7, F9
 - **Acceptance:**

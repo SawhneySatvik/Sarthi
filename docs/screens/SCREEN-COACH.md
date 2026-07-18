@@ -65,7 +65,7 @@ Reverse-chron, collapsed rows: date · scope tag (`daily` / `weekly`) · first l
 | Brief generating | prose skeleton shimmer, 2 lines |
 | Brief failed | yesterday's card stays + quiet `↻ retry` row |
 | Backfill answered | chips collapse into the prose ("Mixed diet — noted.") with a `--t-fast` settle |
-| 3+ days inactive | TODAY opens with re-entry prose, plan auto-lightened (an Adaptation, chip shown) — never a guilt wall |
+| 3+ days inactive | Coach opens with re-entry prose and a visible proposed lightening Adaptation; Today changes only after **Keep** — never a guilt wall |
 
 ## 7. Responsive & a11y
 

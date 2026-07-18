@@ -277,7 +277,7 @@ export interface ScopedEntityRepository<TRecord, TCreate, TUpdate, TQuery> {
 | `domain_progress` | base columns, `domain` (`overall/health/money/habits/skills`), `xp`, `level`, `streak`, `bestStreak`, `cumulativeMinutes`, `lastActiveDate` | unique `(userId, domain)` |
 | `day_one_snapshots` | immutable base, `domain`, `snapshotDate`, `statsJson` | unique `(userId, domain)` |
 | `coach_notes` | immutable base, `scope` (`capture/daily/weekly`), `localDate`, `text`, `modelProvider`, `modelId`, `evidenceJson`, `stalenessKey` | unique `(userId, scope, stalenessKey)`; index `(userId, localDate, scope)` |
-| `adaptations` | base columns, `planItemId`, `beforeJson`, `afterJson`, `reason`, `status` (`proposed/kept/reverted`), `keptAt`, `revertedAt` | index `(userId, status, createdAt)` |
+| `adaptations` | base columns, `planItemId`, `beforeJson`, `afterJson`, `reason`, `status` (`proposed/kept/reverted`), `keptAt`, `revertedAt`, `appliedCommitId` | index `(userId, status, createdAt)` |
 | `evidence` | base columns, `domain`, `entryKind`, `entryId`, `storageProvider`, `storagePath`, `mimeType`, `sha256`, `caption`, `occurredAt`, `localDate` | unique `(userId, sha256)`; index `(userId, entryKind, entryId)` |
 
 ### 4.7 Commit/undo and billing tables
