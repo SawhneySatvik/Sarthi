@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| **Written** | 2026-07-18 — visual screenshot-verify pass (SAR-005/006/007 visual DoD closed) |
-| **For** | The next action: the demo-spine **fan-out** — `SAR-008` (Money typed store + ledger lens) → `SAR-009` (Habits) → `SAR-010` (Skills) — now unblocked by the F3 gate; then the Phase-1 sellable wrap |
+| **Written** | 2026-07-18 — demo-spine fan-out complete (SAR-008/009/010 landed); see `docs/handsoff/handsoff_07.md` |
+| **For** | The next action: **`SAR-011` (Meal/receipt vision path)** → `SAR-012` (onboarding) → `SAR-013` (voice) → `SAR-014` (coach/game) — the rest of the F3→fan-out lane, keyless. The demo-spine fan-out (`SAR-008/009/010`) is done. Then the Phase-1 sellable wrap (`SAR-021`+, needs Satvik's accounts). |
 | **Read order** | AGENTS.md → docs/product/PROJECT.md → docs/architecture/TECH-STACK.md → docs/experience/FLOWS.md → rest as needed |
 | **State of play** | ✅ **F3 GATE MET (automated).** `SAR-001`–`SAR-004` (capture moat) accepted; **`SAR-005` (token shell + Today spine) + `SAR-006` (Health slice + capture-sheet hero) + `SAR-007` (F3 fake-stack eval) landed.** The full F3 loop runs keyless end-to-end (parse → route-by-confidence → filed-automatically strip + estimate deck → typed write via the real commit service → XP + inline level-up → 5-min undo → Today `via capture`; + the Health 3-ring lens), and SAR-007's eval hard-asserts `wrongSilentWrites === 0` across the four gate-3 fixtures. Validated: `pnpm check` **106 tests**, build, invariants, boundary; keyless. Reviewed (SAR-005 1-pass, SAR-006 2-pass, SAR-007 in review) ACCEPTABLE TO LAND. **✅ SAR-005/006/007 VISUAL DoD CLOSED 2026-07-18 (D-041):** browser tooling wired (Playwright · `pnpm screenshots`), 38 built-surface shots at 390px + desktop → `.verify/screens/`, a Sol design review of the rendered UI surfaced 5 mobile-blocking issues, all fixed. Screenshot→Sol-review→implement→re-shoot is now the standing SAR visual gate. All commits stack on branch `sar-003-schema-repository`. |
 
