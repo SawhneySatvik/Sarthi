@@ -539,6 +539,96 @@ async function photoFlow(browser, themes, widths) {
   }
 }
 
+// SAR-013: MediaRecorder is browser-only, so the visual harness supplies a tiny
+// deterministic primitive. Production code remains untouched; this mock produces an
+// in-memory webm-shaped Blob and a stoppable stream, exactly like the fake STT path.
+async function installVoiceMock(page) {
+  await page.addInitScript(() => {
+    class ScreenshotMediaRecorder {
+      constructor(stream) {
+        this.stream = stream;
+        this.state = "inactive";
+        this.mimeType = "audio/webm";
+        this.ondataavailable = null;
+        this.onstop = null;
+      }
+      start() {
+        this.state = "recording";
+      }
+      stop() {
+        if (this.state === "inactive") return;
+        this.state = "inactive";
+        queueMicrotask(() => {
+          this.ondataavailable?.({ data: new Blob(["fake-audio"], { type: this.mimeType }) });
+          this.onstop?.();
+        });
+      }
+    }
+    Object.defineProperty(window, "MediaRecorder", { configurable: true, value: ScreenshotMediaRecorder });
+    Object.defineProperty(navigator, "mediaDevices", {
+      configurable: true,
+      value: { getUserMedia: async () => ({ getTracks: () => [{ stop() {} }] }) },
+    });
+  });
+}
+
+async function voiceFlow(browser, themes, widths) {
+  for (const [theme, mode] of themes) {
+    for (const width of widths) {
+      // Hold state, then the pinned/editable transcript, then post-parse confirmation.
+      await withPage(browser, { theme, mode, width }, async (page) => {
+        await installVoiceMock(page);
+        await page.goto(`${BASE}/today`, { waitUntil: "networkidle" });
+        const mic = page.getByRole("button", { name: "Hold to talk" });
+        const box = await mic.boundingBox();
+        if (!box) throw new Error("voice mic missing");
+        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+        await page.mouse.down();
+        await page.getByText(/Recording|Opening microphone/).first().waitFor({ timeout: 3000 });
+        await shot(page, `voice-recording-${width}-${theme}-${mode}`);
+        // This is the hold-to-talk path, not a quick tap: clear the 250ms toggle
+        // threshold before release so the recorder stops and opens the transcript.
+        await page.waitForTimeout(350);
+        await page.mouse.up();
+        await page.getByText("What Sarthi heard").waitFor({ timeout: 5000 });
+        await page.waitForTimeout(SETTLE_MS);
+        await shot(page, `voice-transcript-${width}-${theme}-${mode}`);
+        await page.getByLabel("Voice transcript").fill("Spent 340 on lunch and did 90 min of system design");
+        await page.getByRole("button", { name: "Parse transcript" }).click();
+        await page.getByText("Confirm estimates").first().waitFor({ timeout: 6000 });
+        await page.waitForTimeout(SETTLE_MS);
+        await shot(page, `voice-confirm-${width}-${theme}-${mode}`);
+      });
+
+      // A provider error must leave the sheet and in-memory clip open; turn the mock
+      // response healthy on Retry so evidence includes both the failure and recovery.
+      await withPage(browser, { theme, mode, width }, async (page) => {
+        let fail = true;
+        await installVoiceMock(page);
+        await page.route("**/api/capture/transcribe", async (route) => {
+          if (fail) {
+            await route.fulfill({ status: 502, contentType: "application/json", body: JSON.stringify({ ok: false, retryable: true, error: "provider-unavailable" }) });
+          } else await route.continue();
+        });
+        await page.goto(`${BASE}/today`, { waitUntil: "networkidle" });
+        const mic = page.getByRole("button", { name: "Hold to talk" });
+        const box = await mic.boundingBox();
+        if (!box) throw new Error("voice mic missing");
+        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+        await page.mouse.down();
+        await page.waitForTimeout(SETTLE_MS);
+        await page.mouse.up();
+        await page.getByRole("button", { name: "Retry" }).waitFor({ timeout: 5000 });
+        await page.waitForTimeout(SETTLE_MS);
+        await shot(page, `voice-retry-${width}-${theme}-${mode}`);
+        fail = false;
+        await page.getByRole("button", { name: "Retry" }).click();
+        await page.getByText("What Sarthi heard").waitFor({ timeout: 5000 });
+      });
+    }
+  }
+}
+
 const browser = await chromium.launch({ headless: true });
 try {
   if (SHOTS === "main") {
@@ -565,6 +655,9 @@ try {
     // regress the text F3 path, and the new photo ramp (+ desktop smoke, D-034).
     await captureFlow(browser, EMBER, [MOBILE]);
     await photoFlow(browser, EMBER, [MOBILE, DESKTOP]);
+  } else if (SHOTS === "voice") {
+    await voiceFlow(browser, EMBER, [MOBILE]);
+    await voiceFlow(browser, [["ember", "dark"]], [DESKTOP]);
   } else if (SHOTS === "onboarding") {
     // SAR-012 Pass 1–3 — drive against a SEED_STATE=fresh DB (see the ticket Verification
     // block): the CORE walk + Phase C shimmer + Phase D cards/edited-row, then the
