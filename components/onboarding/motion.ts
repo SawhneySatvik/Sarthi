@@ -13,4 +13,8 @@ export const MOTION = {
   ease: [0.2, 0, 0, 1],
   /** Progress hairline thickness (px) — a position indicator, not a reward bar. */
   hairlinePx: 2,
+  /** Phase C orbit — one slow, ambient revolution (seconds). Suppressed under reduced
+   *  motion (shimmer → static skeleton, DESIGN §110). Lives here, not as a CSS duration
+   *  token, because framer-motion needs a plain number (same reason as `crossfadeSec`). */
+  orbitSec: 14,
 } as const;

@@ -281,15 +281,98 @@ async function onboarding(browser, themes, widths) {
         // B5 goals — multi-domain selection.
         await page.getByRole("button", { name: "gym" }).click().catch(() => {});
         await page.getByRole("button", { name: "track spends" }).click().catch(() => {});
+        await page.getByRole("button", { name: "wake early" }).click().catch(() => {});
         await page.getByLabel("Name a skill").fill("system design").catch(() => {});
         await snap(`onboarding-b5-goals-${width}-${theme}-${mode}`);
         await page.getByRole("button", { name: "Continue" }).click().catch(() => {});
 
-        // B6 time budget.
+        // B6 time budget → Phase C. Delay the spine route so the orbit shimmer is visible
+        // for the shot before it resolves into the Phase D cards.
+        await page.route("**/api/onboarding/spine", async (r) => {
+          await new Promise((x) => setTimeout(x, 900));
+          await r.continue();
+        });
         await page.getByRole("button", { name: "30m" }).click().catch(() => {});
         await snap(`onboarding-b6-time-${width}-${theme}-${mode}`);
         await page.getByRole("button", { name: "Continue" }).click().catch(() => {});
-        await snap(`onboarding-core-done-${width}-${theme}-${mode}`);
+
+        // Phase C — the orbit shimmer (the selected domains drafting in parallel).
+        await page.getByText("Drafting your plans").waitFor({ timeout: 4000 }).catch(() => {});
+        await shot(page, `onboarding-c-shimmer-${width}-${theme}-${mode}`);
+
+        // Phase D — the confirm cards (one per selected domain), then a stepper-edited row.
+        await page.getByRole("button", { name: "Looks right — start Day 1" }).waitFor({ timeout: 6000 }).catch(() => {});
+        await snap(`onboarding-d-cards-${width}-${theme}-${mode}`);
+        // Full-page: the viewport shot cuts off mid-Habits — capture the whole 4-card
+        // stack + the earned `start Day 1` CTA in one shot (shot() is viewport-only).
+        const fullName = `onboarding-d-full-${width}-${theme}-${mode}`;
+        await page.screenshot({ path: `${OUT}/${fullName}.png`, fullPage: true });
+        console.log("  shot", fullName);
+        await page.getByRole("button", { name: "Increase" }).first().click().catch(() => {});
+        await snap(`onboarding-d-edited-${width}-${theme}-${mode}`);
+      });
+    }
+  }
+}
+
+// A complete CORE draft, restored via localStorage so a variant can jump straight to the
+// time-budget step (then Continue → Phase C → D) without re-driving all six questions.
+function coreDraft(goals) {
+  return {
+    version: 1,
+    screen: "timeBudget",
+    answers: {
+      displayName: "Satvik",
+      birthDate: "1998-03-14",
+      heightCm: 178,
+      weightGrams: 74000,
+      unitSystem: "metric",
+      dayShape: "nine_to_five",
+      wakeTimeMinutes: 330,
+      sleepTimeMinutes: 1380,
+      goals,
+      timeBudgetMinutes: 30,
+    },
+  };
+}
+
+// SAR-012 Pass 2 — the two Phase-D variants (§14): the 1-domain-only card, and a failed
+// spine rendering its retry skeleton while the others stand (§10). Ember only to keep the
+// set tight; both seed a restored draft so only the post-CORE phases are exercised.
+async function onboardingVariants(browser, themes, widths) {
+  for (const [theme, mode] of themes) {
+    for (const width of widths) {
+      // 1-domain-only: just a named skill selected → a single confirm card.
+      await withPage(browser, { theme, mode, width }, async (page) => {
+        const snap = async (name) => {
+          await page.waitForTimeout(SETTLE_MS);
+          await shot(page, name);
+        };
+        await page.goto(`${BASE}/onboarding`, { waitUntil: "networkidle" });
+        await page.evaluate((draft) => localStorage.setItem("sarthi-onboarding-draft", JSON.stringify(draft)), coreDraft({ health: [], money: [], habits: [], skillName: "system design" }));
+        await page.reload({ waitUntil: "networkidle" });
+        await page.getByRole("button", { name: "Continue" }).click().catch(() => {});
+        await page.getByRole("button", { name: "Looks right — start Day 1" }).waitFor({ timeout: 6000 }).catch(() => {});
+        await snap(`onboarding-d-one-domain-${width}-${theme}-${mode}`);
+      });
+
+      // Failed-spine retry skeleton: abort ONE domain's spine call; the rest resolve.
+      await withPage(browser, { theme, mode, width }, async (page) => {
+        const snap = async (name) => {
+          await page.waitForTimeout(SETTLE_MS);
+          await shot(page, name);
+        };
+        await page.route("**/api/onboarding/spine", async (r) => {
+          const body = r.request().postData() ?? "";
+          if (body.includes('"domain":"money"')) return r.abort();
+          return r.continue();
+        });
+        await page.goto(`${BASE}/onboarding`, { waitUntil: "networkidle" });
+        await page.evaluate((draft) => localStorage.setItem("sarthi-onboarding-draft", JSON.stringify(draft)), coreDraft({ health: ["gym"], money: ["budget"], habits: ["focus"], skillName: "system design" }));
+        await page.reload({ waitUntil: "networkidle" });
+        await page.getByRole("button", { name: "Continue" }).click().catch(() => {});
+        await page.getByRole("button", { name: "Retry" }).waitFor({ timeout: 6000 }).catch(() => {});
+        await snap(`onboarding-d-retry-skeleton-${width}-${theme}-${mode}`);
       });
     }
   }
@@ -370,8 +453,11 @@ try {
     await captureFlow(browser, EMBER, [MOBILE]);
     await photoFlow(browser, EMBER, [MOBILE, DESKTOP]);
   } else if (SHOTS === "onboarding") {
-    // SAR-012 Pass 1 — drive against a SEED_STATE=fresh DB (see the ticket Verification block).
+    // SAR-012 Pass 1+2 — drive against a SEED_STATE=fresh DB (see the ticket Verification
+    // block): the CORE walk + Phase C shimmer + Phase D cards/edited-row, then the
+    // 1-domain-only and failed-spine retry variants.
     await onboarding(browser, EMBER, [MOBILE, DESKTOP]);
+    await onboardingVariants(browser, EMBER, [MOBILE, DESKTOP]);
   } else if (SHOTS === "empty") {
     await today(browser, "empty", [["ember", "dark"]], [MOBILE, DESKTOP]);
   } else if (SHOTS === "alldone") {

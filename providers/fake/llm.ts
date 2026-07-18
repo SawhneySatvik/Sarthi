@@ -1,5 +1,5 @@
 import type { LlmGateway, ObjectRequest, ObjectResult, TextRequest } from "@/core/contracts";
-import { readFillEnvelope } from "@/core/onboarding";
+import { coreAnswersSchema, deriveSpine, readFillEnvelope, readSpineEnvelope } from "@/core/onboarding";
 import type { z } from "zod";
 import {
   CANNED_ONBOARDING_FILLS,
@@ -28,6 +28,19 @@ function fixtureForFill(prompt: string): unknown {
   return CANNED_ONBOARDING_FILLS[envelope.questionKey];
 }
 
+/** SAR-012 Pass 2 (D-E) — the deterministic, ANSWER-DERIVED spine dispatch: read the
+ *  answers out of the prompt envelope and run `deriveSpine`, so the keyless spine genuinely
+ *  varies with the answers. A missing/malformed envelope throws (NO silent fixture fallback).
+ *  The caller's per-domain schema validates the result in `generateObject` below. */
+function spineFromPrompt(prompt: string): unknown {
+  const envelope = readSpineEnvelope(prompt);
+  if (!envelope) {
+    throw new Error("onboarding-spine prompt is missing its answers envelope");
+  }
+  const answers = coreAnswersSchema.parse(envelope.answers);
+  return deriveSpine(envelope.domain, answers);
+}
+
 function fixtureForText(operation: TextRequest["telemetry"]["operation"]): string {
   return operation === "capture-line" ? CANNED_COACH_LINE_FIXTURE.text : DETERMINISTIC_BRIEF_FIXTURE.text;
 }
@@ -37,13 +50,13 @@ export class FakeLlmGateway implements LlmGateway {
     request: ObjectRequest<TSchema>,
   ): Promise<ObjectResult<z.infer<TSchema>>> {
     const { operation } = request.telemetry;
-    if (operation === "onboarding-spine") {
-      // The spine dispatch (answer-derived deriveSpine) lands in SAR-012 Pass 2; a call
-      // here now is a wiring error, so fail loudly rather than return the brief fixture.
-      throw new Error("onboarding-spine is not wired on the fake stack until SAR-012 Pass 2");
-    }
-    const fixture = operation === "onboarding-fill" ? fixtureForFill(request.prompt) : fixtureForObject(operation);
-    const object = request.schema.parse(fixture);
+    const raw =
+      operation === "onboarding-spine"
+        ? spineFromPrompt(request.prompt)
+        : operation === "onboarding-fill"
+          ? fixtureForFill(request.prompt)
+          : fixtureForObject(operation);
+    const object = request.schema.parse(raw);
     return {
       object,
       modelId: `fake-${request.tier}-v1`,

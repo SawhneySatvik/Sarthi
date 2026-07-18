@@ -2,19 +2,26 @@
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ChevronLeft } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import type { AuthenticatedUser } from "@/core/contracts";
 import {
   CORE_SCREENS,
+  coreAnswersSchema,
   onboardingScreenEnum,
   ONBOARDING_DRAFT_VERSION,
   readOnboardingDraft,
+  selectedSpineDomains,
   type CoreAnswersDraft,
+  type DomainSpine,
   type OnboardingScreen,
 } from "@/core/onboarding";
 
+import { ConfirmCards } from "./ConfirmCards";
 import { MOTION } from "./motion";
+import { SpineGeneration } from "./SpineGeneration";
+import type { SpineOutcome } from "./spineClient";
 import { B1Name } from "./steps/B1Name";
 import { B2Dob } from "./steps/B2Dob";
 import { B3Body } from "./steps/B3Body";
@@ -26,8 +33,11 @@ import { Welcome } from "./steps/Welcome";
 const DRAFT_KEY = "sarthi-onboarding-draft";
 const ORDER = onboardingScreenEnum.options; // welcome → name → … → timeBudget
 
-/** The thin `--energy` CORE progress hairline (§1) — the ONLY amber in Pass 1. Fills across
- *  CORE only; DETAIL (Pass 3) never extends it, so skipping later never feels undone. */
+/** The post-CORE phases: spine generation (C) → confirm & trim (D). */
+type Phase = "core" | "spine" | "confirm";
+
+/** The thin `--energy` CORE progress hairline (§1). Fills across CORE only; the post-CORE
+ *  phases (C/D) hold it FULL, so the reviewed plan never feels like unfinished progress. */
 function Hairline({ fraction }: { fraction: number }) {
   return (
     <div className="fixed inset-x-0 top-0 z-30" style={{ height: MOTION.hairlinePx }}>
@@ -53,18 +63,22 @@ function BackChevron({ onClick }: { onClick: () => void }) {
 }
 
 /*
- * OnboardingFlow — SAR-012 Pass 1. The client phase machine for Phase A (Welcome) + Phase
- * B (CORE B1–B6). Transitions crossfade + rise 12px (`--t-base`); reduced-motion = crossfade
- * only. Every answer persists to a versioned local draft (`sarthi-onboarding-draft`); mount
- * restores to the last answered question (§10 kill-app row). NOTHING is written to the DB in
- * Pass 1 — the draft is the only persistence (the real write is Pass 2's D-accept). After B6
- * the flow lands on a deliberate minimal seam; Phase C spine-gen lands in Pass 2.
+ * OnboardingFlow — SAR-012 (Pass 1 CORE + Pass 2 spine/confirm/accept). The client phase
+ * machine for Phase A (Welcome) + Phase B (CORE B1–B6) + Phase C (spine generation, keyless
+ * through the gateway) + Phase D (confirm & trim). Transitions crossfade + rise 12px
+ * (`--t-base`); reduced-motion = crossfade only. Every CORE answer persists to a versioned
+ * local draft; NOTHING is written to the DB until the D-accept tap (the swipe-gate extended
+ * to onboarding). On accept the draft clears and the flow lands on Today (Phase E→G polish
+ * is Pass 3; this minimal redirect keeps the F1 walk testable end-to-end).
  */
 export function OnboardingFlow({ authMode }: { authMode: AuthenticatedUser["mode"] }) {
   const reduce = useReducedMotion();
+  const router = useRouter();
   const [screen, setScreen] = useState<OnboardingScreen>("welcome");
   const [answers, setAnswers] = useState<CoreAnswersDraft>({});
-  const [done, setDone] = useState(false);
+  const [phase, setPhase] = useState<Phase>("core");
+  const [outcomes, setOutcomes] = useState<SpineOutcome[]>([]);
+  const [accepting, setAccepting] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
   // Restore the local draft after mount (client-only; keeps SSR === first client render).
@@ -94,10 +108,7 @@ export function OnboardingFlow({ authMode }: { authMode: AuthenticatedUser["mode
   useEffect(() => {
     if (!hydrated) return;
     try {
-      localStorage.setItem(
-        DRAFT_KEY,
-        JSON.stringify({ version: ONBOARDING_DRAFT_VERSION, screen, answers }),
-      );
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ version: ONBOARDING_DRAFT_VERSION, screen, answers }));
     } catch {
       /* private-mode / unavailable storage — the in-memory flow still works */
     }
@@ -108,40 +119,85 @@ export function OnboardingFlow({ authMode }: { authMode: AuthenticatedUser["mode
   }, []);
 
   const next = useCallback(() => {
-    setScreen((current) => {
-      const index = ORDER.indexOf(current);
-      if (index < ORDER.length - 1) return ORDER[index + 1];
-      setDone(true); // past the last CORE screen (timeBudget)
-      return current;
-    });
-  }, []);
+    const index = ORDER.indexOf(screen);
+    if (index < ORDER.length - 1) {
+      setScreen(ORDER[index + 1]);
+    } else {
+      setPhase("spine"); // past the last CORE screen (timeBudget) → generate the spines
+    }
+  }, [screen]);
 
   const back = useCallback(() => {
-    if (done) {
-      setDone(false);
+    if (phase === "confirm") {
+      setPhase("spine");
+      return;
+    }
+    if (phase === "spine") {
+      setPhase("core");
       return;
     }
     setScreen((current) => {
       const index = ORDER.indexOf(current);
       return index > 0 ? ORDER[index - 1] : current;
     });
-  }, [done]);
+  }, [phase]);
+
+  const parsedAnswers = coreAnswersSchema.safeParse(answers);
+  const completeAnswers = parsedAnswers.success ? parsedAnswers.data : null;
+  const domains = completeAnswers ? selectedSpineDomains(completeAnswers) : [];
+
+  const handleAccept = useCallback(
+    async (spines: DomainSpine[]) => {
+      if (!completeAnswers) return;
+      setAccepting(true);
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+      try {
+        const response = await fetch("/api/onboarding/accept", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ answers: completeAnswers, spines, timezone }),
+        });
+        if (response.ok) {
+          try {
+            localStorage.removeItem(DRAFT_KEY);
+          } catch {
+            /* private-mode storage — harmless */
+          }
+          router.replace("/today");
+          return;
+        }
+      } catch {
+        /* fall through to re-enable the CTA for a retry */
+      }
+      setAccepting(false);
+    },
+    [completeAnswers, router],
+  );
+
+  const handleSpineComplete = useCallback((settled: SpineOutcome[]) => {
+    setOutcomes(settled);
+    setPhase("confirm");
+  }, []);
 
   const coreIndex = (CORE_SCREENS as readonly string[]).indexOf(screen);
-  const fraction = done ? 1 : coreIndex >= 0 ? (coreIndex + 1) / CORE_SCREENS.length : 0;
+  const fraction = phase !== "core" ? 1 : coreIndex >= 0 ? (coreIndex + 1) / CORE_SCREENS.length : 0;
 
   function renderStage() {
-    if (done) {
+    if (phase === "spine" && completeAnswers) {
+      return <SpineGeneration answers={completeAnswers} domains={domains} onComplete={handleSpineComplete} />;
+    }
+    if (phase === "confirm" && completeAnswers) {
       return (
-        <div className="flex flex-1 flex-col items-center justify-center pb-8 text-center">
-          <h1 className="font-display text-display text-ink-1">Your plans are next.</h1>
-          <p className="mt-3 font-coach text-body leading-[var(--leading-coach)] text-ink-2">
-            In a moment I’ll draft four plans from your answers.
-          </p>
-          <p className="mt-6 font-ui text-caption uppercase tracking-wide text-ink-3">Coming in the next step</p>
-        </div>
+        <ConfirmCards
+          answers={completeAnswers}
+          domains={domains}
+          outcomes={outcomes}
+          onAccept={handleAccept}
+          accepting={accepting}
+        />
       );
     }
+
     const step = { answers, patch, onContinue: next };
     switch (screen) {
       case "welcome":
@@ -163,14 +219,13 @@ export function OnboardingFlow({ authMode }: { authMode: AuthenticatedUser["mode
     }
   }
 
-  const stageKey = done ? "done" : screen;
-  const showChrome = screen !== "welcome";
+  const stageKey = phase !== "core" ? phase : screen;
+  const showChrome = !(phase === "core" && screen === "welcome");
 
   return (
     <>
       {showChrome && <Hairline fraction={fraction} />}
-      {/* Back chevron on its own top header row (never occluding the Display headline), with
-          ~28px top safe-area below the hairline so ascenders are never clipped. */}
+      {/* Back chevron on its own top header row (never occluding the Display headline). */}
       {showChrome && (
         <header className="flex shrink-0 items-center pt-7">
           <BackChevron onClick={back} />

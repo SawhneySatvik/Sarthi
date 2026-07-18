@@ -10,8 +10,10 @@ import test from "node:test";
 import type { LlmGateway } from "../core/contracts";
 import {
   buildFillPrompt,
+  buildSpinePrompt,
   cmFromImperial,
   coreAnswersSchema,
+  deriveSpine,
   dobFillSchema,
   EMPTY_GOALS,
   fillAnswer,
@@ -19,6 +21,7 @@ import {
   gramsFromKg,
   gramsFromLb,
   hasAtLeastOneDomain,
+  healthSpineSchema,
   imperialFromCm,
   kgFromGrams,
   lbFromGrams,
@@ -152,17 +155,29 @@ test("a gateway failure yields a retryable fill with zero fields (zero side effe
   if (!result.ok) assert.equal(result.retryable, true);
 });
 
-test("the fake gateway THROWS on the onboarding-spine op (no silent fixture fallback)", async () => {
-  // deriveSpine lands in Pass 2; on the fake stack a spine call must fail loudly rather
-  // than return the brief fixture. Guards a Pass-2 refactor from restoring that fallback.
+test("the fake gateway RETURNS an answer-derived spine for onboarding-spine (Pass 2)", async () => {
+  // Pass 2 wires deriveSpine: given the answers envelope + the domain schema, the fake
+  // returns the SAME answer-derived spine (never the brief fixture). A spine call WITHOUT
+  // the envelope still throws — the no-silent-fixture-fallback guard survives the refactor.
   const llm = new FakeLlmGateway();
+  const answers = coreAnswersSchema.parse({ ...VALID_ANSWERS, timeBudgetMinutes: 45 });
+  const { object } = await llm.generateObject({
+    tier: "deep",
+    schema: healthSpineSchema,
+    system: "",
+    prompt: buildSpinePrompt("health", answers),
+    telemetry: { operation: "onboarding-spine" },
+  });
+  assert.equal(object.domain, "health");
+  assert.deepEqual(object, deriveSpine("health", answers)); // varies with the answers, not a fixture
+
   await assert.rejects(
     () =>
       llm.generateObject({
         tier: "deep",
-        schema: coreAnswersSchema,
+        schema: healthSpineSchema,
         system: "",
-        prompt: "",
+        prompt: "missing the envelope",
         telemetry: { operation: "onboarding-spine" },
       }),
     /onboarding-spine/,
