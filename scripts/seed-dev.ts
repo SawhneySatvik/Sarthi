@@ -107,6 +107,36 @@ async function main(): Promise<void> {
     millilitres: 900, source: "capture", confidenceBps: 9500, estimated: false,
   });
 
+  // ── Habits slice (SAR-009 D-G): rule-free habits with a grace-gapped log history so
+  // the streak flames + month heatmap render (including hollow grace rings on bridged
+  // misses), plus one satisfied-by habit ("Water", target 2,000 ml = its water ≥ 2,000 ml rule) whose live metric
+  // reads unsatisfied by default (only 900 ml today) and flips to a ⚡-done state under
+  // SEED_STATE=alldone (a second water log pushes the day over 2,000 ml + a materialized
+  // source:"satisfied-by" log, exactly what the commit transaction writes at runtime).
+  const seededHabits = await repos.habits.habits.list({});
+  const wakeHabit = seededHabits.find((h) => h.name.toLowerCase() === "wake by 5:30 am")!;
+  const meditateHabit = await repos.habits.habits.create({ name: "Meditate", cadence: "daily", difficulty: "easy", targetValue: 10, targetUnit: "minutes", isArchived: false });
+  const noSugarHabit = await repos.habits.habits.create({ name: "No sugar", cadence: "daily", difficulty: "hard", targetValue: null, targetUnit: null, isArchived: false });
+  const waterHabit = await repos.habits.habits.create({ name: "Water", cadence: "daily", difficulty: "medium", targetValue: 2000, targetUnit: "ml", isArchived: false });
+  await repos.habits.satisfactionRules.create({
+    habitId: waterHabit.id, sourceDomain: "health", sourceKind: "water", aggregateField: "millilitres", minimumValue: 2000, unit: "ml",
+  });
+
+  const habitLog = (habitId: string, delta: number) => {
+    const d = isoDaysFromToday(delta);
+    return repos.habits.logs.create({ habitId, occurredAt: `${d}T07:00:00.000Z`, localDate: d, timezone: "UTC", status: "done", source: "manual", note: null });
+  };
+  // Global active days = {0,-1,-3,-4,-6,-8}; the empty -2/-5/-7 days sit between active
+  // neighbours ≤ GRACE_DAYS+1 apart → each renders a hollow grace ring, not a gap.
+  for (const delta of [0, -1, -3, -4, -6, -8]) await habitLog(meditateHabit.id, delta);
+  for (const delta of [0, -1, -3, -4]) await habitLog(noSugarHabit.id, delta);
+  for (const delta of [-1, -3, -6, -8]) await habitLog(wakeHabit.id, delta); // unlogged today → a tickable rule-free row
+  if (done) {
+    // alldone: cross the 2,000 ml threshold and materialize the satisfied-by completion.
+    await repos.health.waterLogs.create({ occurredAt: `${today}T15:00:00.000Z`, localDate: today, timezone: "UTC", millilitres: 1400, source: "capture", confidenceBps: 9500, estimated: false });
+    await repos.habits.logs.create({ habitId: waterHabit.id, occurredAt: `${today}T15:00:00.000Z`, localDate: today, timezone: "UTC", status: "done", source: "satisfied-by", note: null });
+  }
+
   // ── Money slice (SAR-008 D-F): a hand-checkable current-month ledger so the Money lens
   // renders real content (not Day-1 empty). Integer paise only. Food ≈78%, Transport 95% (warn bar).
   const [yy, mm] = today.split("-").map(Number);

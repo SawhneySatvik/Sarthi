@@ -34,7 +34,7 @@ export function CaptureLauncher() {
       <div
         aria-hidden
         className="pointer-events-none fixed inset-x-0 bottom-0 z-10 h-32"
-        style={{ background: "linear-gradient(to top, var(--bg-canvas) 45%, transparent)" }}
+        style={{ background: "linear-gradient(to top, var(--bg-canvas) 70%, transparent)" }}
       />
       <div className="pointer-events-none fixed inset-x-0 bottom-16 z-20 px-4 md:bottom-6 md:pl-16">
         <form

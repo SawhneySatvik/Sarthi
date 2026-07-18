@@ -1,6 +1,7 @@
 import { getSession } from "@/app/lib/session";
 import { AppHeader } from "@/components/shell/AppHeader";
 import { TodayBody } from "@/components/today/TodayBody";
+import { buildHabitsView, resolveRuleDayTotals } from "@/core/domains/habits";
 import { buildHealthView } from "@/core/domains/health";
 import { buildMoneyView } from "@/core/domains/money";
 import { buildTodayView } from "@/core/domains/today";
@@ -14,7 +15,7 @@ export default async function TodayPage() {
   // `timezone`) is owned by the SAR-006 capture edge; seed + page agree meanwhile.
   const localDate = new Date().toISOString().slice(0, 10);
 
-  const [items, progress, arcs, notes, meals, waterLogs, workouts, weighIns, transactions, categories, budgets, recurringRules] =
+  const [items, progress, arcs, notes, meals, waterLogs, workouts, weighIns, transactions, categories, budgets, recurringRules, habits, habitLogs, satisfactionRules] =
     await Promise.all([
       repos.plans.items.list({ localDate }),
       repos.plans.progress.list({}),
@@ -29,7 +30,14 @@ export default async function TodayPage() {
       repos.money.categories.list({}),
       repos.money.budgets.list({}),
       repos.money.recurringRules.list({ isPaused: false }),
+      // Habits: full log history so per-habit streaks + the heatmap see all days (no aggregate port).
+      repos.habits.habits.list({}),
+      repos.habits.logs.list({}),
+      repos.habits.satisfactionRules.list({}),
     ]);
+
+  // Live per-rule source aggregates for the satisfied-by badges (repos-injected core helper).
+  const ruleTotals = await resolveRuleDayTotals(repos, satisfactionRules, localDate);
 
   const view = buildTodayView({
     localDate,
@@ -40,11 +48,12 @@ export default async function TodayPage() {
   });
   const healthView = buildHealthView({ meals, waterLogs, workouts, weighIns });
   const moneyView = buildMoneyView({ localDate, transactions, categories, budgets, recurringRules });
+  const habitsView = buildHabitsView({ localDate, habits, logs: habitLogs, rules: satisfactionRules, ruleTotals });
 
   return (
     <>
       <AppHeader title="Today" />
-      <TodayBody view={view} healthView={healthView} moneyView={moneyView} />
+      <TodayBody view={view} healthView={healthView} moneyView={moneyView} habitsView={habitsView} />
     </>
   );
 }

@@ -14,13 +14,12 @@ import { randomUUID } from "node:crypto";
 
 import type { UserScopedRepositories } from "@/core/contracts";
 import type { LlmGateway } from "@/core/contracts";
-import { applyProgress, computeStreak, nextStreak, type ProgressEffect, type ProgressState } from "@/core/game";
+import { applyProgress, computeStreak, GRACE_DAYS, nextStreak, type ProgressEffect, type ProgressState } from "@/core/game";
 import { xpForProposal } from "@/core/game";
 
 import { resolvedProposalSchema } from "./contract";
 import type { ProposalDomain, ResolvedProposal } from "./contract";
 
-const GRACE_DAYS = 1;
 const UNDO_WINDOW_MS = 5 * 60 * 1000;
 
 export type CommitKind = "capture" | "tap" | "tool" | "edit" | "delete";

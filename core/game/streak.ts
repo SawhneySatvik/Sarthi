@@ -7,6 +7,14 @@
  * a gap of `graceDays + 1` calendar days between two active days still counts.
  */
 
+/**
+ * How many missed days a streak tolerates before it breaks (SAR-004/SAR-009, D-C).
+ * The single source of truth: both the commit path (`domain_progress.streak`) and
+ * the Habits lens read-model (`core/domains/habits.ts` per-habit flames) import this
+ * one constant so grace can never diverge between writer and reader.
+ */
+export const GRACE_DAYS = 1;
+
 /** Whole-day number for an ISO `YYYY-MM-DD` (UTC midnight / 86400s). */
 export function toDayNumber(localDate: string): number {
   const [year, month, day] = localDate.split("-").map((part) => Number.parseInt(part, 10));

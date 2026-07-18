@@ -279,3 +279,32 @@ body {
   font-family: var(--font-ui-family), ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
+
+/*
+ * SAR-009 (D-E) — the satisfied-by REFUSAL wiggle. A rule-bearing Habits row cannot be
+ * hand-ticked, so tapping it shakes once instead of writing. Motion tokens only
+ * (`--t-fast` / `--ease-standard`); under reduced-motion the transform is suppressed and
+ * only the rule hint conveys the refusal (motion is never the sole signal).
+ */
+@keyframes habit-refuse-wiggle {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-3px);
+  }
+  75% {
+    transform: translateX(3px);
+  }
+}
+
+.animate-refuse {
+  animation: habit-refuse-wiggle var(--t-fast) var(--ease-standard);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-refuse {
+    animation: none;
+  }
+}
