@@ -80,6 +80,40 @@ async function healthLens(browser, themes, widths) {
   }
 }
 
+async function moneyLens(browser, themes, widths) {
+  for (const [theme, mode] of themes) {
+    for (const width of widths) {
+      await withPage(browser, { theme, mode, width }, async (page) => {
+        await page.goto(`${BASE}/today`, { waitUntil: "networkidle" });
+        await page.getByRole("button", { name: "Money" }).click();
+        // Gate the shot on the lens actually being mounted (not the placeholder).
+        await page.getByText("Safe to spend").first().waitFor({ timeout: 4000 }).catch(() => {});
+        await page.waitForTimeout(300);
+        await shot(page, `money-lens-${width}-${theme}-${mode}`);
+
+        // Scroll the ledger clear of the fixed capture bar (F1 proof).
+        await page.mouse.move(Math.round(width / 2), 400);
+        await page.mouse.wheel(0, 4000);
+        await page.waitForTimeout(450);
+        await shot(page, `money-ledger-${width}-${theme}-${mode}`);
+        await page.mouse.wheel(0, -4000);
+        await page.waitForTimeout(250);
+
+        // Safe-to-spend glass-box math sheet — gate on the math rows appearing.
+        await page.getByRole("button", { name: /Safe to spend/ }).first().click().catch(() => {});
+        await page.getByText("Balance so far").first().waitFor({ timeout: 3000 }).catch(() => {});
+        await shot(page, `money-math-${width}-${theme}-${mode}`);
+
+        // Category drill (tap a budget bar → push) — gate on the Back affordance.
+        await page.getByRole("button", { name: /Food/ }).first().click().catch(() => {});
+        await page.getByText("Back").first().waitFor({ timeout: 3000 }).catch(() => {});
+        await page.waitForTimeout(200);
+        await shot(page, `money-drill-${width}-${theme}-${mode}`);
+      });
+    }
+  }
+}
+
 async function captureFlow(browser, themes, widths) {
   for (const [theme, mode] of themes) {
     for (const width of widths) {
@@ -140,8 +174,11 @@ try {
     await today(browser, "sweep", NON_EMBER, [MOBILE]); // ember covered by 'populated' → full 6-mode set
     // Health BEFORE the capture flow, so its rows show the clean seed (the flow commits meals).
     await healthLens(browser, [["ember", "dark"], ["ember", "light"], ["bone", "dark"], ["moss", "dark"]], [MOBILE, DESKTOP]);
+    await moneyLens(browser, EMBER, [MOBILE, DESKTOP]); // Money before captureFlow (read-only; keeps the seed clean)
     await captureFlow(browser, EMBER, [MOBILE]);
     await captureFlow(browser, [["ember", "dark"]], [DESKTOP]);
+  } else if (SHOTS === "money") {
+    await moneyLens(browser, EMBER, [MOBILE, DESKTOP]);
   } else if (SHOTS === "empty") {
     await today(browser, "empty", [["ember", "dark"]], [MOBILE, DESKTOP]);
   } else if (SHOTS === "alldone") {
