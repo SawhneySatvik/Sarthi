@@ -90,6 +90,12 @@ test("billing_events uniqueness is global (provider,providerEventId) — no user
   }
 });
 
+test("adaptations carries only a nullable typed appliedCommitId linkage", () => {
+  const adaptations = schemaContract.adaptations.descriptor;
+  const column = adaptations.columns.find((entry) => entry.name === "appliedCommitId");
+  assert.deepEqual(column, { name: "appliedCommitId", type: "uuid", notNull: false, references: "commits" });
+});
+
 test("the contract module stays drizzle- and framework-free (D-B / invariant 9)", () => {
   const source = readFileSync("data/schema/contract.ts", "utf8");
 

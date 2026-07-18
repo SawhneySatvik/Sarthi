@@ -89,3 +89,15 @@ test("the global billing idempotency unique index exists", async () => {
     memory.client.close();
   }
 });
+
+test("adaptations migration carries the nullable appliedCommitId linkage", async () => {
+  const memory = await createMemoryDb();
+  try {
+    const info = await memory.client.execute("PRAGMA table_info(adaptations)");
+    const column = info.rows.find((row: Row) => String(row.name) === "appliedCommitId");
+    assert.ok(column, "adaptations.appliedCommitId is required for undo coherence");
+    assert.equal(Number(column.notnull), 0, "proposal rows must keep this linkage nullable");
+  } finally {
+    memory.client.close();
+  }
+});
