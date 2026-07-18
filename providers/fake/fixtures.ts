@@ -155,6 +155,18 @@ export const RECEIPT_BATCH_FIXTURE = {
   ],
 } as const;
 
+// SAR-012 (D-D) — deterministic voice-fill answers, one per CORE question key. The
+// fake reads the question key out of the prompt envelope and returns its canned fields;
+// the caller's per-question schema validates them. Integer units, metric, keyless.
+export const CANNED_ONBOARDING_FILLS = {
+  name: { displayName: "Satvik" },
+  dob: { birthDate: "1998-03-14" },
+  body: { heightCm: 178, weightGrams: 74000 },
+  day: { dayShape: "nine_to_five", wakeTimeMinutes: 360, sleepTimeMinutes: 1380 },
+  goals: { health: ["gym"], money: ["track_spends"], habits: [], skillName: null },
+  timeBudget: { timeBudgetMinutes: 30 },
+} as const;
+
 export const CANNED_COACH_LINE_FIXTURE = {
   fixtureId: "canned-coach-line",
   fixtureVersion: FAKE_FIXTURE_VERSION,

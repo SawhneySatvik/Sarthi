@@ -17,6 +17,10 @@ mkdirSync(OUT, { recursive: true });
 
 const MOBILE = 390;
 const DESKTOP = 1280;
+// SAR-012 D-041: the onboarding steps crossfade between questions and the chips animate
+// their color transition. Let that finish before a shot so captures never land
+// mid-transition (which read as inconsistent / faint chip styling).
+const SETTLE_MS = 320;
 const EMBER = [["ember", "dark"], ["ember", "light"]];
 const NON_EMBER = [["bone", "dark"], ["bone", "light"], ["moss", "dark"], ["moss", "light"]];
 
@@ -213,6 +217,84 @@ async function captureFlow(browser, themes, widths) {
   }
 }
 
+// SAR-012 Pass 1 — the CORE onboarding walk (A → B1–B6). Drive against a SEED_STATE=fresh
+// DB (no profile → the gate lands here). Covers the unit toggle, B5 multi-domain, a
+// voice-fill confirm, the post-CORE seam, and a reload-resume. 390px + desktop, Ember ×2.
+async function onboarding(browser, themes, widths) {
+  for (const [theme, mode] of themes) {
+    for (const width of widths) {
+      await withPage(browser, { theme, mode, width }, async (page) => {
+        // Settle the crossfade / chip transition, THEN shoot — never mid-transition.
+        const snap = async (name) => {
+          await page.waitForTimeout(SETTLE_MS);
+          await shot(page, name);
+        };
+        await page.goto(`${BASE}/onboarding`, { waitUntil: "networkidle" });
+        await page.getByRole("button", { name: "Begin" }).waitFor({ timeout: 4000 }).catch(() => {});
+        await snap(`onboarding-welcome-${width}-${theme}-${mode}`);
+
+        // A → B1 name, with a voice-fill confirm.
+        await page.getByRole("button", { name: "Begin" }).click().catch(() => {});
+        await page.getByLabel("Your name").waitFor({ timeout: 4000 }).catch(() => {});
+        await snap(`onboarding-b1-name-${width}-${theme}-${mode}`);
+        await page.getByRole("button", { name: "Say your answer" }).click().catch(() => {});
+        await page.getByLabel("Your spoken answer").fill("call me Satvik").catch(() => {});
+        await page.getByRole("button", { name: "Fill" }).click().catch(() => {});
+        await page.getByRole("button", { name: "Use this" }).waitFor({ timeout: 4000 }).catch(() => {});
+        await snap(`onboarding-voice-confirm-${width}-${theme}-${mode}`);
+        await page.getByRole("button", { name: "Use this" }).click().catch(() => {});
+        await page.getByLabel("Your name").fill("Satvik").catch(() => {});
+        await page.getByRole("button", { name: "Continue" }).click().catch(() => {});
+
+        // B2 dob. `fill` leaves the date field focused, which paints Chromium's
+        // system-blue active-segment highlight; blur so the shot captures the true
+        // resting state (value shown, no highlighted segment) before the settle + snap.
+        await page.getByLabel("Date of birth").fill("1998-03-14").catch(() => {});
+        await page.evaluate(() => (document.activeElement instanceof HTMLElement) && document.activeElement.blur()).catch(() => {});
+        await snap(`onboarding-b2-dob-${width}-${theme}-${mode}`);
+        await page.getByRole("button", { name: "Continue" }).click().catch(() => {});
+
+        // B3 body + the unit toggle.
+        await page.getByLabel("Increase Height").waitFor({ timeout: 4000 }).catch(() => {});
+        await snap(`onboarding-b3-body-${width}-${theme}-${mode}`);
+        await page.getByRole("button", { name: "ft-in / lb" }).click().catch(() => {});
+        await snap(`onboarding-b3-body-imperial-${width}-${theme}-${mode}`);
+        await page.getByRole("button", { name: "Continue" }).click().catch(() => {});
+
+        // B4 day-shape + sliders.
+        await page.getByRole("button", { name: "student" }).click().catch(() => {});
+        await snap(`onboarding-b4-day-${width}-${theme}-${mode}`);
+
+        // Reload-resume (§10 kill-app row) proved MID-FLOW. The draft persists screen +
+        // answers live to localStorage, so reloading here restores the flow to the day-shape
+        // question (B4) with "student" still selected — NOT the final step. Captured before
+        // B5/B6 are filled, so the restored screen provably can't be the time budget: the
+        // artifact is a distinct question from b6-time and genuinely evidences a resumed
+        // session. The `student` marker confirms the restore before shooting; the persisted
+        // answer keeps B4's Continue enabled so B5/B6/core-done proceed unchanged.
+        await page.reload({ waitUntil: "networkidle" });
+        await page.getByRole("button", { name: "student" }).waitFor({ timeout: 4000 }).catch(() => {});
+        await snap(`onboarding-resume-${width}-${theme}-${mode}`);
+
+        await page.getByRole("button", { name: "Continue" }).click().catch(() => {});
+
+        // B5 goals — multi-domain selection.
+        await page.getByRole("button", { name: "gym" }).click().catch(() => {});
+        await page.getByRole("button", { name: "track spends" }).click().catch(() => {});
+        await page.getByLabel("Name a skill").fill("system design").catch(() => {});
+        await snap(`onboarding-b5-goals-${width}-${theme}-${mode}`);
+        await page.getByRole("button", { name: "Continue" }).click().catch(() => {});
+
+        // B6 time budget.
+        await page.getByRole("button", { name: "30m" }).click().catch(() => {});
+        await snap(`onboarding-b6-time-${width}-${theme}-${mode}`);
+        await page.getByRole("button", { name: "Continue" }).click().catch(() => {});
+        await snap(`onboarding-core-done-${width}-${theme}-${mode}`);
+      });
+    }
+  }
+}
+
 // A 1×1 PNG — the fake vision adapter is toggle-driven, so image content is irrelevant.
 const PNG_1x1 = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGNgYGAAAAAEAAH2FzhVAAAAAElFTkSuQmCC",
@@ -287,6 +369,9 @@ try {
     // regress the text F3 path, and the new photo ramp (+ desktop smoke, D-034).
     await captureFlow(browser, EMBER, [MOBILE]);
     await photoFlow(browser, EMBER, [MOBILE, DESKTOP]);
+  } else if (SHOTS === "onboarding") {
+    // SAR-012 Pass 1 — drive against a SEED_STATE=fresh DB (see the ticket Verification block).
+    await onboarding(browser, EMBER, [MOBILE, DESKTOP]);
   } else if (SHOTS === "empty") {
     await today(browser, "empty", [["ember", "dark"]], [MOBILE, DESKTOP]);
   } else if (SHOTS === "alldone") {

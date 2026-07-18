@@ -308,3 +308,28 @@ body {
     animation: none;
   }
 }
+
+/*
+ * SAR-012 (§10) — voice-fill "unparseable" feedback. When a spoken answer can't be
+ * parsed the field stays empty and its chips pulse ONCE, cueing the tap fallback.
+ * Motion tokens only; suppressed under reduced-motion (motion is never the sole signal).
+ */
+@keyframes onboarding-chip-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.animate-onboarding-pulse {
+  animation: onboarding-chip-pulse var(--t-base) var(--ease-standard);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-onboarding-pulse {
+    animation: none;
+  }
+}

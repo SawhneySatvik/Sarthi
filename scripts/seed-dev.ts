@@ -17,7 +17,10 @@ import { seedCanonicalEntities } from "../data/seed/canonical";
 const DB_URL = process.env.DB_URL ?? "file:./sarthi.dev.db";
 const FILE = DB_URL.replace(/^file:/, "");
 const USER: AuthenticatedUser = { userId: "local-dev", email: null, mode: "local" };
-/** populated (default) · empty (new-user, no arc) · alldone (every item complete) — for screenshot states. */
+/**
+ * populated (default) · empty (new-user, no arc) · alldone (every item complete) · fresh
+ * (no profile at all → the SAR-012 onboarding gate routes to /onboarding) — screenshot states.
+ */
 const STATE = process.env.SEED_STATE ?? "populated";
 
 function isoDaysFromToday(delta: number): string {
@@ -45,7 +48,39 @@ async function main(): Promise<void> {
   }
   await applyMigrations();
 
+  if (STATE === "fresh") {
+    // SAR-012 (D-A) — the true new-user landing state: migrations only, no profile row,
+    // no entities. The (app) shell gate finds no `complete` profile and routes to
+    // /onboarding, so this is the state the onboarding shots/tests run against.
+    console.log(`seeded dev db (fresh) at ${DB_URL} — no profile, onboarding gate active`);
+    return;
+  }
+
   const repos = createSqliteRepositoryFactory(DB_URL).forUser(USER);
+
+  // SAR-012 (D-A) — every non-fresh state carries a COMPLETE profile so the onboarding
+  // gate passes and the existing Today demo renders exactly as before this gate landed.
+  await repos.profile.profiles.create({
+    displayName: "Satvik",
+    birthDate: "1998-03-14",
+    heightCm: 178,
+    weightGrams: 74000,
+    unitSystem: "metric",
+    theme: "ember",
+    themeMode: "dark",
+    wakeTimeMinutes: 330,
+    sleepTimeMinutes: 1380,
+    timeBudgetMinutes: 60,
+    foodPattern: null,
+    screenTimeMinutes: null,
+    focusPreference: null,
+    careerGoal: null,
+    moneyGoal: null,
+    plan: "free",
+    onboardingStatus: "complete",
+    onboardingStep: 6,
+    seedVersion: null,
+  });
 
   // The entities the canonical capture fixture resolves against (F3 strip; D-K).
   await seedCanonicalEntities(repos);
