@@ -213,6 +213,54 @@ async function captureFlow(browser, themes, widths) {
   }
 }
 
+// A 1×1 PNG — the fake vision adapter is toggle-driven, so image content is irrelevant.
+const PNG_1x1 = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGNgYGAAAAAEAAH2FzhVAAAAAElFTkSuQmCC",
+  "base64",
+);
+
+async function photoFlow(browser, themes, widths) {
+  const fileArg = { name: "lunch.png", mimeType: "image/png", buffer: PNG_1x1 };
+  for (const [theme, mode] of themes) {
+    for (const width of widths) {
+      // Meal pass: preview + toggle + meal confirm (estimate card, NOT auto-filed).
+      await withPage(browser, { theme, mode, width }, async (page) => {
+        await page.route("**/api/capture/parse-photo", async (r) => {
+          await new Promise((x) => setTimeout(x, 700));
+          await r.continue();
+        });
+        await page.goto(`${BASE}/today`, { waitUntil: "networkidle" });
+        await page.locator('input[type="file"]').setInputFiles(fileArg);
+        await page.getByText("What is this?").first().waitFor({ timeout: 4000 }).catch(() => {});
+        await page.waitForTimeout(300);
+        await shot(page, `photo-preview-${width}-${theme}-${mode}`);
+
+        await page.getByRole("button", { name: /^receipt$/i }).first().click().catch(() => {});
+        await page.waitForTimeout(200);
+        await shot(page, `photo-preview-receipt-${width}-${theme}-${mode}`);
+
+        await page.getByRole("button", { name: /^meal$/i }).first().click().catch(() => {});
+        await page.getByRole("button", { name: /Analyze/i }).first().click().catch(() => {});
+        await page.getByText("Confirm estimates").first().waitFor({ timeout: 6000 }).catch(() => {});
+        await page.waitForTimeout(400);
+        await shot(page, `photo-meal-confirm-${width}-${theme}-${mode}`);
+      });
+
+      // Receipt pass: toggle receipt → analyze → the transaction batch (F5), also pending.
+      await withPage(browser, { theme, mode, width }, async (page) => {
+        await page.goto(`${BASE}/today`, { waitUntil: "networkidle" });
+        await page.locator('input[type="file"]').setInputFiles(fileArg);
+        await page.getByText("What is this?").first().waitFor({ timeout: 4000 }).catch(() => {});
+        await page.getByRole("button", { name: /^receipt$/i }).first().click().catch(() => {});
+        await page.getByRole("button", { name: /Analyze/i }).first().click().catch(() => {});
+        await page.getByText("Confirm estimates").first().waitFor({ timeout: 6000 }).catch(() => {});
+        await page.waitForTimeout(400);
+        await shot(page, `photo-receipt-confirm-${width}-${theme}-${mode}`);
+      });
+    }
+  }
+}
+
 const browser = await chromium.launch({ headless: true });
 try {
   if (SHOTS === "main") {
@@ -225,12 +273,20 @@ try {
     await skillsLens(browser, EMBER, [MOBILE, DESKTOP]);
     await captureFlow(browser, EMBER, [MOBILE]);
     await captureFlow(browser, [["ember", "dark"]], [DESKTOP]);
+    await photoFlow(browser, EMBER, [MOBILE]);
   } else if (SHOTS === "money") {
     await moneyLens(browser, EMBER, [MOBILE, DESKTOP]);
   } else if (SHOTS === "habits") {
     await habitsLens(browser, EMBER, [MOBILE, DESKTOP]);
   } else if (SHOTS === "skills") {
     await skillsLens(browser, EMBER, [MOBILE, DESKTOP]);
+  } else if (SHOTS === "photo") {
+    await photoFlow(browser, EMBER, [MOBILE]);
+  } else if (SHOTS === "capture") {
+    // The two hero-surface flows — verifies the SAR-011 CaptureSheet refactor didn't
+    // regress the text F3 path, and the new photo ramp (+ desktop smoke, D-034).
+    await captureFlow(browser, EMBER, [MOBILE]);
+    await photoFlow(browser, EMBER, [MOBILE, DESKTOP]);
   } else if (SHOTS === "empty") {
     await today(browser, "empty", [["ember", "dark"]], [MOBILE, DESKTOP]);
   } else if (SHOTS === "alldone") {
