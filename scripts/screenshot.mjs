@@ -134,6 +134,32 @@ async function habitsLens(browser, themes, widths) {
   }
 }
 
+async function skillsLens(browser, themes, widths) {
+  for (const [theme, mode] of themes) {
+    for (const width of widths) {
+      await withPage(browser, { theme, mode, width }, async (page) => {
+        await page.goto(`${BASE}/today`, { waitUntil: "networkidle" });
+        await page.getByRole("button", { name: "Skills" }).click();
+        await page.getByText("tap a track for its mastery").first().waitFor({ timeout: 4000 }).catch(() => {});
+        await page.waitForTimeout(350);
+        await shot(page, `skills-lens-${width}-${theme}-${mode}`);
+
+        // Push a track drill → the hero mastery counter.
+        await page.getByRole("button", { name: /System design/ }).first().click().catch(() => {});
+        await page.getByText("hours practiced").first().waitFor({ timeout: 3000 }).catch(() => {});
+        await page.waitForTimeout(250);
+        await shot(page, `skills-drill-${width}-${theme}-${mode}`);
+
+        // Scroll the drill to expose the curriculum + session log (M1/M2 verification).
+        await page.mouse.move(Math.round(width / 2), 400);
+        await page.mouse.wheel(0, 3000);
+        await page.waitForTimeout(400);
+        await shot(page, `skills-drill-log-${width}-${theme}-${mode}`);
+      });
+    }
+  }
+}
+
 async function captureFlow(browser, themes, widths) {
   for (const [theme, mode] of themes) {
     for (const width of widths) {
@@ -196,12 +222,15 @@ try {
     await healthLens(browser, [["ember", "dark"], ["ember", "light"], ["bone", "dark"], ["moss", "dark"]], [MOBILE, DESKTOP]);
     await moneyLens(browser, EMBER, [MOBILE, DESKTOP]); // Money before captureFlow (read-only; keeps the seed clean)
     await habitsLens(browser, EMBER, [MOBILE, DESKTOP]);
+    await skillsLens(browser, EMBER, [MOBILE, DESKTOP]);
     await captureFlow(browser, EMBER, [MOBILE]);
     await captureFlow(browser, [["ember", "dark"]], [DESKTOP]);
   } else if (SHOTS === "money") {
     await moneyLens(browser, EMBER, [MOBILE, DESKTOP]);
   } else if (SHOTS === "habits") {
     await habitsLens(browser, EMBER, [MOBILE, DESKTOP]);
+  } else if (SHOTS === "skills") {
+    await skillsLens(browser, EMBER, [MOBILE, DESKTOP]);
   } else if (SHOTS === "empty") {
     await today(browser, "empty", [["ember", "dark"]], [MOBILE, DESKTOP]);
   } else if (SHOTS === "alldone") {
