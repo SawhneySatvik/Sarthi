@@ -217,6 +217,53 @@ async function captureFlow(browser, themes, widths) {
   }
 }
 
+async function coachScreens(browser, themes, widths) {
+  for (const [theme, mode] of themes) for (const width of widths) await withPage(browser, { theme, mode, width }, async (page) => {
+    await page.goto(`${BASE}/coach`, { waitUntil: "networkidle" }); await page.waitForTimeout(SETTLE_MS);
+    await shot(page, `coach-reading-${width}-${theme}-${mode}`);
+    await page.getByText(/Deep work|lighter restart/).first().click().catch(() => {}); await page.waitForTimeout(150); await shot(page, `coach-adaptation-${width}-${theme}-${mode}`);
+    await page.getByLabel("Close adaptation").click().catch(() => {});
+    await page.getByLabel("Ask your coach").fill("How should I restart?"); await page.getByLabel("Send question").click(); await page.waitForTimeout(250); await shot(page, `coach-ask-${width}-${theme}-${mode}`);
+    await page.goto(`${BASE}/stats`, { waitUntil: "networkidle" }); await shot(page, `stats-current-${width}-${theme}-${mode}`);
+    await page.getByRole("tab", { name: "Day-1" }).click(); await shot(page, `stats-day-one-${width}-${theme}-${mode}`);
+    await page.getByRole("tab", { name: "Potential" }).click(); await shot(page, `stats-potential-${width}-${theme}-${mode}`);
+    await page.goto(`${BASE}/journey`, { waitUntil: "networkidle" }); await shot(page, `journey-rail-${width}-${theme}-${mode}`);
+    const photos = page.getByRole("button", { name: /photos/ }).first();
+    await photos.click();
+    const proof = page.getByRole("button", { name: /View proof:/ }).first();
+    await proof.waitFor({ state: "visible", timeout: 4000 });
+    await shot(page, `journey-expanded-${width}-${theme}-${mode}`);
+    await proof.click();
+    const viewer = page.getByRole("dialog", { name: "Evidence viewer" });
+    await viewer.waitFor({ state: "visible", timeout: 4000 });
+    await shot(page, `journey-viewer-${width}-${theme}-${mode}`);
+    await page.getByRole("button", { name: "Close evidence viewer" }).click();
+    await viewer.waitFor({ state: "hidden", timeout: 4000 });
+
+    // The weekly reading is intentionally Sunday-evening-only. Freeze the *next*
+    // document before navigating back to Coach so its signed brief request carries
+    // the valid local date 2026-07-19, while the regular Coach pass above remains
+    // representative of the host date.
+    await page.addInitScript((iso) => {
+      const RealDate = Date;
+      const fixedNow = new RealDate(iso).valueOf();
+      class SundayEveningDate extends RealDate {
+        constructor(...args) {
+          super(...(args.length === 0 ? [fixedNow] : args));
+        }
+        static now() { return fixedNow; }
+      }
+      Object.defineProperty(window, "Date", { configurable: true, writable: true, value: SundayEveningDate });
+    }, "2026-07-19T20:00:00");
+    await page.goto(`${BASE}/coach`, { waitUntil: "networkidle" });
+    const weekly = page.locator("section").filter({ hasText: "Coach observation" });
+    await weekly.waitFor({ state: "visible", timeout: 6000 });
+    await weekly.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(SETTLE_MS);
+    await shot(page, `coach-weekly-${width}-${theme}-${mode}`);
+  });
+}
+
 // SAR-012 Pass 1 — the CORE onboarding walk (A → B1–B6). Drive against a SEED_STATE=fresh
 // DB (no profile → the gate lands here). Covers the unit toggle, B5 multi-domain, a
 // voice-fill confirm, the post-CORE seam, and a reload-resume. 390px + desktop, Ember ×2.
@@ -658,6 +705,9 @@ try {
   } else if (SHOTS === "voice") {
     await voiceFlow(browser, EMBER, [MOBILE]);
     await voiceFlow(browser, [["ember", "dark"]], [DESKTOP]);
+  } else if (SHOTS === "coach") {
+    await coachScreens(browser, EMBER, [MOBILE, DESKTOP]);
+    await coachScreens(browser, [["bone", "dark"], ["moss", "light"]], [MOBILE]);
   } else if (SHOTS === "onboarding") {
     // SAR-012 Pass 1–3 — drive against a SEED_STATE=fresh DB (see the ticket Verification
     // block): the CORE walk + Phase C shimmer + Phase D cards/edited-row, then the
