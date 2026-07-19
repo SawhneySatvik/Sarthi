@@ -4,6 +4,12 @@ import test from "node:test";
 import { z } from "zod";
 
 import {
+  RUNTIME_LLM_PROVIDER_HEADER,
+  RuntimeOverrideError,
+  isDeveloperControlAllowed,
+  resolveRequestLlmProvider,
+} from "../app/lib/runtimeOverride";
+import {
   createLlmGateway,
   createVisionProvider,
   createVoiceProvider,
@@ -96,6 +102,39 @@ test("live LLM factories construct their adapters without a network request", ()
   } finally {
     globalThis.fetch = savedFetch;
   }
+});
+
+test("public production ignores client provider headers while development and judge mode allow the signed matrix", () => {
+  assert.equal(
+    resolveRequestLlmProvider(new Headers({ [RUNTIME_LLM_PROVIDER_HEADER]: "fake" }), { judgeMode: false }, "production"),
+    null,
+  );
+  assert.equal(isDeveloperControlAllowed({ judgeMode: false }, "production"), false);
+  assert.equal(
+    resolveRequestLlmProvider(new Headers({ [RUNTIME_LLM_PROVIDER_HEADER]: "fake" }), { judgeMode: false }, "development"),
+    "fake",
+  );
+  assert.equal(
+    resolveRequestLlmProvider(new Headers({ [RUNTIME_LLM_PROVIDER_HEADER]: "openai" }), { judgeMode: true }, "production"),
+    "openai",
+  );
+});
+
+test("runtime override ignores voice headers, rejects Anthropic, and never shares a selection across requests", () => {
+  const config = { judgeMode: false };
+  assert.throws(
+    () => resolveRequestLlmProvider(new Headers({ [RUNTIME_LLM_PROVIDER_HEADER]: "anthropic" }), config, "development"),
+    RuntimeOverrideError,
+  );
+  assert.equal(
+    resolveRequestLlmProvider(new Headers({ "x-sarthi-voice-provider": "sarvam" }), config, "development"),
+    null,
+  );
+  assert.equal(
+    resolveRequestLlmProvider(new Headers({ [RUNTIME_LLM_PROVIDER_HEADER]: "fake" }), config, "development"),
+    "fake",
+  );
+  assert.equal(resolveRequestLlmProvider(new Headers(), config, "development"), null);
 });
 
 test("fake adapters are keyless, deterministic, and never invoke fetch", async () => {

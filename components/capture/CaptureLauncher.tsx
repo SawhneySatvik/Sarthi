@@ -37,6 +37,18 @@ export function CaptureLauncher() {
     return () => window.cancelAnimationFrame(frame);
   }, [router, searchParams]);
 
+  useEffect(() => {
+    const openNote = (event: Event) => {
+      const detail = (event as CustomEvent<{ text?: string }>).detail;
+      const note = detail?.text?.trim();
+      if (!note) return;
+      setSession({ mode: "text", text: note });
+      setNonce((value) => value + 1);
+    };
+    window.addEventListener("sarthi:capture-note", openNote);
+    return () => window.removeEventListener("sarthi:capture-note", openNote);
+  }, []);
+
   function openText(raw: string) {
     const trimmed = raw.trim();
     if (!trimmed) return;

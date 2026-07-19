@@ -7,7 +7,8 @@ import { createSqliteRepositoryFactory } from "@/data/repository";
 import { createAuthProvider } from "@/providers/auth";
 import { createLlmGateway, createVisionProvider, createVoiceProvider } from "@/providers";
 
-import { getRuntimeConfig } from "./runtime";
+import { getRuntimeConfig, type RuntimeConfig } from "./runtime";
+import { resolveRequestLlmProvider } from "./runtimeOverride";
 
 /*
  * app/lib/session.ts — SAR-005 (D-E). The missing composition wire between the
@@ -26,6 +27,14 @@ export interface Session {
   voice: VoiceProvider;
 }
 
+interface SessionBase {
+  user: AuthenticatedUser;
+  repos: UserScopedRepositories;
+  vision: VisionProvider;
+  voice: VoiceProvider;
+  config: RuntimeConfig;
+}
+
 // The factory owns a single shared db connection (data/repository/factory.ts), so it
 // is memoised per url at MODULE level — one connection per server instance, reused
 // across requests. `forUser` still mints a fresh per-request scope from it.
@@ -40,7 +49,7 @@ function factoryFor(url: string): ReturnType<typeof createSqliteRepositoryFactor
   return factory;
 }
 
-export const getSession = cache(async (): Promise<Session> => {
+const getSessionBase = cache(async (): Promise<SessionBase> => {
   const config = getRuntimeConfig();
   if (config.databaseProvider !== "sqlite") {
     // Postgres UI reads are wired in SAR-021; dev/CI runs keyless on SQLite.
@@ -51,8 +60,35 @@ export const getSession = cache(async (): Promise<Session> => {
   const auth = createAuthProvider(config.authProvider);
   const user = await auth.requireUser();
   const repos = factoryFor(config.databaseUrl).forUser(user);
-  const llm = createLlmGateway(config.llmProvider);
   const vision = createVisionProvider(config.visionProvider);
   const voice = createVoiceProvider(config.voiceProvider);
-  return { user, repos, llm, vision, voice };
+  return { user, repos, vision, voice, config };
 });
+
+function sessionForProvider(base: SessionBase, llmProvider: RuntimeConfig["llmProvider"]): Session {
+  return {
+    user: base.user,
+    repos: base.repos,
+    llm: createLlmGateway(llmProvider),
+    vision: base.vision,
+    voice: base.voice,
+  };
+}
+
+/** Default request/session composition. Existing zero-argument call sites stay unchanged. */
+export const getSession = cache(async (): Promise<Session> => {
+  const base = await getSessionBase();
+  return sessionForProvider(base, base.config.llmProvider);
+});
+
+/**
+ * Request-aware composition for the small set of runtime AI routes. The base session
+ * authenticates and binds the repository first; only then may a dev/judge header select
+ * a matrix-supported LLM gateway. This function intentionally is not React-cached so a
+ * provider selected for one request cannot bleed into another request.
+ */
+export async function getSessionForRuntimeRequest(request: Request): Promise<Session> {
+  const base = await getSessionBase();
+  const override = resolveRequestLlmProvider(request.headers, base.config);
+  return sessionForProvider(base, override ?? base.config.llmProvider);
+}

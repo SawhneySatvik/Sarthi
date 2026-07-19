@@ -23,14 +23,66 @@ import type { ProposalDomain, ResolvedProposal } from "./contract";
 
 const UNDO_WINDOW_MS = 5 * 60 * 1000;
 
+// HTTP requests construct fresh commit services/scopes, so the instance lock below
+// cannot serialize a double-click that arrives through two routes at once. The
+// idempotency key is client-generated per deliberate action and unique in the scoped
+// commit ledger; this short-lived module lock turns the loser into a true replay
+// instead of leaking a uniqueness error. Different keys continue independently.
+const idempotencyTails = new Map<string, Promise<void>>();
+
+function withIdempotencyLock<T>(key: string, work: () => Promise<T>): Promise<T> {
+  const previous = idempotencyTails.get(key) ?? Promise.resolve();
+  const run = previous.then(work, work);
+  const settled = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  idempotencyTails.set(key, settled);
+  void settled.finally(() => {
+    if (idempotencyTails.get(key) === settled) idempotencyTails.delete(key);
+  });
+  return run;
+}
+
 export type CommitKind = "capture" | "tap" | "tool" | "edit" | "delete";
 
-export interface CommitInput {
+export interface ProposalCommitInput {
   draftId?: string;
   idempotencyKey: string;
-  kind: CommitKind;
+  kind: Exclude<CommitKind, "tool">;
   proposals: readonly ResolvedProposal[];
 }
+
+/** A deliberate Focus completion. The route resolves the scoped skill before this reaches the service. */
+export interface FocusToolCommitInput {
+  idempotencyKey: string;
+  kind: "tool";
+  tool: "focus";
+  skillId: string;
+  minutes: number;
+  occurredAt: string;
+  localDate: string;
+  timezone: string;
+}
+
+/**
+ * Meditation's first-use setup is part of the command, never a generic extra row.
+ * The service creates the `Meditate` habit in the same transaction when `create` is
+ * selected, so one undo removes the log before the new habit.
+ */
+export interface MeditationToolCommitInput {
+  idempotencyKey: string;
+  kind: "tool";
+  tool: "meditation";
+  habit: { mode: "existing"; habitId: string } | { mode: "create" };
+  minutes: number;
+  occurredAt: string;
+  localDate: string;
+  timezone: string;
+}
+
+/** Exhaustive commit command surface; tools cannot smuggle a generic row/payload. */
+export type CommitInput = ProposalCommitInput | FocusToolCommitInput | MeditationToolCommitInput;
 
 export interface WrittenEntry {
   entryKind: string;
@@ -137,6 +189,8 @@ function repoForEntryKind(repos: UserScopedRepositories, entryKind: string) {
       return repos.health.weighIns;
     case "habitLog":
       return repos.habits.logs;
+    case "habit":
+      return repos.habits.habits;
     case "skillSession":
       return repos.skills.sessions;
     case "domainProgress":
@@ -233,9 +287,10 @@ interface DispatchedRow {
 async function dispatchCreate(
   repos: UserScopedRepositories,
   proposal: Extract<ResolvedProposal, { status: "auto" | "accepted" }>,
+  source: "capture" | "timer" | "tool" = "capture",
 ): Promise<DispatchedRow[]> {
   const when = { occurredAt: proposal.occurredAt, localDate: proposal.localDate, timezone: proposal.timezone };
-  const meta = { source: "capture", confidenceBps: proposal.confidenceBps, estimated: proposal.estimated };
+  const meta = { source, confidenceBps: proposal.confidenceBps, estimated: proposal.estimated };
 
   switch (proposal.kind) {
     case "transaction": {
@@ -318,7 +373,7 @@ async function dispatchCreate(
         ...when,
         habitId: proposal.payload.habitId,
         status: proposal.payload.status,
-        source: "capture",
+        source,
         note: proposal.payload.note,
       });
       return [{ entryKind: "habitLog", entryId: record.id, domain: "habits", minutes: 0, record }];
@@ -328,7 +383,7 @@ async function dispatchCreate(
         ...when,
         skillId: proposal.payload.skillId,
         minutes: proposal.payload.minutes,
-        source: "capture",
+        source,
         note: proposal.payload.note,
         confidenceBps: proposal.confidenceBps,
         estimated: proposal.estimated,
@@ -343,6 +398,54 @@ interface CorrectionRow {
   entryId: string;
   before: Record<string, unknown>;
   after: Record<string, unknown>;
+}
+
+function assertPositiveInteger(value: number, label: string): void {
+  if (!Number.isSafeInteger(value) || value < 1) {
+    throw new Error(`${label} must be a positive integer`);
+  }
+}
+
+function assertToolCommand(input: FocusToolCommitInput | MeditationToolCommitInput): void {
+  assertPositiveInteger(input.minutes, "tool minutes");
+  if (!input.idempotencyKey || !input.occurredAt || !input.localDate || !input.timezone) {
+    throw new Error("tool command is missing required timing or idempotency fields");
+  }
+  if (input.tool === "focus" && !input.skillId) {
+    throw new Error("focus command requires a resolved skill");
+  }
+  if (input.tool === "meditation" && input.habit.mode === "existing" && !input.habit.habitId) {
+    throw new Error("meditation command requires a resolved habit");
+  }
+}
+
+function toolProposal(input: FocusToolCommitInput | MeditationToolCommitInput, habitId: string): ResolvedProposal {
+  const common = {
+    proposalId: randomUUID(),
+    intent: "create" as const,
+    occurredAt: input.occurredAt,
+    localDate: input.localDate,
+    timezone: input.timezone,
+    estimated: false,
+    confidenceBps: 10000,
+    why: { basis: "explicit tool completion", assumptions: [] },
+    evidenceRefs: [],
+    status: "accepted" as const,
+  };
+  if (input.tool === "focus") {
+    return {
+      ...common,
+      domain: "skills",
+      kind: "skillSession",
+      payload: { skillId: input.skillId, minutes: input.minutes, note: null },
+    };
+  }
+  return {
+    ...common,
+    domain: "habits",
+    kind: "habitLog",
+    payload: { habitId, status: "done", note: `Meditation · ${input.minutes} min` },
+  };
 }
 
 /**
@@ -477,13 +580,18 @@ export function createCommitService(options: CreateCommitServiceOptions): Commit
   }
 
   async function commit(input: CommitInput): Promise<CommitResult> {
-    return withLock(async () => {
+    return withIdempotencyLock(input.idempotencyKey, () => withLock(async () => {
       // Resolved-strict gate (N-2): run the commit contract at RUNTIME, not just in
       // the type system. A null/float/unresolved payload is rejected here, before any
       // write, instead of surfacing as a mid-transaction repository throw. The route +
       // resolve layers already produce conforming proposals; this is defence in depth
       // for the SAR-006 API boundary where the type system will not exist.
-      const proposals = input.proposals.map((p) => resolvedProposalSchema.parse(p));
+      let proposals: ResolvedProposal[] = [];
+      if (input.kind === "tool") {
+        assertToolCommand(input);
+      } else {
+        proposals = input.proposals.map((p) => resolvedProposalSchema.parse(p));
+      }
 
       // 1. Idempotency: a replayed key returns the original, never duplicates.
       const existing = (await repos.commits.commits.list({})).find(
@@ -509,14 +617,66 @@ export function createCommitService(options: CreateCommitServiceOptions): Commit
         // 2b. The envelope.
         await repos.commits.commits.create({
           id: commitId,
-          draftId: input.draftId ?? null,
+          draftId: input.kind === "tool" ? null : input.draftId ?? null,
           idempotencyKey: input.idempotencyKey,
           kind: input.kind,
           status: "committed",
           undoExpiresAt,
           undoneAt: null,
-          summary: `${proposals.length} entr${proposals.length === 1 ? "y" : "ies"} via capture`,
+          summary:
+            input.kind === "tool"
+              ? input.tool === "focus"
+                ? `Logged ${input.minutes} focus minutes`
+                : `Logged ${input.minutes} meditation minutes`
+              : `${proposals.length} entr${proposals.length === 1 ? "y" : "ies"} via capture`,
         });
+
+        // A tool command is resolved only after the transaction begins. This keeps the
+        // first-use Meditation habit and its dated log in one atomic, undoable batch.
+        if (input.kind === "tool") {
+          if (input.tool === "focus") {
+            const skill = await repos.skills.skills.byId(input.skillId);
+            if (!skill || skill.isArchived) throw new Error("focus skill is unavailable in this user scope");
+            proposals = [toolProposal(input, "")];
+          } else {
+            let habitId: string;
+            if (input.habit.mode === "existing") {
+              const existingHabit = await repos.habits.habits.byId(input.habit.habitId);
+              if (!existingHabit || existingHabit.isArchived || existingHabit.name.toLocaleLowerCase() !== "meditate") {
+                throw new Error("Meditate habit is unavailable in this user scope");
+              }
+              const existingLog = (await repos.habits.logs.list({})).some(
+                (log) => log.habitId === existingHabit.id && log.localDate === input.localDate,
+              );
+              if (existingLog) throw new Error("Meditation is already logged for this day");
+              habitId = existingHabit.id;
+            } else {
+              const createdHabit = await repos.habits.habits.create({
+                name: "Meditate",
+                cadence: "daily",
+                difficulty: "easy",
+                targetValue: null,
+                targetUnit: "minutes",
+                isArchived: false,
+              });
+              habitId = createdHabit.id;
+              entries.push({ entryKind: "habit", entryId: createdHabit.id });
+              await repos.commits.rows.create({
+                commitId,
+                entryKind: "habit",
+                entryId: createdHabit.id,
+                operation: "create",
+                beforeJson: null,
+                afterJson: {
+                  entryKind: "habit",
+                  entryId: createdHabit.id,
+                  columns: scalarColumns(createdHabit as unknown as Record<string, unknown>),
+                },
+              });
+            }
+            proposals = [toolProposal(input, habitId)];
+          }
+        }
 
         // 2c. Exhaustive typed dispatch → typed rows + create snapshots.
         const perDomain = new Map<
@@ -538,7 +698,9 @@ export function createCommitService(options: CreateCommitServiceOptions): Commit
             });
             continue;
           }
-          const rows = await dispatchCreate(repos, proposal);
+          const source =
+            input.kind !== "tool" ? "capture" : input.tool === "focus" ? "timer" : "tool";
+          const rows = await dispatchCreate(repos, proposal, source);
           for (const row of rows) {
             entries.push({ entryKind: row.entryKind, entryId: row.entryId });
             await repos.commits.rows.create({
@@ -642,6 +804,7 @@ export function createCommitService(options: CreateCommitServiceOptions): Commit
         // pre-SAR-012 → zero effects, but the writer + reversal are complete now.
         const touchedDomains = new Set<string>([...perDomain.keys()]);
         const touchedDates = new Set(proposals.map((p) => p.localDate));
+        const completionSource = input.kind === "tool" ? "tool" : "capture";
         const planItems = await repos.plans.items.list({});
         for (const item of planItems) {
           if (item.status === "done" || item.status === "skipped") {
@@ -651,7 +814,7 @@ export function createCommitService(options: CreateCommitServiceOptions): Commit
             continue;
           }
           const beforeColumns = scalarColumns(item as unknown as Record<string, unknown>);
-          const updated = await repos.plans.items.update(item.id, { status: "done", completionSource: "capture" });
+          const updated = await repos.plans.items.update(item.id, { status: "done", completionSource });
           await repos.commits.rows.create({
             commitId,
             entryKind: "planItem",
@@ -666,7 +829,7 @@ export function createCommitService(options: CreateCommitServiceOptions): Commit
             statusBefore: item.status,
             statusAfter: "done",
             completionSourceBefore: item.completionSource,
-            completionSourceAfter: "capture",
+            completionSourceAfter: completionSource,
           });
         }
 
@@ -736,7 +899,7 @@ export function createCommitService(options: CreateCommitServiceOptions): Commit
       }
 
       return { commitId, status: "committed", entries, progressEffects, coachNoteId, undoExpiresAt };
-    });
+    }));
   }
 
   async function applyAdaptationPlanPatch(input: {

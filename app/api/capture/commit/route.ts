@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { getSession } from "@/app/lib/session";
+import { getSessionForRuntimeRequest, type Session } from "@/app/lib/session";
+import { isRuntimeOverrideError } from "@/app/lib/runtimeOverride";
 import {
   createCommitService,
   proposalSchema,
@@ -55,7 +56,16 @@ export async function POST(request: Request): Promise<Response> {
     return NextResponse.json({ ok: false, error: "malformed proposal payload" }, { status: 400 });
   }
 
-  const { repos, llm } = await getSession();
+  let repos: Session["repos"];
+  let llm: Session["llm"];
+  try {
+    ({ repos, llm } = await getSessionForRuntimeRequest(request));
+  } catch (error) {
+    if (isRuntimeOverrideError(error)) {
+      return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
+    }
+    throw error;
+  }
 
   const resolved: ResolvedProposal[] = [];
   const unresolved: Unresolved[] = [];

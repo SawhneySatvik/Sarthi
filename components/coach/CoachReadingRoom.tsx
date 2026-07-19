@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 
 import { transcribeVoice } from "@/components/capture/captureClient";
 import { usePressToTalk } from "@/components/capture/usePressToTalk";
+import { runtimeProviderHeaders } from "@/components/settings/runtimeOverride";
 import { E1Food } from "@/components/onboarding/detail/sections/E1Food";
 import { E2Screen } from "@/components/onboarding/detail/sections/E2Screen";
 import { E3Focus } from "@/components/onboarding/detail/sections/E3Focus";
@@ -124,7 +125,7 @@ export function CoachReadingRoom({ initial, reentryEligible, reentry }: { initia
     setBriefError(null);
     try {
       const response = await fetch("/api/coach/brief", {
-        method: "POST", headers: { "content-type": "application/json" },
+        method: "POST", headers: { "content-type": "application/json", ...runtimeProviderHeaders() },
         body: JSON.stringify({
           scope,
           localDate: scope === "weekly" ? trailingWeekStart(localDay()) : localDay(),
@@ -225,7 +226,7 @@ export function CoachReadingRoom({ initial, reentryEligible, reentry }: { initia
     setActionError(null);
     try {
       const response = await fetch("/api/coach/ask", {
-        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text, timezone: zone() }),
+        method: "POST", headers: { "content-type": "application/json", ...runtimeProviderHeaders() }, body: JSON.stringify({ text, timezone: zone() }),
       });
       const body = await jsonBody(response);
       if (!body?.ok || !body.answer || typeof body.answer !== "object" || typeof (body.answer as { text?: unknown }).text !== "string") throw new Error("ask unavailable");

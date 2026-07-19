@@ -2,9 +2,9 @@ import { redirect } from "next/navigation";
 
 import { getSession } from "@/app/lib/session";
 import { CaptureLauncher } from "@/components/capture/CaptureLauncher";
-import { ThemeSwitcher } from "@/components/dev/ThemeSwitcher";
 import { BottomNav } from "@/components/shell/BottomNav";
 import { LeftRail } from "@/components/shell/LeftRail";
+import { ToolsProvider, ToolsResumeRibbon } from "@/components/tools/ToolsProvider";
 
 // SAR-012 (D-A) — the gate reads the per-user profile at request time, so the WHOLE app
 // subtree must render per-request. A DB read in an async layout is NOT a dynamic signal to
@@ -27,14 +27,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className="min-h-screen bg-canvas text-ink-1 md:pl-16">
-      <LeftRail />
-      <div className="mx-auto flex min-h-screen max-w-[45rem] flex-col">
-        <main className="flex-1 pb-44 md:pb-32">{children}</main>
+    <ToolsProvider>
+      <div className="min-h-screen bg-canvas text-ink-1 md:pl-16">
+        <LeftRail />
+        <div className="mx-auto flex min-h-screen max-w-[45rem] flex-col">
+          <main className="flex-1 pb-44 md:pb-32">{children}</main>
+        </div>
+        <ToolsResumeRibbon />
+        <CaptureLauncher />
+        <BottomNav />
       </div>
-      <CaptureLauncher />
-      <BottomNav />
-      <ThemeSwitcher />
-    </div>
+    </ToolsProvider>
   );
 }

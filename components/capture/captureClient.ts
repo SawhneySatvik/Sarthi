@@ -1,5 +1,6 @@
 import type { CommitResult } from "@/core/capture/commit";
 import type { CaptureDraft, ClarificationQuestion, Proposal } from "@/core/capture/contract";
+import { runtimeProviderHeaders } from "@/components/settings/runtimeOverride";
 
 /*
  * Client wrappers over the SAR-006 capture route handlers (D-A). Type-only imports
@@ -41,9 +42,10 @@ export interface UndoResponse {
 
 /** A fetch rejection / non-JSON body must never throw into the sheet (R1): it degrades
  *  to a safe `ok:false` so the caller re-decks the card instead of losing it. */
-async function postJson<T>(url: string, body: unknown, onError: T): Promise<T> {
+async function postJson<T>(url: string, body: unknown, onError: T, includeRuntimeProvider = false): Promise<T> {
   try {
-    const res = await fetch(url, { method: "POST", headers: JSON_HEADERS, body: JSON.stringify(body) });
+    const headers = includeRuntimeProvider ? { ...JSON_HEADERS, ...runtimeProviderHeaders() } : JSON_HEADERS;
+    const res = await fetch(url, { method: "POST", headers, body: JSON.stringify(body) });
     return (await res.json()) as T;
   } catch {
     return onError;
@@ -58,7 +60,7 @@ export async function parseText(
   // Preserve the original text body exactly unless this is a successful voice STT
   // handoff. Voice metadata is transport context; parse still uses this same endpoint.
   const body = metadata ? { text, timezone, ...metadata } : { text, timezone };
-  return postJson("/api/capture/parse", body, { ok: false, error: "network" });
+  return postJson("/api/capture/parse", body, { ok: false, error: "network" }, true);
 }
 
 /** Submit an ephemeral browser clip only to the STT seam. Network/non-JSON failures
@@ -103,6 +105,7 @@ export async function commitProposals(
     "/api/capture/commit",
     { proposals, idempotencyKey: crypto.randomUUID(), kind, mode },
     { ok: false, unresolved: [] },
+    true,
   );
 }
 
