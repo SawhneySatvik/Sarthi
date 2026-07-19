@@ -47,6 +47,16 @@ function fixtureForText(operation: TextRequest["telemetry"]["operation"]): strin
   return operation === "capture-line" ? CANNED_COACH_LINE_FIXTURE.text : DETERMINISTIC_COACH_ASK_FIXTURE.text;
 }
 
+function reflectionText(prompt: string): string {
+  const parsed = JSON.parse(prompt) as { reflection?: { mood?: string; energyLevel?: number; sleepMinutes?: number | null; journal?: string }; facts?: unknown[] };
+  const reflection = parsed.reflection;
+  if (!reflection || typeof reflection.mood !== "string" || !Number.isInteger(reflection.energyLevel)) throw new Error("fake reflection prompt is malformed");
+  const sleep = reflection.sleepMinutes === null ? "sleep not recorded" : `${reflection.sleepMinutes} minutes of sleep`;
+  const note = typeof reflection.journal === "string" && reflection.journal.trim() ? ` You wrote: ${reflection.journal.trim().slice(0, 120)}` : "";
+  const facts = Array.isArray(parsed.facts) ? parsed.facts.length : 0;
+  return `${reflection.mood} mood and energy ${reflection.energyLevel}/5, with ${sleep}. ${facts} typed facts are recorded today.${note}`;
+}
+
 export class FakeLlmGateway implements LlmGateway {
   async generateObject<TSchema extends z.ZodType>(
     request: ObjectRequest<TSchema>,
@@ -70,7 +80,7 @@ export class FakeLlmGateway implements LlmGateway {
 
   async generateText(request: TextRequest) {
     return {
-      text: fixtureForText(request.telemetry.operation),
+      text: request.telemetry.operation === "reflection-summary" ? reflectionText(request.prompt) : fixtureForText(request.telemetry.operation),
       modelId: `fake-${request.tier}-v1`,
       provider: "fake" as const,
       latencyMs: FAKE_LATENCY_MS,

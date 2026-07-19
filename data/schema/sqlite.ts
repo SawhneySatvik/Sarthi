@@ -536,6 +536,43 @@ export const evidence = sqliteTable(
   ],
 );
 
+export const dailyReflections = sqliteTable(
+  'daily_reflections',
+  {
+    ...mutableBase,
+    localDate: text('localDate').notNull(),
+    mood: text('mood').notNull(),
+    energyLevel: integer('energyLevel').notNull(),
+    sleepMinutes: integer('sleepMinutes'),
+    journal: text('journal').notNull(),
+    summary: text('summary').notNull(),
+    summaryProvider: text('summaryProvider').notNull(),
+    summaryModelId: text('summaryModelId').notNull(),
+  },
+  (t) => [
+    uniqueIndex('daily_reflections_userId_localDate_uq').on(t.userId, t.localDate),
+    index('daily_reflections_userId_localDate_idx').on(t.userId, t.localDate),
+  ],
+);
+
+export const reflectionMedia = sqliteTable(
+  'reflection_media',
+  {
+    ...mutableBase,
+    reflectionId: text('reflectionId').notNull(),
+    storageProvider: text('storageProvider').notNull(),
+    storagePath: text('storagePath').notNull(),
+    mimeType: text('mimeType').notNull(),
+    byteSize: integer('byteSize').notNull(),
+    sha256: text('sha256').notNull(),
+    caption: text('caption'),
+  },
+  (t) => [
+    uniqueIndex('reflection_media_userId_sha256_uq').on(t.userId, t.sha256),
+    index('reflection_media_userId_reflectionId_idx').on(t.userId, t.reflectionId),
+  ],
+);
+
 /* ────────────────────────────────────────────────────────────────────────────
  * §4.7 COMMIT/UNDO AND BILLING TABLES
  *   Commit + effect tables are immutable audit rows.

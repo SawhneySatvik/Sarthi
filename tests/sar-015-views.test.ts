@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { buildCoachReadingView } from "@/core/coach";
-import type { CoachEvidence, CoachNoteRecord, EvidenceRecord } from "@/data/schema/contract";
+import type { CoachEvidence, CoachNoteRecord, EvidenceRecord, PlanItemRecord } from "@/data/schema/contract";
 import { buildJourneyView, buildStatsView } from "@/core/game";
 import { createRepositoryFactory } from "@/data/repository";
 import { seedDemo } from "@/data/seed/demo";
@@ -82,7 +82,17 @@ test("groups real evidence by domain-local date deterministically and without du
 
 test("keeps a CoachNote-only date as a text-only Journey node", () => {
   const view = buildJourneyView({ evidence: [], notes: [coachNote("daily", "2026-07-18", "Keep the restart light.")] });
-  assert.deepEqual(view.days, [{ localDate: "2026-07-18", month: "2026-07", evidence: [], note: "Keep the restart light.", milestones: [] }]);
+  assert.deepEqual(view.days, [{ localDate: "2026-07-18", month: "2026-07", evidence: [], note: "Keep the restart light.", milestones: [], taskProgress: null }]);
+});
+
+test("derives each day’s real done / total task progress without inventing milestones", () => {
+  const planItems = [
+    { localDate: "2026-07-18", status: "done" },
+    { localDate: "2026-07-18", status: "skipped" },
+    { localDate: "2026-07-18", status: "active" },
+  ] as unknown as PlanItemRecord[];
+  const view = buildJourneyView({ evidence: [], notes: [], planItems });
+  assert.deepEqual(view.days, [{ localDate: "2026-07-18", month: "2026-07", evidence: [], note: null, milestones: [], taskProgress: { done: 1, total: 3 } }]);
 });
 
 test("derives stable milestone rows without duplicate threshold events", () => {
@@ -120,6 +130,6 @@ test("seeds a 12-day typed Journey fixture without an overall Day-1 snapshot", a
   assert.deepEqual(new Set(notes.map((row) => row.scope)), new Set(["daily", "weekly"]));
   assert.equal((await repos.coach.adaptations.list({}))[0]?.status, "proposed");
 
-  const view = buildJourneyView({ evidence, notes, progress: await repos.plans.progress.list({}), arcs: await repos.plans.arcs.list({}), skills: await repos.skills.skills.list({}), sessions: await repos.skills.sessions.list({}) });
+  const view = buildJourneyView({ evidence, notes, progress: await repos.plans.progress.list({}), arcs: await repos.plans.arcs.list({}), skills: await repos.skills.skills.list({}), sessions: await repos.skills.sessions.list({}), planItems: await repos.plans.items.list({}) });
   assert.ok(view.milestones.length >= 2, "typed progress and skill sessions derive Journey milestones");
 });

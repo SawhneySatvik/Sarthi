@@ -10,7 +10,7 @@ import type { Row } from "@libsql/client";
 
 import { createMemoryDb, type MemoryDb } from "./helpers/memory-db";
 
-const EXPECTED_TABLE_COUNT = 33;
+const EXPECTED_TABLE_COUNT = 35;
 
 // Prove the smoke path touches no network: any fetch is a failure for this file.
 const savedFetch = globalThis.fetch;
@@ -33,7 +33,7 @@ async function userTableNames(memory: MemoryDb): Promise<string[]> {
     .sort();
 }
 
-test("the committed migration creates all 33 domain tables", async () => {
+test("the committed migration creates all 35 domain tables", async () => {
   const memory = await createMemoryDb();
   try {
     const names = await userTableNames(memory);
@@ -47,6 +47,8 @@ test("the committed migration creates all 33 domain tables", async () => {
       "transactions",
       "billing_events",
       "commit_rows",
+      "daily_reflections",
+      "reflection_media",
     ]) {
       assert.ok(
         names.includes(expected),

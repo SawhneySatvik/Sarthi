@@ -53,6 +53,8 @@ import {
   checkoutSessions,
   billingEvents,
   waitlistRequests,
+  dailyReflections,
+  reflectionMedia,
 } from "@/data/schema/sqlite";
 
 import {
@@ -113,6 +115,10 @@ export function assembleUserScopedRepositories(
       adaptations: S("adaptations", adaptations, ctx),
     },
     evidence: S("evidence", evidence, ctx),
+    journey: {
+      reflections: S("daily_reflections", dailyReflections, ctx),
+      media: S("reflection_media", reflectionMedia, ctx),
+    },
     commits: {
       commits: A("commits", commits, ctx),
       rows: A("commit_rows", commitRows, ctx),

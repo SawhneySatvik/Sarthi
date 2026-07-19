@@ -2,10 +2,10 @@ import "server-only";
 
 import { cache } from "react";
 
-import type { AuthenticatedUser, LlmGateway, UserScopedRepositories, VisionProvider, VoiceProvider } from "@/core/contracts";
+import type { AuthenticatedUser, LlmGateway, MediaProvider, UserScopedRepositories, VisionProvider, VoiceProvider } from "@/core/contracts";
 import { createSqliteRepositoryFactory } from "@/data/repository";
 import { createAuthProvider } from "@/providers/auth";
-import { createLlmGateway, createVisionProvider, createVoiceProvider } from "@/providers";
+import { createLlmGateway, createMediaProvider, createVisionProvider, createVoiceProvider } from "@/providers";
 
 import { getRuntimeConfig, type RuntimeConfig } from "./runtime";
 import { resolveRequestLlmProvider } from "./runtimeOverride";
@@ -25,6 +25,7 @@ export interface Session {
   vision: VisionProvider;
   /** The runtime voice provider — only fake is callable in this ticket. */
   voice: VoiceProvider;
+  media: MediaProvider;
 }
 
 interface SessionBase {
@@ -32,6 +33,7 @@ interface SessionBase {
   repos: UserScopedRepositories;
   vision: VisionProvider;
   voice: VoiceProvider;
+  media: MediaProvider;
   config: RuntimeConfig;
 }
 
@@ -62,7 +64,8 @@ const getSessionBase = cache(async (): Promise<SessionBase> => {
   const repos = factoryFor(config.databaseUrl).forUser(user);
   const vision = createVisionProvider(config.visionProvider);
   const voice = createVoiceProvider(config.voiceProvider);
-  return { user, repos, vision, voice, config };
+  const media = createMediaProvider(config.databaseProvider === "sqlite" ? "fake" : "production");
+  return { user, repos, vision, voice, media, config };
 });
 
 function sessionForProvider(base: SessionBase, llmProvider: RuntimeConfig["llmProvider"]): Session {
@@ -72,6 +75,7 @@ function sessionForProvider(base: SessionBase, llmProvider: RuntimeConfig["llmPr
     llm: createLlmGateway(llmProvider),
     vision: base.vision,
     voice: base.voice,
+    media: base.media,
   };
 }
 

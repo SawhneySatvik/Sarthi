@@ -107,6 +107,14 @@ import type {
   EvidenceCreate,
   EvidenceUpdate,
   EvidenceQuery,
+  DailyReflectionRecord,
+  DailyReflectionCreate,
+  DailyReflectionUpdate,
+  DailyReflectionQuery,
+  ReflectionMediaRecord,
+  ReflectionMediaCreate,
+  ReflectionMediaUpdate,
+  ReflectionMediaQuery,
   CommitRecord,
   CommitCreate,
   CommitQuery,
@@ -214,6 +222,11 @@ export interface CoachRepositories {
 /** Evidence is a single table, so its repository is the scoped repo directly. */
 export type EvidenceRepository = ScopedEntityRepository<EvidenceRecord, EvidenceCreate, EvidenceUpdate, EvidenceQuery>;
 
+export interface JourneyRepositories {
+  reflections: ScopedEntityRepository<DailyReflectionRecord, DailyReflectionCreate, DailyReflectionUpdate, DailyReflectionQuery>;
+  media: ScopedEntityRepository<ReflectionMediaRecord, ReflectionMediaCreate, ReflectionMediaUpdate, ReflectionMediaQuery>;
+}
+
 export interface CommitRepository {
   commits: AppendOnlyRepository<CommitRecord, CommitCreate, CommitQuery>;
   rows: AppendOnlyRepository<CommitRowRecord, CommitRowCreate, CommitRowQuery>;
@@ -248,6 +261,7 @@ export interface UserScopedRepositories {
   plans: PlanRepositories;
   coach: CoachRepositories;
   evidence: EvidenceRepository;
+  journey: JourneyRepositories;
   commits: CommitRepository;
   billing: BillingRepository;
   transaction<T>(work: () => Promise<T>): Promise<T>;

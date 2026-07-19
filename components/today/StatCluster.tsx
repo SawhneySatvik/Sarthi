@@ -11,7 +11,7 @@ import type { TodayStat } from "@/core/domains/today";
  */
 export function StatCluster({ stat }: { stat: TodayStat }) {
   return (
-    <div className="flex items-center gap-4 px-4 py-1">
+    <div className="flex items-center gap-4 py-2">
       {stat.dayOfArc !== null && (
         <span className="font-display text-caption tabular-nums text-ink-2">
           Day {stat.dayOfArc}

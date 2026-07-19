@@ -44,7 +44,7 @@ export type UnitSystem = z.infer<typeof unitSystemEnum>;
 export const themeEnum = z.enum(['ember', 'bone', 'moss']);
 export type Theme = z.infer<typeof themeEnum>;
 
-export const themeModeEnum = z.enum(['light', 'dark']);
+export const themeModeEnum = z.enum(['light', 'dark', 'system']);
 export type ThemeMode = z.infer<typeof themeModeEnum>;
 
 export const onboardingStatusEnum = z.enum(['not_started', 'in_progress', 'complete']);
@@ -1628,6 +1628,88 @@ const evidenceTable: TableDescriptor = {
   indexes: [['userId', 'entryKind', 'entryId']],
 };
 
+export const reflectionMoodEnum = z.enum(['rough', 'low', 'steady', 'good', 'great']);
+export type ReflectionMood = z.infer<typeof reflectionMoodEnum>;
+
+const dailyReflectionsBusinessShape = {
+  localDate: z.string(),
+  mood: reflectionMoodEnum,
+  energyLevel: z.number().int().min(1).max(5),
+  sleepMinutes: z.number().int().min(0).nullable(),
+  journal: z.string().max(4000),
+  summary: z.string(),
+  summaryProvider: z.string(),
+  summaryModelId: z.string(),
+};
+
+export const dailyReflectionsRecord = z.object({
+  ...mutableBaseShape,
+  ...dailyReflectionsBusinessShape,
+});
+export const dailyReflectionsCreate = z.object({
+  ...mutableCreateBaseShape,
+  ...dailyReflectionsBusinessShape,
+});
+export const dailyReflectionsUpdate = z.object(dailyReflectionsBusinessShape).partial();
+export const dailyReflectionsQuery = z.object({ userId: z.string(), localDate: z.string().optional() });
+export type DailyReflectionRecord = z.infer<typeof dailyReflectionsRecord>;
+export type DailyReflectionCreate = z.infer<typeof dailyReflectionsCreate>;
+export type DailyReflectionUpdate = z.infer<typeof dailyReflectionsUpdate>;
+export type DailyReflectionQuery = z.infer<typeof dailyReflectionsQuery>;
+
+const dailyReflectionsTable: TableDescriptor = {
+  name: 'daily_reflections',
+  columns: [
+    ...mutableBaseColumns,
+    { name: 'localDate', type: 'date', notNull: true },
+    { name: 'mood', type: 'text', notNull: true, enum: 'reflectionMood' },
+    { name: 'energyLevel', type: 'integer', notNull: true },
+    { name: 'sleepMinutes', type: 'integer', notNull: false },
+    { name: 'journal', type: 'text', notNull: true },
+    { name: 'summary', type: 'text', notNull: true },
+    { name: 'summaryProvider', type: 'text', notNull: true },
+    { name: 'summaryModelId', type: 'text', notNull: true },
+  ],
+  primaryKey: ['id'],
+  unique: [['userId', 'localDate']],
+  indexes: [['userId', 'localDate']],
+};
+
+const reflectionMediaBusinessShape = {
+  reflectionId: z.string(),
+  storageProvider: z.string(),
+  storagePath: z.string(),
+  mimeType: z.enum(['image/jpeg', 'image/png', 'image/webp']),
+  byteSize: z.number().int().min(1),
+  sha256: z.string().length(64),
+  caption: z.string().nullable(),
+};
+export const reflectionMediaRecord = z.object({ ...mutableBaseShape, ...reflectionMediaBusinessShape });
+export const reflectionMediaCreate = z.object({ ...mutableCreateBaseShape, ...reflectionMediaBusinessShape });
+export const reflectionMediaUpdate = z.object(reflectionMediaBusinessShape).partial();
+export const reflectionMediaQuery = z.object({ userId: z.string(), reflectionId: z.string().optional() });
+export type ReflectionMediaRecord = z.infer<typeof reflectionMediaRecord>;
+export type ReflectionMediaCreate = z.infer<typeof reflectionMediaCreate>;
+export type ReflectionMediaUpdate = z.infer<typeof reflectionMediaUpdate>;
+export type ReflectionMediaQuery = z.infer<typeof reflectionMediaQuery>;
+
+const reflectionMediaTable: TableDescriptor = {
+  name: 'reflection_media',
+  columns: [
+    ...mutableBaseColumns,
+    { name: 'reflectionId', type: 'uuid', notNull: true, references: 'daily_reflections' },
+    { name: 'storageProvider', type: 'text', notNull: true },
+    { name: 'storagePath', type: 'text', notNull: true },
+    { name: 'mimeType', type: 'text', notNull: true },
+    { name: 'byteSize', type: 'integer', notNull: true },
+    { name: 'sha256', type: 'text', notNull: true },
+    { name: 'caption', type: 'text', notNull: false },
+  ],
+  primaryKey: ['id'],
+  unique: [['userId', 'sha256']],
+  indexes: [['userId', 'reflectionId']],
+};
+
 /* ────────────────────────────────────────────────────────────────────────────
  * §4.7 COMMIT/UNDO AND BILLING TABLES
  *   Commit + effect tables are immutable audit rows (record/create/query only).
@@ -2148,6 +2230,20 @@ export const schemaContract = {
     create: evidenceCreate,
     update: evidenceUpdate,
     query: evidenceQuery,
+  },
+  daily_reflections: {
+    descriptor: dailyReflectionsTable,
+    record: dailyReflectionsRecord,
+    create: dailyReflectionsCreate,
+    update: dailyReflectionsUpdate,
+    query: dailyReflectionsQuery,
+  },
+  reflection_media: {
+    descriptor: reflectionMediaTable,
+    record: reflectionMediaRecord,
+    create: reflectionMediaCreate,
+    update: reflectionMediaUpdate,
+    query: reflectionMediaQuery,
   },
   commits: {
     descriptor: commitsTable,

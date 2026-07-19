@@ -59,18 +59,24 @@ function getServerRunSnapshot(): ActiveToolRun | null { return null; }
 
 const clockListeners = new Set<() => void>();
 let clockTimer: number | null = null;
+let clockSnapshot = 0;
 function subscribeClock(listener: () => void): () => void {
   clockListeners.add(listener);
-  if (!clockTimer) clockTimer = window.setInterval(() => { for (const notify of clockListeners) notify(); }, 1000);
+  if (!clockTimer) {
+    clockSnapshot = Date.now();
+    clockTimer = window.setInterval(() => {
+      clockSnapshot = Date.now();
+      for (const notify of clockListeners) notify();
+    }, 1000);
+  }
   return () => {
     clockListeners.delete(listener);
     if (clockListeners.size === 0 && clockTimer) { window.clearInterval(clockTimer); clockTimer = null; }
   };
 }
-function getClockSnapshot(): number { return Date.now(); }
+function getClockSnapshot(): number { return clockSnapshot; }
 function getServerClockSnapshot(): number { return 0; }
 
-/** A subscription-backed clock; Date.now never runs directly in a component render. */
 export function useClockNow(): number { return useSyncExternalStore(subscribeClock, getClockSnapshot, getServerClockSnapshot); }
 
 /** Browser-session run state only. Starts deliberately create no domain row. */

@@ -280,6 +280,11 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+.capture-orb-listening { transform: scale(calc(1 + var(--orb-level, 0) * 0.24)); }
+.capture-orb-thinking { animation: capture-orb-think var(--t-slow) var(--ease-standard) infinite alternate; }
+@keyframes capture-orb-think { from { transform: scale(0.94); opacity: 0.72; } to { transform: scale(1.04); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .capture-orb-thinking { animation: none; } }
+
 /*
  * SAR-009 (D-E) — the satisfied-by REFUSAL wiggle. A rule-bearing Habits row cannot be
  * hand-ticked, so tapping it shakes once instead of writing. Motion tokens only

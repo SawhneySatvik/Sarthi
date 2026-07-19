@@ -1,5 +1,5 @@
 import { getSession } from "@/app/lib/session";
-import { AppHeader } from "@/components/shell/AppHeader";
+import { getRuntimeConfig } from "@/app/lib/runtime";
 import { TodayBody } from "@/components/today/TodayBody";
 import { buildHabitsView, resolveRuleDayTotals } from "@/core/domains/habits";
 import { buildHealthView } from "@/core/domains/health";
@@ -11,12 +11,13 @@ import { buildTodayView } from "@/core/domains/today";
 export const dynamic = "force-dynamic";
 
 export default async function TodayPage({ searchParams }: { searchParams: Promise<{ domain?: string }> }) {
-  const { repos } = await getSession();
+  const { repos, user } = await getSession();
+  const config = getRuntimeConfig();
   // NOTE: UTC day boundary for now — the timezone-aware localDate (schema carries
   // `timezone`) is owned by the SAR-006 capture edge; seed + page agree meanwhile.
   const localDate = new Date().toISOString().slice(0, 10);
 
-  const [items, progress, arcs, notes, meals, waterLogs, workouts, weighIns, transactions, categories, budgets, recurringRules, habits, habitLogs, satisfactionRules, skills, skillMilestones, skillSessions] =
+  const [items, progress, arcs, notes, meals, waterLogs, workouts, weighIns, transactions, categories, budgets, recurringRules, habits, habitLogs, satisfactionRules, skills, skillMilestones, skillSessions, profile, gaps] =
     await Promise.all([
       repos.plans.items.list({ localDate }),
       repos.plans.progress.list({}),
@@ -40,6 +41,8 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
       repos.skills.skills.list({ isArchived: false }),
       repos.skills.milestones.list({}),
       repos.skills.sessions.list({}),
+      repos.profile.profiles.byId(user.userId),
+      repos.profile.gaps.list({}),
     ]);
 
   // Live per-rule source aggregates for the satisfied-by badges (repos-injected core helper).
@@ -59,7 +62,6 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
 
   return (
     <>
-      <AppHeader title="Today" />
       <TodayBody
         view={view}
         healthView={healthView}
@@ -67,6 +69,10 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
         habitsView={habitsView}
         skillsView={skillsView}
         initialDomain={(await searchParams).domain}
+        profile={profile}
+        gaps={gaps}
+        isDeveloperControlAllowed={process.env.NODE_ENV !== "production" || config.judgeMode}
+        llmProvider={config.llmProvider}
       />
     </>
   );

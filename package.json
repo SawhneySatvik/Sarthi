@@ -22,7 +22,7 @@
     "test:tools": "tsx --test tests/tools.test.ts",
     "test:views": "tsx --test tests/sar-015-views.test.ts",
     "test:art": "tsx --test tests/art.test.ts",
-    "test:coach": "tsx --test tests/coach.test.ts",
+    "test:coach": "tsx --test tests/coach.test.ts tests/reflection.test.ts",
     "test:onboarding": "tsx --test tests/onboarding-contract.test.ts tests/onboarding-spine.test.ts tests/onboarding-accept.test.ts tests/onboarding-detail.test.ts",
     "test:ui": "tsx --test tests/tokens.test.ts tests/capture-deck.test.ts",
     "test:eval": "tsx --test tests/eval/f3-gate.eval.test.ts tests/eval/f5-receipt.eval.test.ts tests/eval/timer-session.eval.test.ts",

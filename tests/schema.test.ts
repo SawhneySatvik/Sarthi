@@ -9,7 +9,7 @@ import test, { after, before } from "node:test";
 
 import { allTableDescriptors, schemaContract } from "../data/schema/contract";
 
-const EXPECTED_TABLE_COUNT = 33;
+const EXPECTED_TABLE_COUNT = 35;
 
 // Descriptor assertions are pure and offline; prove it by making any fetch throw.
 const savedFetch = globalThis.fetch;
@@ -22,7 +22,7 @@ after(() => {
   globalThis.fetch = savedFetch;
 });
 
-test("the contract declares exactly 33 tables", () => {
+test("the contract declares exactly 35 tables", () => {
   assert.equal(allTableDescriptors.length, EXPECTED_TABLE_COUNT);
   assert.equal(Object.keys(schemaContract).length, EXPECTED_TABLE_COUNT);
 });
@@ -45,6 +45,12 @@ test("profiles keys on userId (its primary key) and it is NOT NULL", () => {
   const userId = profiles.columns.find((column) => column.name === "userId");
   assert.ok(userId);
   assert.equal(userId.notNull, true);
+});
+
+test("daily reflections constrain the five fixed mood choices", () => {
+  const moods = ["rough", "low", "steady", "good", "great"];
+  for (const mood of moods) assert.equal(schemaContract.daily_reflections.create.safeParse({ userId: "u", localDate: "2026-07-19", mood, energyLevel: 3, sleepMinutes: null, journal: "", summary: "", summaryProvider: "fake", summaryModelId: "fake-fast-v1" }).success, true);
+  assert.equal(schemaContract.daily_reflections.create.safeParse({ userId: "u", localDate: "2026-07-19", mood: "fine", energyLevel: 3, sleepMinutes: null, journal: "", summary: "", summaryProvider: "fake", summaryModelId: "fake-fast-v1" }).success, false);
 });
 
 test("every *Paise column is an integer — money never floats (invariant 2)", () => {

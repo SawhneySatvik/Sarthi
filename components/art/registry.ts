@@ -69,6 +69,10 @@ export function selectPlanArt(domain: ArtDomain, title: string): ArtKey | null {
   return domain === "overall" ? null : DOMAIN_FALLBACK[domain];
 }
 
+export function selectJourneyArt(domain: Exclude<ArtDomain, "overall">, entryKind: string, label: string): ArtKey {
+  return selectPlanArt(domain, `${entryKind} ${label}`) ?? DOMAIN_FALLBACK[domain];
+}
+
 export function todayHeaderArt(hour: number): ArtKey {
   if (hour < 10) return "today.header.dawn";
   if (hour < 17) return "today.header.day";

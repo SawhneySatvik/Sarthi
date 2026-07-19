@@ -19,7 +19,7 @@ import * as sq from "../data/schema/sqlite";
 import * as pg from "../data/schema/postgres";
 import { allTableDescriptors, schemaContract } from "../data/schema/contract";
 
-const EXPECTED_TABLE_COUNT = 33;
+const EXPECTED_TABLE_COUNT = 35;
 
 /** Every exported drizzle table in a dialect module, keyed by its SQL name. */
 function tablesBySqlName(mod: Record<string, unknown>): Map<string, Table> {
@@ -56,7 +56,7 @@ after(() => {
   globalThis.fetch = savedFetch;
 });
 
-test("both dialects export the same 33 tables (same SQL names)", () => {
+test("both dialects export the same 35 tables (same SQL names)", () => {
   assert.equal(
     sqliteTables.size,
     EXPECTED_TABLE_COUNT,

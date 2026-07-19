@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { cn } from "@/app/lib/utils";
+import { ArtFrame } from "@/components/art/ArtFrame";
 import type { MoneyBudgetBar, MoneyCategoryDrill, MoneyEntryRow, MoneyView } from "@/core/domains/money";
 import { formatPaise } from "@/core/domains/money";
 
@@ -151,6 +152,7 @@ export function MoneyLens({ view }: { view: MoneyView }) {
 
   return (
     <div className="px-4 pb-2">
+      <ArtFrame artKey="money.ledger" ratio="h-20" className="mb-3"><p className="flex h-full items-end p-3 font-display text-title text-ink-1">Money</p></ArtFrame>
       <header className="pt-1">
         <p className="font-ui text-caption uppercase tracking-wide text-money">Money</p>
         <p className="font-display text-display-xl tabular-nums text-ink-1">{formatPaise(view.headline.netPaise)}</p>

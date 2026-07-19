@@ -179,6 +179,11 @@ async function captureFlow(browser, themes, widths) {
         });
         await page.goto(`${BASE}/today`, { waitUntil: "networkidle" });
 
+        await page.getByRole("button", { name: "Open capture" }).click();
+        // The composer is a spring sheet; settle it before filling/shooting so the
+        // screenshots verify the usable 88vh resting state rather than mid-entry.
+        await page.waitForTimeout(400);
+
         const input = page.getByLabel("Capture your day");
         await input.fill("Spent 340 on lunch, 2 rotis and dal, drank a bottle, 90 min of system design");
         await shot(page, `capture-input-${width}-${theme}-${mode}`);

@@ -5,7 +5,6 @@ import { Card } from "@/components/ui/Card";
 import { ArtFrame } from "@/components/art/ArtFrame";
 import type { TodayItem, TodayView } from "@/core/domains/today";
 
-import { DOMAIN_DOT } from "./domain";
 import { NextUpCard } from "./NextUpCard";
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
@@ -21,13 +20,7 @@ function ViaCaptureBadge() {
 }
 
 function LaterRow({ item }: { item: TodayItem }) {
-  return (
-    <li className="flex items-center gap-3 rounded-card border border-line bg-card px-4 py-3">
-      <span className={`h-2 w-2 shrink-0 rounded-chip ${DOMAIN_DOT[item.domain]}`} aria-hidden />
-      <span className="flex-1 font-ui text-body text-ink-1">{item.title}</span>
-      {item.viaCapture && <ViaCaptureBadge />}
-    </li>
-  );
+  return <li><NextUpCard item={item} /></li>;
 }
 
 function CompletedRow({ item }: { item: TodayItem }) {
@@ -86,7 +79,7 @@ export function PlanSpine({ view }: { view: TodayView }) {
       )}
       {view.laterToday.length > 0 && (
         <section>
-          <SectionLabel>Later today</SectionLabel>
+          <SectionLabel>Remaining today</SectionLabel>
           <ul className="flex flex-col gap-2">
             {view.laterToday.map((item) => (
               <LaterRow key={item.id} item={item} />

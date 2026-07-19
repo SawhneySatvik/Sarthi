@@ -5,6 +5,7 @@ import { Fragment, useRef, useState, useTransition } from "react";
 
 import { setHabitCompletion } from "@/app/(app)/today/actions";
 import { cn } from "@/app/lib/utils";
+import { ArtFrame } from "@/components/art/ArtFrame";
 import type { HabitRow, HabitsView, HeatmapDay } from "@/core/domains/habits";
 
 /*
@@ -261,6 +262,7 @@ function Heatmap({ view }: { view: HabitsView }) {
 export function HabitsLens({ view }: { view: HabitsView }) {
   return (
     <div className="px-4 pb-2">
+      <ArtFrame artKey="habit.journal" ratio="h-20" className="mb-3"><p className="flex h-full items-end p-3 font-display text-title text-ink-1">Habits</p></ArtFrame>
       <header className="pt-1">
         <p className="font-ui text-caption uppercase tracking-wide text-habits">Habits</p>
         <p className="font-display text-display-xl tabular-nums text-ink-1">

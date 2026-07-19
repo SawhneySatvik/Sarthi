@@ -47,7 +47,7 @@ export interface TextRequest {
   tier: Tier;
   system: string;
   prompt: string;
-  telemetry: { operation: "capture-line" | "coach-ask" };
+  telemetry: { operation: "capture-line" | "coach-ask" | "reflection-summary" };
 }
 
 export interface LlmGateway {
@@ -72,4 +72,9 @@ export interface VisionProvider {
     prompt: string;
     tier: "deep" | "balanced";
   }): Promise<ObjectResult<z.infer<TSchema>>>;
+}
+
+export interface MediaProvider {
+  put(input: { userId: string; bytes: Uint8Array; mimeType: "image/jpeg" | "image/png" | "image/webp"; sha256: string }): Promise<{ storageProvider: string; storagePath: string }>;
+  read(input: { userId: string; storagePath: string }): Promise<{ bytes: Uint8Array; mimeType: "image/jpeg" | "image/png" | "image/webp" }>;
 }

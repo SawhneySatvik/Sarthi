@@ -31,10 +31,8 @@ function applyTheme(theme: Theme, mode: Mode): void {
   document.documentElement.setAttribute("data-theme", theme);
   document.documentElement.setAttribute("data-mode", resolveMode(mode));
   try {
-    localStorage.setItem("sarthi-theme", JSON.stringify({ theme, mode: mode === "system" ? null : mode }));
-  } catch {
-    // The app theme remains applied during storage-restricted browser sessions.
-  }
+    localStorage.setItem("sarthi-theme", JSON.stringify({ theme, mode }));
+  } catch {}
 }
 
 function readPreference(key: PreferenceKey, fallback: string): string {
@@ -135,7 +133,7 @@ function ThemePreview({ theme, mode, selected, onSelect }: { theme: Theme; mode:
   );
 }
 
-function Appearance({ initialTheme, initialMode }: { initialTheme: Theme; initialMode: "light" | "dark" }) {
+function Appearance({ initialTheme, initialMode }: { initialTheme: Theme; initialMode: Mode }) {
   const [theme, setTheme] = useState<Theme>(initialTheme);
   const [mode, setMode] = useState<Mode>(initialMode);
   const select = (nextTheme: Theme, nextMode: Mode) => {
@@ -145,7 +143,7 @@ function Appearance({ initialTheme, initialMode }: { initialTheme: Theme; initia
     void fetch("/api/onboarding/detail", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ section: "theme", theme: nextTheme, themeMode: resolveMode(nextMode) }),
+      body: JSON.stringify({ section: "theme", theme: nextTheme, themeMode: nextMode }),
     });
   };
   return (

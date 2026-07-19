@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { cn } from "@/app/lib/utils";
+import { ArtFrame } from "@/components/art/ArtFrame";
 import type { MilestoneRow, SessionRow, SkillTrack, SkillsView } from "@/core/domains/skills";
 import { formatMasteryShort } from "@/core/domains/skills";
 
@@ -189,6 +190,7 @@ export function SkillsLens({ view }: { view: SkillsView }) {
 
   return (
     <div className="px-4 pb-2">
+      <ArtFrame artKey="skills.desk_code" ratio="h-20" className="mb-3"><p className="flex h-full items-end p-3 font-display text-title text-ink-1">Skills</p></ArtFrame>
       <header className="pt-1">
         <p className="font-ui text-caption uppercase tracking-wide text-skills">Skills</p>
         <p className="font-display text-display-xl tabular-nums text-ink-1">

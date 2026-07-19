@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { createCommitService } from "../core/capture";
@@ -216,4 +217,20 @@ test("Tools view chooses the most recently used active skill and keeps scope-bou
   const view = await loadToolsView(repos, "2026-07-19");
   assert.equal(view.focus.defaultSkillId, recent.id);
   assert.deepEqual(view.focus.skills.map((skill) => skill.name), ["Algorithms", "System design"]);
+});
+
+test("Tools clock exposes a cached external-store snapshot instead of reading the clock during render", () => {
+  const source = readFileSync("components/tools/ToolsProvider.tsx", "utf8");
+  const snapshot = source.match(/function getClockSnapshot\(\): number \{([^}]*)\}/);
+  const hook = source.match(/export function useClockNow\(\): number \{([^}]*)\}/);
+
+  assert.ok(snapshot, "the clock store needs a client snapshot getter");
+  assert.match(snapshot[1], /^\s*return clockSnapshot;\s*$/);
+  assert.doesNotMatch(snapshot[1], /Date\.now\(/);
+  assert.ok(hook, "the Tools clock needs to be consumed through useSyncExternalStore");
+  assert.match(hook[1], /useSyncExternalStore\(subscribeClock, getClockSnapshot, getServerClockSnapshot\)/);
+
+  assert.match(source, /let clockSnapshot = 0;/);
+  assert.match(source, /clockSnapshot = Date\.now\(\);\s*clockTimer = window\.setInterval/);
+  assert.match(source, /clockSnapshot = Date\.now\(\);\s*for \(const notify of clockListeners\) notify\(\);/);
 });

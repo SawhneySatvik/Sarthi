@@ -1,6 +1,6 @@
 import { formatPaise, type MoneyView } from "@/core/domains/money";
 import { formatMasteryShort, type SkillsView } from "@/core/domains/skills";
-import type { CoachNoteRecord, DayOneSnapshotRecord, DomainProgressRecord, EvidenceRecord, PlanArcRecord, SkillRecord, SkillSessionRecord } from "@/data/schema/contract";
+import type { CoachNoteRecord, DayOneSnapshotRecord, DomainProgressRecord, EvidenceRecord, PlanArcRecord, PlanItemRecord, SkillRecord, SkillSessionRecord } from "@/data/schema/contract";
 
 export type DisplayDomain = "health" | "money" | "habits" | "skills";
 export interface StatsCardView { domain: DisplayDomain; headline: string; detail: string; level: number; sparklineText: string; dayOne: string | null; }
@@ -24,14 +24,14 @@ export function buildStatsView(input: { progress: readonly DomainProgressRecord[
   ] };
 }
 
-export interface JourneyEvidence { id: string; domain: DisplayDomain; caption: string; entryKind: string; localDate: string; missingImage: boolean; }
+export interface JourneyEvidence { id: string; domain: DisplayDomain; caption: string; entryKind: string; localDate: string; occurredAt: string; missingImage: boolean; }
 export interface JourneyMilestone { id: string; localDate: string; kind: "level" | "arc" | "mastery" | "streak"; label: string; }
-export interface JourneyDay { localDate: string; month: string; evidence: readonly JourneyEvidence[]; note: string | null; milestones: readonly JourneyMilestone[]; }
+export interface JourneyDay { localDate: string; month: string; evidence: readonly JourneyEvidence[]; note: string | null; milestones: readonly JourneyMilestone[]; taskProgress: { done: number; total: number } | null; }
 export interface JourneyView { days: readonly JourneyDay[]; milestones: readonly JourneyMilestone[]; }
 function skillMinutes(skills: readonly SkillRecord[], sessions: readonly SkillSessionRecord[]): Map<string, number> { const result = new Map(skills.map((skill) => [skill.id, 0])); for (const session of sessions) result.set(session.skillId, (result.get(session.skillId) ?? 0) + session.minutes); return result; }
 
 /** Deterministic, de-duplicated milestones from existing typed rows; no timeline persistence. */
-export function buildJourneyView(input: { evidence: readonly EvidenceRecord[]; notes: readonly CoachNoteRecord[]; progress?: readonly DomainProgressRecord[]; arcs?: readonly PlanArcRecord[]; skills?: readonly SkillRecord[]; sessions?: readonly SkillSessionRecord[] }): JourneyView {
+export function buildJourneyView(input: { evidence: readonly EvidenceRecord[]; notes: readonly CoachNoteRecord[]; progress?: readonly DomainProgressRecord[]; arcs?: readonly PlanArcRecord[]; skills?: readonly SkillRecord[]; sessions?: readonly SkillSessionRecord[]; planItems?: readonly PlanItemRecord[] }): JourneyView {
   const notes = new Map<string, string>();
   for (const note of input.notes.slice().sort((a, b) => a.localDate.localeCompare(b.localDate) || b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id))) {
     if (!notes.has(note.localDate)) notes.set(note.localDate, note.text);
@@ -42,7 +42,7 @@ export function buildJourneyView(input: { evidence: readonly EvidenceRecord[]; n
     if (evidenceIds.has(row.id)) continue;
     evidenceIds.add(row.id);
     const list = groups.get(row.localDate) ?? [];
-    list.push({ id: row.id, domain: row.domain, caption: row.caption ?? `${row.entryKind} evidence`, entryKind: row.entryKind, localDate: row.localDate, missingImage: row.storagePath.length === 0 || row.storageProvider === "placeholder" });
+    list.push({ id: row.id, domain: row.domain, caption: row.caption ?? `${row.entryKind} evidence`, entryKind: row.entryKind, localDate: row.localDate, occurredAt: row.occurredAt, missingImage: row.storagePath.length === 0 || row.storageProvider === "placeholder" });
     groups.set(row.localDate, list);
   }
   const milestones: JourneyMilestone[] = [];
@@ -55,6 +55,13 @@ export function buildJourneyView(input: { evidence: readonly EvidenceRecord[]; n
     milestoneIds.add(row.id);
     return true;
   }).sort((a, b) => b.localDate.localeCompare(a.localDate) || a.id.localeCompare(b.id));
-  const dates = new Set([...groups.keys(), ...notes.keys(), ...unique.map((row) => row.localDate)]);
-  return { milestones: unique, days: [...dates].sort((a, b) => b.localeCompare(a)).map((localDate) => ({ localDate, month: localDate.slice(0, 7), evidence: (groups.get(localDate) ?? []).slice().sort((a, b) => a.id.localeCompare(b.id)), note: notes.get(localDate) ?? null, milestones: unique.filter((row) => row.localDate === localDate) })) };
+  const taskProgress = new Map<string, { done: number; total: number }>();
+  for (const item of input.planItems ?? []) {
+    const current = taskProgress.get(item.localDate) ?? { done: 0, total: 0 };
+    current.total += 1;
+    if (item.status === "done") current.done += 1;
+    taskProgress.set(item.localDate, current);
+  }
+  const dates = new Set([...groups.keys(), ...notes.keys(), ...unique.map((row) => row.localDate), ...taskProgress.keys()]);
+  return { milestones: unique, days: [...dates].sort((a, b) => b.localeCompare(a)).map((localDate) => ({ localDate, month: localDate.slice(0, 7), evidence: (groups.get(localDate) ?? []).slice().sort((a, b) => b.occurredAt.localeCompare(a.occurredAt) || a.id.localeCompare(b.id)), note: notes.get(localDate) ?? null, milestones: unique.filter((row) => row.localDate === localDate), taskProgress: taskProgress.get(localDate) ?? null })) };
 }

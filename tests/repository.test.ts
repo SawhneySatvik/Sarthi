@@ -176,3 +176,24 @@ test("profiles softDelete is refused — the singleton has no deletedAt column",
     RepositoryError,
   );
 });
+
+test("Journey reflections and their media remain typed and tenant-scoped", async () => {
+  const factory = await freshFactory();
+  const local = factory.forUser(LOCAL);
+  const userB = factory.forUser(USER_B);
+  const reflection = await local.journey.reflections.create({
+    localDate: "2026-07-19", mood: "great", energyLevel: 3, sleepMinutes: 420,
+    journal: "A factual check-in.", summary: "steady mood, energy 3/5.",
+    summaryProvider: "deterministic", summaryModelId: "local-fallback",
+  });
+  const media = await local.journey.media.create({
+    reflectionId: reflection.id, storageProvider: "fake-local", storagePath: "private.jpg",
+    mimeType: "image/jpeg", byteSize: 3, sha256: "a".repeat(64), caption: null,
+  });
+  assert.equal((await local.journey.reflections.list({ localDate: "2026-07-19" }))[0]?.id, reflection.id);
+  assert.equal((await local.journey.media.list({ reflectionId: reflection.id }))[0]?.id, media.id);
+  assert.equal(await userB.journey.reflections.byId(reflection.id), null);
+  assert.equal(await userB.journey.media.byId(media.id), null);
+  await local.journey.reflections.update(reflection.id, { energyLevel: 4 });
+  assert.equal((await local.journey.reflections.byId(reflection.id))?.energyLevel, 4);
+});

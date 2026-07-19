@@ -12,6 +12,7 @@ export type {
   VisionProviderName,
   VoiceAudio,
   VoiceProvider,
+  MediaProvider,
   VoiceProviderName,
 } from "./providers";
 
@@ -27,6 +28,7 @@ export type {
   PlanRepositories,
   CoachRepositories,
   EvidenceRepository,
+  JourneyRepositories,
   CommitRepository,
   BillingRepository,
   UserScopedRepositories,

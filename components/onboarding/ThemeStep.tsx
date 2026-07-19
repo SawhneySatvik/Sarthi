@@ -7,14 +7,6 @@ import { Button } from "@/components/ui/Button";
 
 import { SelectChip } from "./SelectChip";
 
-/*
- * Phase F — Theme (§8). Three live mini-previews (Ember · Bone · Moss) rendered as wrappers
- * carrying `data-theme`/`data-mode`, so they use the REAL per-theme tokens with ZERO new CSS
- * (globals.css theme selectors are attribute-scoped). A light/dark/system toggle; Ember +
- * system preselected. Selecting switches tokens LIVE across the whole surface and PERSISTS to
- * `localStorage 'sarthi-theme'` exactly as the dev switcher does (system → `mode:null`, so the
- * pre-paint script falls back to the OS preference). `Skip` = defaults. No amber anywhere.
- */
 type ThemeId = "ember" | "bone" | "moss";
 type ModeId = "light" | "dark" | "system";
 
@@ -30,8 +22,6 @@ const MODES: ReadonlyArray<{ id: ModeId; label: string }> = [
   { id: "system", label: "System" },
 ];
 
-/** A `system` selection resolves to a concrete light/dark for the `<html>` attribute + the
- *  profile column (the enum has no `system`); `localStorage` keeps the `system` nuance. */
 function resolveMode(mode: ModeId): "light" | "dark" {
   if (mode !== "system") return mode;
   if (typeof window !== "undefined" && window.matchMedia) {
@@ -46,7 +36,7 @@ function applyTheme(theme: ThemeId, mode: ModeId): void {
   el.setAttribute("data-theme", theme);
   el.setAttribute("data-mode", resolveMode(mode));
   try {
-    localStorage.setItem("sarthi-theme", JSON.stringify({ theme, mode: mode === "system" ? null : mode }));
+    localStorage.setItem("sarthi-theme", JSON.stringify({ theme, mode }));
   } catch {
     /* private-mode storage — the live switch still applies for this session */
   }
@@ -58,7 +48,7 @@ function persistThemeToProfile(theme: ThemeId, mode: ModeId): void {
   void fetch("/api/onboarding/detail", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ section: "theme", theme, themeMode: resolveMode(mode) }),
+    body: JSON.stringify({ section: "theme", theme, themeMode: mode }),
   }).catch(() => {
     /* the persisted localStorage theme already holds; the profile column is best-effort */
   });
@@ -113,7 +103,7 @@ function ThemePreview({
 }
 
 export function ThemeStep({ onDone }: { onDone: () => void }) {
-  const [theme, setTheme] = useState<ThemeId>("ember");
+  const [theme, setTheme] = useState<ThemeId>("bone");
   const [mode, setMode] = useState<ModeId>("system");
 
   const selectTheme = (next: ThemeId) => {
@@ -168,7 +158,7 @@ export function ThemeStep({ onDone }: { onDone: () => void }) {
         <button
           type="button"
           onClick={() => {
-            applyTheme("ember", "system");
+            applyTheme("bone", "system");
             onDone();
           }}
           className="min-h-11 px-4 py-3 font-ui text-body text-ink-2"

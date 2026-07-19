@@ -21,6 +21,7 @@ function stopTracks(stream: MediaStream | null) {
 export function usePressToTalk({ onAudio }: PressToTalkOptions) {
   const [state, setState] = useState<RecorderState>("idle");
   const [elapsedMs, setElapsedMs] = useState(0);
+  const [audioLevel, setAudioLevel] = useState(0);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const startedAtRef = useRef(0);
@@ -30,6 +31,8 @@ export function usePressToTalk({ onAudio }: PressToTalkOptions) {
   const mountedRef = useRef(true);
   const requestingRef = useRef(false);
   const pendingReleaseRef = useRef<"tap" | "stop" | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
 
   function clearTimers() {
     if (capTimeoutRef.current !== null) window.clearTimeout(capTimeoutRef.current);
@@ -46,6 +49,10 @@ export function usePressToTalk({ onAudio }: PressToTalkOptions) {
       return;
     }
     clearTimers();
+    audioContextRef.current?.close().catch(() => undefined);
+    audioContextRef.current = null;
+    analyserRef.current = null;
+    if (mountedRef.current) setAudioLevel(0);
     const recorder = recorderRef.current;
     if (recorder && recorder.state !== "inactive") {
       recorder.stop();
@@ -82,6 +89,14 @@ export function usePressToTalk({ onAudio }: PressToTalkOptions) {
         return;
       }
       const recorder = new MediaRecorder(stream);
+      try {
+        const context = new AudioContext();
+        const analyser = context.createAnalyser();
+        analyser.fftSize = 256;
+        context.createMediaStreamSource(stream).connect(analyser);
+        audioContextRef.current = context;
+        analyserRef.current = analyser;
+      } catch {}
       const chunks: BlobPart[] = [];
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) chunks.push(event.data);
@@ -107,7 +122,14 @@ export function usePressToTalk({ onAudio }: PressToTalkOptions) {
       recorder.start();
       setState("recording");
       elapsedIntervalRef.current = window.setInterval(() => {
-        if (mountedRef.current) setElapsedMs(Math.min(MAX_VOICE_DURATION_MS, Date.now() - startedAtRef.current));
+        if (!mountedRef.current) return;
+        setElapsedMs(Math.min(MAX_VOICE_DURATION_MS, Date.now() - startedAtRef.current));
+        const analyser = analyserRef.current;
+        if (!analyser) return;
+        const values = new Uint8Array(analyser.fftSize);
+        analyser.getByteTimeDomainData(values);
+        const rms = Math.sqrt(values.reduce((sum, value) => sum + ((value - 128) / 128) ** 2, 0) / values.length);
+        setAudioLevel(Math.min(1, rms * 4));
       }, 250);
       capTimeoutRef.current = window.setTimeout(() => finish(false), MAX_VOICE_DURATION_MS);
       if (pendingReleaseRef.current === "tap") setState("tap-to-stop");
@@ -143,5 +165,5 @@ export function usePressToTalk({ onAudio }: PressToTalkOptions) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return { state, elapsedMs, start, finish, release };
+  return { state, elapsedMs, audioLevel, start, finish, release };
 }
