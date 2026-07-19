@@ -188,16 +188,18 @@
 - **Acceptance (verbatim P7):** “it scrolls like a memory, not a log; milestones punctuate; the rail stays continuous.”
 - **Moves:** F6/F7/F9 and F11 shots 6–8, 10.
 
-### SAR-016 — Tools: Focus and Meditation loops
+### SAR-016 — Tools: Focus and Meditation loops ✅ LANDED 2026-07-19
 
+- **Status:** LANDED — explicit idempotent Focus/Meditation commands write only typed rows through the shared undo seam; first-use Meditation is an atomic reversible habit + log batch. `timer-session` is a keyless deterministic eval and D-041 screenshots cover the signed live states.
 - **Agent:** `screens` (Terra) · **Size:** L · **Depends:** `SAR-009`, `SAR-010`, `SAR-014`
 - **Docs:** `docs/screens/SCREEN-TOOLS.md` · `docs/experience/DESIGN-PROMPTS.md` P8 · `docs/experience/FLOWS.md` F8 · `docs/architecture/ARCHITECTURE.md` §§5, 8
 - **Acceptance (verbatim P8):** “the grid looks full but calm; both live tools run their loop; domain ticks make the earning rule visible.”
 - **Additional data scope:** timer completion is an explicit, idempotent typed commit with undo; Meditation asks consent before its habit write; no “soon” tool creates a row.
 - **Moves:** F8 and `timer-session` fixture.
 
-### SAR-017 — Settings and authorised provider override
+### SAR-017 — Settings and authorised provider override ✅ LANDED 2026-07-19
 
+- **Status:** LANDED — avatar Settings sheet, token previews, local preferences, scoped export, and honest unavailable destructive controls are real. The LLM selector is browser-memory + request-header scoped in dev/judge only; public production omits and ignores it. D-041 six-mode screenshots pass.
 - **Agent:** `screens` (Terra) · **Size:** M · **Depends:** `SAR-002`, `SAR-012`, `SAR-014`
 - **Docs:** `docs/screens/SCREEN-SETTINGS.md` · `docs/experience/DESIGN-PROMPTS.md` P9 · `docs/experience/FLOWS.md` F10–F11 · `docs/architecture/ARCHITECTURE.md` §§2, 7
 - **Acceptance (verbatim P9):** “theme preview cards are real token renders; the provider row exists (the live-demo moment); danger zone can't be hit accidentally.”
