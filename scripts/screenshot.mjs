@@ -676,6 +676,135 @@ async function voiceFlow(browser, themes, widths) {
   }
 }
 
+// SAR-016: all timer states are driven by sessionStorage or intercepted completion
+// responses. The harness never waits for a real timer and never writes tool rows.
+async function seedToolRun(page, kind, skillId) {
+  const durationMinutes = kind === "focus" ? 25 : 5;
+  await page.evaluate(({ nextKind, nextSkillId, nextDuration }) => {
+    sessionStorage.setItem("sarthi-tool-run", JSON.stringify({
+      kind: nextKind,
+      startedAt: Date.now() - (nextDuration + 1) * 60000,
+      durationMinutes: nextDuration,
+      skillId: nextKind === "focus" ? nextSkillId : undefined,
+      skillName: nextKind === "focus" ? "System design" : undefined,
+      patternId: nextKind === "meditation" ? "box" : undefined,
+      idempotencyKey: "11111111-1111-4111-8111-111111111111",
+    }));
+  }, { nextKind: kind, nextSkillId: skillId, nextDuration: durationMinutes });
+}
+
+async function toolsScreens(browser, themes, widths) {
+  for (const [theme, mode] of themes) for (const width of widths) await withPage(browser, { theme, mode, width }, async (page) => {
+    await page.route("**/api/tools/focus/complete", (route) => route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, commitId: "22222222-2222-4222-8222-222222222222" }) }));
+    await page.route("**/api/tools/meditation/complete", (route) => route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, commitId: "33333333-3333-4333-8333-333333333333" }) }));
+    await page.goto(`${BASE}/tools`, { waitUntil: "networkidle" });
+    await page.waitForTimeout(SETTLE_MS);
+    await shot(page, `tools-grid-${width}-${theme}-${mode}`);
+
+    await page.getByRole("button", { name: "Focus" }).click();
+    const focusStart = page.getByRole("button", { name: /Start 25 min/ });
+    await focusStart.scrollIntoViewIfNeeded();
+    await focusStart.waitFor({ timeout: 4000 });
+    const skillId = await page.locator("#focus-skill option").nth(1).getAttribute("value");
+    if (!skillId) throw new Error("seeded skill missing");
+    await shot(page, `tools-focus-idle-${width}-${theme}-${mode}`);
+    await focusStart.click();
+    await page.getByRole("button", { name: "End early" }).waitFor({ timeout: 4000 });
+    await shot(page, `tools-focus-running-${width}-${theme}-${mode}`);
+    await page.getByRole("button", { name: "End early" }).click();
+    await shot(page, `tools-focus-abandon-${width}-${theme}-${mode}`);
+    await page.getByRole("button", { name: "Discard" }).click();
+
+    await seedToolRun(page, "focus", skillId);
+    await page.goto(`${BASE}/tools?resume=1`, { waitUntil: "networkidle" });
+    await page.getByText("Your block is ready to file.").waitFor({ timeout: 4000 });
+    await shot(page, `tools-focus-resume-${width}-${theme}-${mode}`);
+    await page.getByRole("button", { name: /File 25 min/ }).click();
+    await page.getByRole("button", { name: "Undo" }).waitFor({ timeout: 4000 });
+    await shot(page, `tools-focus-complete-${width}-${theme}-${mode}`);
+
+    await page.goto(`${BASE}/tools`, { waitUntil: "networkidle" });
+    await page.getByRole("button", { name: "Meditation" }).click();
+    const meditationStart = page.getByRole("button", { name: /Start 5 min/ });
+    await meditationStart.scrollIntoViewIfNeeded();
+    await meditationStart.waitFor({ timeout: 4000 });
+    await shot(page, `tools-meditation-idle-${width}-${theme}-${mode}`);
+    // The populated fixture owns Meditate; clear the session-local run and exercise
+    // the consent state only when it is absent is a separate fresh fixture concern.
+    await meditationStart.click();
+    await page.getByRole("button", { name: "Continue" }).waitFor({ timeout: 4000 });
+    await shot(page, `tools-meditation-running-${width}-${theme}-${mode}`);
+    await page.getByRole("button", { name: "Discard session" }).click();
+    await seedToolRun(page, "meditation", null);
+    await page.goto(`${BASE}/tools?resume=1`, { waitUntil: "networkidle" });
+    await page.getByText("Your practice is ready to file.").waitFor({ timeout: 4000 });
+    await page.getByRole("button", { name: /File 5 min/ }).click();
+    await page.getByRole("button", { name: "Undo" }).waitFor({ timeout: 4000 });
+    await shot(page, `tools-meditation-complete-${width}-${theme}-${mode}`);
+
+    // This state is intentionally server-gated. The command below must target
+    // `pnpm dev` or a `JUDGE_MODE=true` server; production ignores the query.
+    await page.goto(`${BASE}/tools?shot=meditation-consent`, { waitUntil: "networkidle" });
+    const consentStart = page.getByRole("button", { name: /Start 5 min/ });
+    await consentStart.scrollIntoViewIfNeeded();
+    await consentStart.click();
+    await page.getByText("Add Meditate to your habits?").waitFor({ timeout: 4000 });
+    await shot(page, `tools-meditation-consent-${width}-${theme}-${mode}`);
+  });
+}
+
+// A short recovery pass for the two meditation states that follow the general
+// tools loop. Eight shots total: completion + first-use consent × Ember × widths.
+async function toolsMeditationFinal(browser, themes, widths) {
+  for (const [theme, mode] of themes) for (const width of widths) await withPage(browser, { theme, mode, width }, async (page) => {
+    await page.route("**/api/tools/meditation/complete", (route) => route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, commitId: "33333333-3333-4333-8333-333333333333" }) }));
+    await page.goto(`${BASE}/tools`, { waitUntil: "networkidle" });
+    await seedToolRun(page, "meditation", null);
+    await page.goto(`${BASE}/tools?resume=1`, { waitUntil: "networkidle" });
+    await page.getByText("Your practice is ready to file.").waitFor({ timeout: 4000 });
+    await page.getByRole("button", { name: /File 5 min/ }).click();
+    await page.getByRole("button", { name: "Undo" }).waitFor({ timeout: 4000 });
+    await shot(page, `tools-meditation-complete-${width}-${theme}-${mode}`);
+
+    await page.goto(`${BASE}/tools?shot=meditation-consent`, { waitUntil: "networkidle" });
+    const start = page.getByRole("button", { name: /Start 5 min/ });
+    await start.scrollIntoViewIfNeeded();
+    await start.click();
+    await page.getByText("Add Meditate to your habits?").waitFor({ timeout: 4000 });
+    await shot(page, `tools-meditation-consent-${width}-${theme}-${mode}`);
+  });
+}
+
+// SAR-017: Settings is rendered through the real avatar sheet. The six-mode loop
+// relies on withPage's pre-paint localStorage setup; no profile/theme write occurs.
+async function settingsScreens(browser, themes, widths) {
+  for (const [theme, mode] of themes) for (const width of widths) await withPage(browser, { theme, mode, width }, async (page) => {
+    await page.goto(`${BASE}/today`, { waitUntil: "networkidle" });
+    await page.getByRole("button", { name: "Settings and profile" }).click();
+    await page.getByRole("dialog", { name: "Settings" }).waitFor({ timeout: 4000 });
+    await page.waitForTimeout(SETTLE_MS);
+    await shot(page, `settings-main-${width}-${theme}-${mode}`);
+    const provider = page.getByLabel("AI provider");
+    if (await provider.count()) {
+      await provider.scrollIntoViewIfNeeded();
+      await shot(page, `settings-developer-${width}-${theme}-${mode}`);
+    }
+
+    await page.getByText("Theme", { exact: true }).click();
+    await page.getByRole("dialog", { name: "Appearance" }).waitFor({ timeout: 4000 });
+    await shot(page, `settings-appearance-${width}-${theme}-${mode}`);
+    await page.getByRole("button", { name: "Close settings" }).click();
+
+    // Extra evidence states only once per theme/mode/width; selectors are guarded
+    // because fresh/populated profiles legitimately differ in their gap count.
+    await page.getByRole("button", { name: "Settings and profile" }).click();
+    await page.getByText("Danger zone", { exact: true }).click();
+    await page.getByRole("dialog", { name: "Danger zone" }).waitFor({ timeout: 4000 });
+    await shot(page, `settings-danger-${width}-${theme}-${mode}`);
+    await page.getByRole("button", { name: "Close settings" }).click();
+  });
+}
+
 const browser = await chromium.launch({ headless: true });
 try {
   if (SHOTS === "main") {
@@ -705,6 +834,13 @@ try {
   } else if (SHOTS === "voice") {
     await voiceFlow(browser, EMBER, [MOBILE]);
     await voiceFlow(browser, [["ember", "dark"]], [DESKTOP]);
+  } else if (SHOTS === "tools") {
+    await toolsScreens(browser, EMBER, [MOBILE, DESKTOP]);
+  } else if (SHOTS === "tools-meditation-final") {
+    await toolsMeditationFinal(browser, EMBER, [MOBILE, DESKTOP]);
+  } else if (SHOTS === "settings") {
+    await settingsScreens(browser, [...EMBER, ...NON_EMBER], [MOBILE]);
+    await settingsScreens(browser, EMBER, [DESKTOP]);
   } else if (SHOTS === "coach") {
     await coachScreens(browser, EMBER, [MOBILE, DESKTOP]);
     await coachScreens(browser, [["bone", "dark"], ["moss", "light"]], [MOBILE]);
