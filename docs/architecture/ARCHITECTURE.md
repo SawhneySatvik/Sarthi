@@ -160,10 +160,16 @@ export interface VisionProvider {
     tier: 'deep' | 'balanced';
   }): Promise<ObjectResult<z.infer<TSchema>>>;
 }
+
+export interface MediaProvider {
+  put(input: { userId: string; bytes: Uint8Array; mimeType: 'image/jpeg' | 'image/png' | 'image/webp'; sha256: string }): Promise<{ storageProvider: string; storagePath: string }>;
+  read(input: { userId: string; storagePath: string }): Promise<{ bytes: Uint8Array; mimeType: 'image/jpeg' | 'image/png' | 'image/webp' }>;
+}
 ```
 
 - `FakeLlmGateway` returns a versioned canonical `CaptureDraft`, canned coach line, and deterministic brief fixtures. `FakeVoiceProvider` returns the canonical transcript; `FakeVisionProvider` returns a deterministic meal/receipt fixture. No fake adapter reads an API key.
 - `SarvamVoiceProvider` uses Saaras `saaras:v3` at `POST /speech-to-text` and optional Bulbul `bulbul:v3` at `POST /text-to-speech`; it passes the subscription key only in the provider adapter. Sarvam REST transcription is capped at 30 seconds, so longer audio is rejected to the UI before upload. [STT reference](https://docs.sarvam.ai/api-reference-docs/speech-to-text/transcribe) · [TTS reference](https://docs.sarvam.ai/api-reference-docs/text-to-speech/convert).
+- `MediaProvider` stores only private JPEG/PNG/WebP bytes. `FakeMediaProvider` is a keyless local filesystem adapter; the production adapter deliberately refuses until SAR-021 wires Supabase Storage. Routes bind the authenticated user before calling either method, then read media through a scoped route; browser clients never receive a storage path.
 
 ## 3. Authentication, database, and repositories
 
@@ -191,6 +197,7 @@ export interface UserScopedRepositories {
   skills: SkillRepositories;
   plans: PlanRepositories;
   coach: CoachRepositories;
+  journey: JourneyRepositories;
   evidence: EvidenceRepository;
   commits: CommitRepository;
   billing: BillingRepository;
@@ -210,7 +217,7 @@ export interface ScopedEntityRepository<TRecord, TCreate, TUpdate, TQuery> {
 }
 ```
 
-`ProfileRepository`, `MoneyRepositories`, `HealthRepositories`, `HabitRepositories`, `SkillRepositories`, `PlanRepositories`, `CoachRepositories`, `EvidenceRepository`, `CommitRepository`, and `BillingRepository` expose only concrete table-specific forms of `ScopedEntityRepository`.
+`ProfileRepository`, `MoneyRepositories`, `HealthRepositories`, `HabitRepositories`, `SkillRepositories`, `PlanRepositories`, `CoachRepositories`, `JourneyRepositories`, `EvidenceRepository`, `CommitRepository`, and `BillingRepository` expose only concrete table-specific forms of `ScopedEntityRepository`.
 
 - `LocalPasswordAuthProvider` validates the configured local password and always returns `userId: 'local-dev'`. It is the only auth provider used by fake-stack dev/CI.
 - `SupabaseAuthProvider` handles email/password signup, sign-in, reset, and session verification. Supabase is never a dev/CI prerequisite.
@@ -280,7 +287,14 @@ export interface ScopedEntityRepository<TRecord, TCreate, TUpdate, TQuery> {
 | `adaptations` | base columns, `planItemId`, `beforeJson`, `afterJson`, `reason`, `status` (`proposed/kept/reverted`), `keptAt`, `revertedAt`, `appliedCommitId` | index `(userId, status, createdAt)` |
 | `evidence` | base columns, `domain`, `entryKind`, `entryId`, `storageProvider`, `storagePath`, `mimeType`, `sha256`, `caption`, `occurredAt`, `localDate` | unique `(userId, sha256)`; index `(userId, entryKind, entryId)` |
 
-### 4.7 Commit/undo and billing tables
+### 4.7 Journey memory tables
+
+| Table | Business columns | Constraints and indexes |
+|---|---|---|
+| `daily_reflections` | base columns, `localDate`, `mood` (`rough/low/steady/good/great`), `energyLevel` (integer `1..5`), nullable integer `sleepMinutes`, `journal`, `summary`, `summaryProvider`, `summaryModelId` | unique `(userId, localDate)`; no XP, plan, typed-domain, or adaptation side effect |
+| `reflection_media` | base columns, `reflectionId`, `storageProvider`, `storagePath`, `mimeType`, `byteSize`, `sha256`, `caption` | unique `(userId, sha256)`; route-enforced maximum four image rows per reflection |
+
+### 4.8 Commit/undo and billing tables
 
 | Table | Business columns | Constraints and indexes |
 |---|---|---|

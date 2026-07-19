@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Role** | The moat. One input → many typed entries. Every other screen exists around this one. |
-| **Entry points** | Global capture bar (every tab) · seed chips · Today's "how'd it go?" nudge · Habits/lens quick-log |
+| **Entry points** | Global pencil FAB (every tab) · seed chips · Today's "how'd it go?" nudge · Habits/lens quick-log |
 | **Form** | Bottom sheet sliding over the current tab (never a page navigation) |
 | **Inherits** | `docs/experience/DESIGN.md` — tokens, type, motion, don'ts |
 
@@ -38,7 +38,7 @@ Layout, top → bottom:
    - **Idle:** near-still — low noise amplitude, slow drift, particles in `--ink-2` at low alpha with a faint `--ink-1` core. It breathes; it does not perform (calm at rest).
    - **Hold-to-talk:** Web Audio API analyser (mic stream) drives shader uniforms — RMS → noise amplitude, band energy → noise speed — so the orb ripples and swells *with the voice*; particles brighten toward `--ink-1`, a soft bloom (never amber — amber stays earned). Haptic tick on press/release. Release = submit; slide-up-to-cancel while holding.
    - **Handoff:** on release the orb contracts and settles into a slow "thinking" rotation, then collapses upward into the pinned quote as State B's shimmer takes over — the orb IS the capture identity across states.
-   - **Implementation:** Three.js `Points` + custom shader (`uTime, uAmp, uSpeed`), additive blending, DPR capped at 2, render paused when the sheet is closed. **Fallbacks:** `prefers-reduced-motion` / no-WebGL / low battery → static layered-gradient orb with a gentle scale pulse; the persistent capture **bar** uses a small static orb glyph (gradient + grain), never live WebGL. Keyboard/text path unaffected.
+- **Implementation:** the web v0 uses a token-driven CSS/SVG orb fed by a Web Audio analyser (`uAmp` equivalent); it renders ripple/particle layers without a 3D dependency and pauses when closed. **Fallbacks:** `prefers-reduced-motion` / no audio support → static layered-gradient orb with a gentle scale pulse. Keyboard/text path remains unaffected.
 3. **Flanks:** keyboard toggle (left) · camera (right), 44px icon buttons, `--ink-2`.
    - Keyboard mode: mic shrinks to a trailing icon inside a full-width text field (`--r-input`), autofocus, sheet lifts above keyboard; submit = send icon or Enter.
    - Camera: opens system camera/picker → photo thumbnails append into the input as chips (photo-only capture is valid — no text required).

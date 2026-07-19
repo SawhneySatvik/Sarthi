@@ -7,6 +7,12 @@
 | **Entry points** | App open (default tab) · fan-out dismiss · notification taps |
 | **Inherits** | `docs/experience/DESIGN.md` tokens/motion/don'ts · capture bar per DESIGN §6 |
 
+> **SAR-019A / D-048 amendment:** the plan remains forward-looking, but every
+> remaining item is now an art-led card. Right swipe is Done and left swipe is
+> Skip; each card retains visible 44px actions and keyboard equivalence. The
+> underlying scoped status write, capture nudge, XP, and completed-settle rules
+> below are unchanged.
+
 ---
 
 ## 0. The one-sentence spec
@@ -61,8 +67,8 @@ One sentence, Fraunces, `--ink-2`, from the morning brief (deep tier): *"Leg day
 ## 5. The plan spine (the core)
 
 ### 5a. Ordering & grouping
-- **NEXT UP** — exactly one card, the highest-priority pending item: time-anchored items due soonest first; otherwise habit-cadence order (morning habits early, etc.). It's the only element with visible actions.
-- **LATER TODAY** — remaining pending items as compact rows: domain tick (left edge, domain hue) · title · meta (time / streak / target). Tap a row → it promotes to NEXT UP position with its actions (you can act on anything, but the UI only *suggests* one thing at a time).
+- **NEXT UP** — the first card remains the visual lead, highest-priority pending item: time-anchored items due soonest first; otherwise habit-cadence order.
+- **LATER TODAY** — remaining pending items use the same art-card grammar at a quieter scale. Every card can be acted on directly; the UI retains order but no longer artificially blocks a deliberate action.
 - **COMPLETED (n)** — collapsed cluster at the bottom; expands to settled rows with `--ok` checks and how each completed (Done tap / auto via capture / satisfied-by badge). Skipped items land here too, marked quietly (`--ink-3` "skipped"), no shame styling.
 
 ### 5b. The NEXT UP card

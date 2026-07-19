@@ -23,7 +23,7 @@
 
 ## 2. Theme architecture (Slack-style: prebaked themes × light/dark)
 
-**Model:** `theme` (palette family) × `mode` (light | dark). Every theme ships both modes. Components consume **semantic tokens only**; themes remap tokens, never components.
+**Model:** `theme` (palette family) × persisted `mode` preference (light | dark | system). Every theme ships both concrete modes; `system` resolves to the device preference. Components consume **semantic tokens only**; themes remap tokens, never components.
 
 ### 2a. Semantic token set (the contract)
 
@@ -68,8 +68,8 @@
 
 ### 2c. Theme behavior
 
-- **First run:** Ember, mode follows system preference. Switcher lives in Settings (and as an optional onboarding step).
-- Persist per user (`localStorage` dev → Supabase profile prod). Apply via `data-theme="ember" data-mode="dark"` on `<html>`; Tailwind reads CSS vars.
+- **First run:** Bone, mode follows system preference. Switcher lives in Settings (and as an optional onboarding step).
+- Persist per user (`localStorage` dev → Supabase profile prod). Apply the resolved value via `data-theme="bone" data-mode="dark"` on `<html>`; Tailwind reads CSS vars.
 - **Deferred (unchanged):** user-*custom* theme editor. Prebaked themes are in v1; the editor is roadmap.
 
 ---
@@ -112,8 +112,7 @@ Signature motions (the only choreographed ones — everything else is `--t-base`
 ## 6. Layout & navigation
 
 - **Design width:** mobile-first at 390px; content column caps at 720px on desktop.
-- **Mobile:** bottom tab bar (Today · Journey · Coach · Stats · Tools) with the **global capture bar docked directly above it** — mic (hold-to-talk) + text field + camera. Reachable from every tab.
-- **Desktop:** slim left icon rail for tabs; capture bar floats bottom-center of the content column. Same components, same tokens.
+- **Capture:** one white elevated pencil FAB floats bottom-right above the mobile nav / desktop rail. It morphs into the global capture sheet; text, photo, and PTT stay reachable inside that sheet from every tab.
 - **Verification:** 390px mobile is the visual-fidelity gate; every changed screen/state also receives a desktop responsive smoke screenshot (D-034).
 - **Settings/Profile:** avatar top-right on every tab → sheet/route. Not a sixth tab.
 - Grid: 4px base, 16px gutters, 20px card padding, radius tokens `--r-card 20px` / `--r-chip 999px` / `--r-input 14px`.
@@ -130,7 +129,7 @@ Signature motions (the only choreographed ones — everything else is `--t-base`
 ## 8. Imagery (full system: `docs/experience/ASSETS.md`)
 
 - **House style:** calm, painterly, solitary-figure scenes in atmospheric light (cinematic/painterly — never described as any studio brand). Pre-generated (GPT Image + Nano Banana), shipped static.
-- **Placement map:** Today header scene (time-of-day variants) · arc/challenge cards · Tools hero · Journey milestone markers · onboarding backdrops. Lenses stay imagery-light (data first).
+- **Placement map:** Today header scene (time-of-day variants) · arc/challenge cards · Tools hero · Journey milestone markers · onboarding backdrops · Stats and lens header/summary bands. Dense metrics, ledgers, forms, and capture proposal cards stay data-first.
 - Always full-bleed inside the card under `--scrim`; type on imagery is Display or Fraunces, never body UI text.
 - **Build placeholder:** two-stop painterly gradient per domain hue + subtle grain texture token — layout never blocks on art. Light modes get lighter scrim + brighter variants of the same scenes (or the gradient placeholder until generated).
 

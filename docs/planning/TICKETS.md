@@ -216,13 +216,20 @@
 - **Additional production scope:** run each journey against real scoped repositories/fake providers, repair only integration seams, and preserve the one rich capture write path.
 - **Moves:** F2/F4–F11 integration gate.
 
-### SAR-019 — Token sweep and screenshot verification
+### SAR-019 — Token sweep and screenshot verification ✅ MANUALLY ACCEPTED 2026-07-19
 
 - **Agent:** `screens` (Terra) · **Size:** M · **Depends:** `SAR-018`
 - **Docs:** `docs/experience/DESIGN.md` · all `docs/screens/SCREEN-*.md` screenshot checklists · `docs/experience/DESIGN-PROMPTS.md` P11 · `AGENTS.md` §3
 - **Acceptance (verbatim P11):** “Sweep every screen in all SIX theme-modes (Ember/Bone/Moss × light/dark): fix contrast to AA (use the -strong domain variants on light), tune the Bone/Moss surface values where they feel off, verify amber discipline (nothing amber that isn't XP/streak/level), verify shimmer-not-spinner everywhere, verify the coach never speaks outside Fraunces.”
 - **Additional proof:** screenshot every state at 390px and its responsive desktop smoke state; save evidence to `.verify/screens/`.
 - **Moves:** screenshot-verify gate and F11 visual readiness. Generated art stays gradients + grain if cut line #4 fires.
+
+### SAR-019A — Visual Narrative and voice-first refinement
+
+- **Status:** LANDED 2026-07-19 · **Agent:** `pipeline` + `screens` (Terra) · **Size:** XL · **Depends:** `SAR-018`, manual `SAR-019`
+- **Docs:** `.codex/plans/SAR-019A.md` · `docs/experience/DESIGN.md` · `docs/screens/SCREEN-TODAY.md` · `docs/screens/SCREEN-JOURNEY.md` · `docs/screens/SCREEN-CAPTURE.md` · `docs/product/DECISIONS.md` D-047–D-048
+- **Acceptance:** Bone/system is the persisted default; all Today pending items are art-led, swipeable, and remain accessible/scoped; DailyReflection and ReflectionMedia are typed, user-bound, keyless/local, image-only records with no XP/plan/adaptation effects; Journey renders real four-tile day cards and a scoped image viewer; Capture FAB/orb preserves the transcript-confirmed F3 path; Stats/lenses use registry art without obscuring data; Tools has no external-store update loop.
+- **Moves:** D-041 visual narrative review; blocks `SAR-020` until accepted.
 
 ### SAR-020 — Eval report and F11 dry-run evidence
 
