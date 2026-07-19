@@ -206,7 +206,9 @@
 - **Additional safety scope:** provider flip is available only in dev or a separately configured judge environment; production has no gesture or client-settable environment selector.
 - **Moves:** F10 and F11 shot 9.
 
-### SAR-018 — Flow stitch and domain-complete integration
+### SAR-018 — Flow stitch and domain-complete integration ✅ LANDED 2026-07-19
+
+- **Status:** LANDED — F2–F11's live scoped-repository seams have no prototype dead end, and the 41-scene art library ships as typed, optimized WebP under a 3 MB gate. D-041 review passed with representative mobile/desktop evidence; full P11 six-mode coverage remains SAR-019.
 
 - **Agent:** `pipeline` (Terra) · **Size:** L · **Depends:** `SAR-008`–`SAR-017`
 - **Docs:** `docs/experience/FLOWS.md` F2–F11 · `docs/experience/DESIGN-PROMPTS.md` P10 · `docs/architecture/ARCHITECTURE.md` §§5–6
