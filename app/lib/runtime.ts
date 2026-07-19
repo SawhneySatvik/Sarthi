@@ -21,6 +21,7 @@ export interface RuntimeConfig {
   billingMode: BillingMode;
   judgeMode: boolean;
   databaseUrl: string;
+  appPassword?: string;
 }
 
 const runtimeEnvironmentSchema = z.object({
@@ -32,6 +33,7 @@ const runtimeEnvironmentSchema = z.object({
   BILLING_MODE: z.enum(["checkout", "waitlist"]).default("waitlist"),
   JUDGE_MODE: z.enum(["true", "false"]).default("false"),
   DB_URL: z.string().min(1).default("file:./sarthi.dev.db"),
+  APP_PASSWORD: z.string().min(1).optional(),
 });
 
 /** Raw server environment values; selector validation happens inside the parser. */
@@ -49,6 +51,7 @@ export function parseRuntimeConfig(environment: RuntimeEnvironment = {}): Runtim
     billingMode: parsed.BILLING_MODE,
     judgeMode: parsed.JUDGE_MODE === "true",
     databaseUrl: parsed.DB_URL,
+    appPassword: parsed.APP_PASSWORD,
   };
 }
 

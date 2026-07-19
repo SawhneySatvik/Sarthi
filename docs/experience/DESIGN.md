@@ -23,7 +23,7 @@
 
 ## 2. Theme architecture (Slack-style: prebaked themes × light/dark)
 
-**Model:** `theme` (palette family) × `mode` (light | dark). Every theme ships both modes. Components consume **semantic tokens only**; themes remap tokens, never components.
+**Model:** `theme` (palette family) × persisted `mode` preference (light | dark | system). Every theme ships both concrete modes; `system` resolves to the device preference. Components consume **semantic tokens only**; themes remap tokens, never components.
 
 ### 2a. Semantic token set (the contract)
 
@@ -68,8 +68,8 @@
 
 ### 2c. Theme behavior
 
-- **First run:** Ember, mode follows system preference. Switcher lives in Settings (and as an optional onboarding step).
-- Persist per user (`localStorage` dev → Supabase profile prod). Apply via `data-theme="ember" data-mode="dark"` on `<html>`; Tailwind reads CSS vars.
+- **First run:** Bone, mode follows system preference. Switcher lives in Settings (and as an optional onboarding step).
+- Persist per user (`localStorage` dev → Supabase profile prod). Apply the resolved value via `data-theme="bone" data-mode="dark"` on `<html>`; Tailwind reads CSS vars.
 - **Deferred (unchanged):** user-*custom* theme editor. Prebaked themes are in v1; the editor is roadmap.
 
 ---
@@ -87,8 +87,8 @@ Scale (mobile-first): display-xl 40/44 · display 28/32 · title 20/26 · body 1
 
 ## 4. Color law
 
-- Amber (`--energy`) appears **only** on XP, streak, level-up, and the Overall stats card. If amber is on screen, the user earned it.
-- Domain hue appears on: the domain chip, lens accents, ring fills, card left-edge ticks. Never as large text on `--bg-card` without the `-strong` variant (contrast).
+- Amber (`--energy`) appears **only** on XP, streak, level-up, and the Overall stats card. If amber is on screen, the user earned it. **Amber only when EARNED (D-041 fold-back):** the arc **day-counter** ("Day 5 of 30") is a position, not a reward → neutral `--ink-2`; a **zero/base stat** (streak `0`, level `1`) hasn't been earned → neutral `--ink-3`. A stat pill turns amber only once its value crosses the earned threshold (streak `> 0`, level `> 1`).
+- Domain hue appears on: the domain chip, lens accents, ring fills, card left-edge ticks. Never as large text on `--bg-card` without the `-strong` variant (contrast). **Health-lens ring tints (D-041):** water `--health-water` `#6f9fae` dark / `#3f7e93` light · protein `--health-protein` `#a8815c` dark / `#8a6238` light — set **per-mode** (`[data-mode="light"]`) for AA on warm paper, and pulled deliberately clear of `--energy` amber + `--dom-money` gold so the three rings read as three distinct metrics, never as "earned" amber. **Money-lens tokens (D-042):** dark-mode `--dom-money` is bronze `#c0883a` (deepened from `#d8a24a` so it reads clear of `--energy` amber; light unchanged), and dark budget-bar status colors `--warn` `#e6972e` / `--danger` `#c96e63` stay distinct from `--dom-money` — the fill turns `--warn` above 90% and `--danger` when over (the only status colors in the lens), so a >90% bar signals urgency.
 - Surfaces: max two elevations visible at once (`card` on `canvas`, or `raised` over both). Cards are lifted a hair — one soft shadow token, never stacked shadows, never pure grey.
 - Imagery always sits under `--scrim` when type is on it.
 
@@ -112,8 +112,7 @@ Signature motions (the only choreographed ones — everything else is `--t-base`
 ## 6. Layout & navigation
 
 - **Design width:** mobile-first at 390px; content column caps at 720px on desktop.
-- **Mobile:** bottom tab bar (Today · Journey · Coach · Stats · Tools) with the **global capture bar docked directly above it** — mic (hold-to-talk) + text field + camera. Reachable from every tab.
-- **Desktop:** slim left icon rail for tabs; capture bar floats bottom-center of the content column. Same components, same tokens.
+- **Capture:** one white elevated pencil FAB floats bottom-right above the mobile nav / desktop rail. It morphs into the global capture sheet; text, photo, and PTT stay reachable inside that sheet from every tab.
 - **Verification:** 390px mobile is the visual-fidelity gate; every changed screen/state also receives a desktop responsive smoke screenshot (D-034).
 - **Settings/Profile:** avatar top-right on every tab → sheet/route. Not a sixth tab.
 - Grid: 4px base, 16px gutters, 20px card padding, radius tokens `--r-card 20px` / `--r-chip 999px` / `--r-input 14px`.
@@ -130,7 +129,7 @@ Signature motions (the only choreographed ones — everything else is `--t-base`
 ## 8. Imagery (full system: `docs/experience/ASSETS.md`)
 
 - **House style:** calm, painterly, solitary-figure scenes in atmospheric light (cinematic/painterly — never described as any studio brand). Pre-generated (GPT Image + Nano Banana), shipped static.
-- **Placement map:** Today header scene (time-of-day variants) · arc/challenge cards · Tools hero · Journey milestone markers · onboarding backdrops. Lenses stay imagery-light (data first).
+- **Placement map:** Today header scene (time-of-day variants) · arc/challenge cards · Tools hero · Journey milestone markers · onboarding backdrops · Stats and lens header/summary bands. Dense metrics, ledgers, forms, and capture proposal cards stay data-first.
 - Always full-bleed inside the card under `--scrim`; type on imagery is Display or Fraunces, never body UI text.
 - **Build placeholder:** two-stop painterly gradient per domain hue + subtle grain texture token — layout never blocks on art. Light modes get lighter scrim + brighter variants of the same scenes (or the gradient placeholder until generated).
 

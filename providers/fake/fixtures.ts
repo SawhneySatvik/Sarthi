@@ -112,10 +112,14 @@ export const CANONICAL_CAPTURE_DRAFT_FIXTURE = {
   questions: [],
 } as const;
 
+// Conformed to `visionResultSchema` (SAR-011): `kind` discriminant + structured meal
+// items + `note`. The schema strips the extra `fixtureId`/`fixtureVersion`/`source`/
+// `estimated` keys (kept for the provider-shape tests); amounts/macros are unchanged.
 export const ESTIMATED_MEAL_PHOTO_FIXTURE = {
   fixtureId: "estimated-meal-photo",
   fixtureVersion: FAKE_FIXTURE_VERSION,
   source: "photo",
+  kind: "meal",
   estimated: true,
   confidenceBps: 7400,
   meal: {
@@ -123,20 +127,44 @@ export const ESTIMATED_MEAL_PHOTO_FIXTURE = {
     proteinGrams: 18,
     carbsGrams: 82,
     fatGrams: 14,
-    items: ["2 rotis", "dal"],
+    items: [
+      { name: "roti", quantity: 2, unit: "piece" },
+      { name: "dal", quantity: 1, unit: "bowl" },
+    ],
+    note: null,
   },
 } as const;
 
+// Conformed to `visionReceiptResultSchema` (SAR-011): `kind` + `confidenceBps` +
+// receipt-level `merchant`/`purchasedLocalDate` + per-txn `note`. Integer paise only;
+// 8600 bps is honest (not gamed under a threshold) — pending comes from the photo
+// evidence rule, and ≥8000 keeps the batch Accept-all eligible (F5).
 export const RECEIPT_BATCH_FIXTURE = {
   fixtureId: "receipt-batch",
   fixtureVersion: FAKE_FIXTURE_VERSION,
   source: "photo",
+  kind: "receipt",
   estimated: false,
   requiresExplicitAcceptance: true,
+  confidenceBps: 8600,
+  merchant: null,
+  purchasedLocalDate: null,
   transactions: [
-    { amountPaise: 34000, direction: "expense", categoryName: "Food & dining", merchant: "Lunch counter" },
-    { amountPaise: 12000, direction: "expense", categoryName: "Transport", merchant: "Metro" },
+    { amountPaise: 34000, direction: "expense", categoryName: "Food & dining", merchant: "Lunch counter", note: null },
+    { amountPaise: 12000, direction: "expense", categoryName: "Transport", merchant: "Metro", note: null },
   ],
+} as const;
+
+// SAR-012 (D-D) — deterministic voice-fill answers, one per CORE question key. The
+// fake reads the question key out of the prompt envelope and returns its canned fields;
+// the caller's per-question schema validates them. Integer units, metric, keyless.
+export const CANNED_ONBOARDING_FILLS = {
+  name: { displayName: "Satvik" },
+  dob: { birthDate: "1998-03-14" },
+  body: { heightCm: 178, weightGrams: 74000 },
+  day: { dayShape: "nine_to_five", wakeTimeMinutes: 360, sleepTimeMinutes: 1380 },
+  goals: { health: ["gym"], money: ["track_spends"], habits: [], skillName: null },
+  timeBudget: { timeBudgetMinutes: 30 },
 } as const;
 
 export const CANNED_COACH_LINE_FIXTURE = {
@@ -150,6 +178,25 @@ export const DETERMINISTIC_BRIEF_FIXTURE = {
   fixtureVersion: FAKE_FIXTURE_VERSION,
   scope: "daily",
   text: "You made a concrete start: money, water, and focused practice are all visible. Confirm only the estimates you trust.",
+} as const;
+
+export const DETERMINISTIC_WEEKLY_BRIEF_FIXTURE = {
+  fixtureId: "deterministic-weekly-brief",
+  fixtureVersion: FAKE_FIXTURE_VERSION,
+  scope: "weekly",
+  text: "This week has grounded evidence across your life. Keep the next adjustment visible and reversible.",
+} as const;
+
+export const DETERMINISTIC_COACH_ASK_FIXTURE = {
+  fixtureId: "deterministic-coach-ask",
+  fixtureVersion: FAKE_FIXTURE_VERSION,
+  text: "I can only reflect what is recorded here. Choose one small next action and keep any plan change visible before it takes effect.",
+} as const;
+
+export const DETERMINISTIC_ADAPTATION_FIXTURE = {
+  fixtureId: "deterministic-reentry-adaptation",
+  fixtureVersion: FAKE_FIXTURE_VERSION,
+  reason: "You have been away for a few days; this reduces one numeric target so restarting stays light.",
 } as const;
 
 export const CANONICAL_TRANSCRIPTION_FIXTURE = {

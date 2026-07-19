@@ -27,6 +27,13 @@ coverage/
 *.sqlite
 *.sqlite3
 
-# Keep screenshots and documentation evidence available for review.
-!.verify/
-!.verify/screens/
+# Local screenshot-verification evidence (D-041); not shipped to the remote.
+.verify/
+
+# Raw source art (PNG originals); optimized public/art/*.webp derivatives stay tracked.
+assets/
+
+# Local mirror layer — parallel to .codex/, kept out of the tracked provenance surface.
+.claude/
+CLAUDE.md
+claude.mk

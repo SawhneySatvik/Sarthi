@@ -58,7 +58,7 @@ Sunday evening open → `[Coach]` *weekly brief card generates: 4 domain trend l
 
 ## F9 — Re-entry (3+ days away)
 
-Open → *staleness check* → `[Coach]` opens first (one-time redirect) with re-entry prose · *plan auto-lightened as a visible Adaptation (chip: Keep/Revert)* → `[Today]` lighter spine. No guilt wall, no streak funeral — grace already applied.
+Open → *staleness check* → `[Coach]` opens first (one-time redirect) with re-entry prose · *a lighter plan change is proposed as a visible Adaptation (chip: Keep/Revert)* → **Keep** → `[Today]` lighter spine. No guilt wall, no streak funeral — grace already applied.
 
 ## F10 — Profile & theme touch-ups
 

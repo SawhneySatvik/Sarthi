@@ -47,6 +47,7 @@
 
 ### SAR-003 — Dialect schema and bound repository factory
 
+- **Status:** ✅ **Accepted 2026-07-17** (Sol two-pass review; 46 tests + build + invariants green). `SAR-001` and `SAR-002` also accepted.
 - **Agent:** `pipeline` (Terra) · **Size:** XL · **Depends:** `SAR-001`
 - **Docs:** `docs/architecture/ARCHITECTURE.md` §§3–4, 9 · `docs/product/DECISIONS.md` D-030–D-033 · `AGENTS.md` §2
 - **Acceptance:**
@@ -58,6 +59,7 @@
 
 ### SAR-004 — Capture routing, typed commit, XP, and undo core
 
+- **Status:** ✅ **Accepted 2026-07-17** (Sol two-pass review — one blocking finding, backdate streak recompute, fixed; 85 tests + build + invariants green, keyless). `SAR-001`–`SAR-003` also accepted.
 - **Agent:** `pipeline` (Terra) · **Size:** XL · **Depends:** `SAR-002`, `SAR-003`
 - **Docs:** `docs/architecture/ARCHITECTURE.md` §§5–6, 9 · `docs/product/DECISIONS.md` D-030 · `docs/experience/FLOWS.md` F3–F4 · `AGENTS.md` §2
 - **Acceptance:**
@@ -69,6 +71,7 @@
 
 ### SAR-005 — Token shell and thin Today spine
 
+- **Status:** ✅ **CLOSED 2026-07-18** (code; Sol review ACCEPTABLE TO LAND, 0 blocking; 106 tests + build + invariants green, keyless). **Visual DoD CLOSED (D-041):** built surfaces screenshot-verified at 390px + desktop (Playwright, `.verify/screens/`) + Sol design review — stat-cluster amber-discipline (neutral day-counter + zero/base stats), completed-row strikethrough removed, dev-pill repositioned off the avatar. `SAR-001`–`SAR-004` accepted.
 - **Agent:** `screens` (Terra) · **Size:** L · **Depends:** `SAR-001`, `SAR-003`
 - **Docs:** `docs/experience/DESIGN.md` §§2–7 · `docs/experience/DESIGN-PROMPTS.md` P0, P2 · `docs/screens/SCREEN-TODAY.md` · `docs/experience/FLOWS.md` F2–F3
 - **Acceptance (verbatim P0):** “switching the pill restyles the entire shell live in all 6 theme-modes with AA-readable text; nav+capture bar match docs/experience/DESIGN.md §6; nothing hardcodes a color.”
@@ -78,6 +81,7 @@
 
 ### SAR-006 — Health vertical slice and capture-sheet hero
 
+- **Status:** ✅ **CLOSED 2026-07-18** (code; two-pass Sol review ACCEPTABLE TO LAND — 4 blocking findings fixed; 106 tests + build + invariants green, keyless; F3 runnable). **Visual DoD CLOSED (D-041):** capture-sheet + Health lens screenshot-verified at 390px + desktop + Sol review — legible level-up bloom (was amber-on-amber), a "Confirmed by you" ledger so accepted estimates persist on the done state, flat filed-strip rows vs. the raised estimate card (categorical confirm zones), distinct clay/slate-teal ring tints with per-mode AA, real Health labels + glass-box `~`. `SAR-001`–`SAR-005` accepted/landed.
 - **Agent:** `pipeline` (Terra) · **Size:** XL · **Depends:** `SAR-004`, `SAR-005`
 - **Docs:** `docs/screens/SCREEN-CAPTURE.md` · `docs/screens/SCREEN-LENSES.md` §§2, 7 · `docs/experience/DESIGN-PROMPTS.md` P1, P3a · `docs/experience/FLOWS.md` F3–F4 · `docs/architecture/ARCHITECTURE.md` §5
 - **Acceptance (verbatim P1):** “the two confirm zones are unmistakably different at a glance; all four gestures work; the question card blocks nothing else; level-up is inline and brief; the whole loop runs on mock data end-to-end.”
@@ -94,12 +98,14 @@
   - Cover `canonical-cross-domain`, `estimated-meal-photo`, `ambiguous-skill`, and `undo-batch` exactly as architecture gate 3 requires.
   - Make `wrongSilentWrites === 0` a hard assertion and save mobile/desktop F3 state screenshots to `.verify/screens/`.
   - Tests and eval code only; do not edit production modules.
+- **Status:** ✅ **F3 GATE MET (automated) 2026-07-18** — `tests/eval/` drives all four gate-3 fixtures keyless; `wrongSilentWrites === 0` holds as a hard aggregate; 106 tests + build + invariants green; Sol-reviewed. **Visual F3-state DoD CLOSED (D-041):** capture input → shimmer → confirm → why/edit → done/fan-out screenshot-verified at 390px + desktop (`.verify/screens/`) + Sol review. Fan-out (SAR-008/009/010) is now unblocked.
 - **Moves:** **F3 GATE — must pass before fan-out or non-provisioning Phase-1 work begins.** If it fails, stop that downstream work and finish F3; no cut line fires merely because time elapsed.
 
 ## 3. Demo-spine fan-out and experience
 
 ### SAR-008 — Money typed store and ledger lens
 
+- **Status:** ✅ **LANDED 2026-07-18 (D-042)** — read-model + lens + drills over the already-typed Money store (integer paise, no float); Sol code review 0 blocking + D-041 design review passed after 2 mobile-blocking fixes (capture-bar clearance, budget-bar `--warn`). `pnpm check` 119 tests + invariants green, keyless; evidence in `.verify/screens/money-*`. Deferred to own tickets: leak-strip AI, coach-read line, interactive est-chip. Shared P3b criterion pends SAR-010.
 - **Agent:** `pipeline` (Terra) · **Size:** L · **Depends:** `SAR-007`
 - **Docs:** `docs/screens/SCREEN-LENSES.md` §§1, 7 · `docs/experience/DESIGN-PROMPTS.md` P3b · `docs/architecture/ARCHITECTURE.md` §§4–5 · `docs/experience/FLOWS.md` F3, F5, F8
 - **Money scope:** implement the P3b ledger, budgets, recurring shelf, safe-to-spend math, and category drill with typed transaction/budget/recurring-rule repositories and no money float.
@@ -109,6 +115,8 @@
 
 ### SAR-009 — Habits typed store and satisfied-by grid
 
+- **Status:** ✅ **LANDED 2026-07-18 (D-043)** — read-model + lens with grace-aware streaks (reusing `core/game/streak.ts`), a heatmap, the satisfied-by refusal grid (rule-bearing habits refuse manual ticks, enforced UI + server, DB-proven), and in-lens manual tap-tick for rule-free habits. Sol code review 0 blocking + D-041 design review passed after 1 mobile-blocking fix (Zap glyph) + glass-box goalpost coherence. `pnpm check` 133 tests + invariants green, keyless; evidence in `.verify/screens/habits-*`. Shared P3a criterion with SAR-006 now holds. Deviations recorded in D-043 (canonical-seed, timers).
+
 - **Agent:** `pipeline` (Terra) · **Size:** M · **Depends:** `SAR-007`
 - **Docs:** `docs/screens/SCREEN-LENSES.md` §§3, 7 · `docs/experience/DESIGN-PROMPTS.md` P3a · `docs/architecture/ARCHITECTURE.md` §§4–6 · `docs/experience/FLOWS.md` F2, F4, F8
 - **Habits scope:** apply the Habits half of P3a: typed habit logs, grace-aware streak calculation, heatmap, and deterministic satisfied-by rules driven only by committed source rows.
@@ -116,6 +124,8 @@
 - **Moves:** F2 auto-completion, F4 backdate, and Meditation’s eventual typed habit write.
 
 ### SAR-010 — Skills typed store and curriculum lens
+
+- **Status:** ✅ **LANDED 2026-07-18 (D-044)** — read-model + lens with per-skill mastery = summed session minutes (not `cumulativeMinutes`), the hero mastery counter, and a lens-local milestone drill (push/return). Sol code review 0 blocking + D-041 design review passed after 2 mobile-blocking fixes (dormant AA in light, 44px back-chip). `pnpm check` 146 tests + invariants green, keyless; evidence in `.verify/screens/skills-*`. Retires the last placeholder — all four lenses real. Shared P3b criterion with SAR-008 now holds. Deferrals recorded in D-044 (generate_roadmap AI, live-tick timer, coach-read, empty-invite).
 
 - **Agent:** `pipeline` (Terra) · **Size:** M · **Depends:** `SAR-007`
 - **Docs:** `docs/screens/SCREEN-LENSES.md` §§4, 7 · `docs/experience/DESIGN-PROMPTS.md` P3b · `docs/architecture/ARCHITECTURE.md` §§4–6 · `docs/experience/FLOWS.md` F3, F8
@@ -125,6 +135,8 @@
 
 ### SAR-011 — Meal/receipt vision path
 
+- **Status:** ✅ **LANDED 2026-07-18 (D-045)** — camera → photo preview + meal/receipt toggle → `parse-photo` route → `FakeVisionProvider` → `core/capture/vision.ts` mapper → the same estimate-card loop → typed writes (meal→Health, receipt→Money F5), keyless. Photo evidence ⇒ pending (invariant #1, server-enforced; `f5-receipt` eval `wrongSilentWrites===0`); the CaptureSheet refactor is Sol-verified non-regressive for text F3. Sol code review 0 blocking + D-041 design review passed after 1 mobile-blocking fix (sheet `--bg-raised` elevation). `pnpm check` 155 tests + invariants green; evidence in `.verify/screens/photo-*` (390 + desktop). Deferrals in D-045 (F5 merchant/date context, meal-card photo region, confirm-sheet min-height, real content-vision).
+
 - **Agent:** `pipeline` (Terra) · **Size:** M · **Depends:** `SAR-006`, `SAR-008`
 - **Docs:** `docs/architecture/ARCHITECTURE.md` §§2, 5, 8 · `docs/screens/SCREEN-CAPTURE.md` §§2, 7 · `docs/experience/FLOWS.md` F5
 - **Acceptance:**
@@ -133,16 +145,18 @@
   - F5’s receipt batch writes typed Money rows once, never duplicates on retry, and saves no generic parsed blob.
 - **Moves:** F5; `estimated-meal-photo` and `receipt-batch` fixtures.
 
-### SAR-012 — Onboarding and real plan creation
+### SAR-012 — Onboarding and real plan creation ✅ LANDED 2026-07-18 (D-046)
 
+- **Status:** LANDED — full scope (A→G) built in 3 gated passes (`pipeline`/Terra, not `screens`, given the spine-gen + atomic write); Passes 1–2 Sol code + D-041 GATE PASS, Pass 3 closed without the final screenshot re-review at the human's call. `pnpm check` 192 green, keyless. Commits `7701ba7`/`9355d1b`/`a97cd3f` (P1), `c51b599`/`283df91` (P2), `a1236db`/`4e23fce` (P3) on `sar-003-schema-repository`.
 - **Agent:** `screens` (Terra) · **Size:** L · **Depends:** `SAR-003`, `SAR-010`
 - **Docs:** `docs/screens/SCREEN-ONBOARDING.md` · `docs/experience/DESIGN-PROMPTS.md` P4 · `docs/experience/FLOWS.md` F1 · `docs/architecture/ARCHITECTURE.md` §§3–4
 - **Acceptance (verbatim P4):** “core feels ~2 min; skipping detail feels safe (hairline already full); the confirm cards clearly derive from the answers; theme step actually switches tokens.”
 - **Additional data scope:** no persistence before the Phase-D confirmation; one accepted transaction creates the profile, profile gaps, plan arcs/items, and Day-1 snapshots through scoped typed repositories.
 - **Moves:** F1 and production new-account path.
 
-### SAR-013 — Voice PTT and transcript safety
+### SAR-013 — Voice PTT and transcript safety ✅ LANDED 2026-07-18
 
+- **Status:** LANDED — bounded browser `MediaRecorder` PTT (hold + tap-to-toggle + keyboard) → transient `VoiceProvider` transcription route → visibly pinned/editable transcript → the existing parse/route/commit seam. Fake remains deterministic/keyless; no real voice adapter/key, persistence, outbox, schema, or migration. `pnpm check` 197 green; Sol code review + D-041 390px Ember dark/light and desktop smoke gate pass. Screenshot evidence: `.verify/screens/voice-*`.
 - **Agent:** `pipeline` (Terra) · **Size:** M · **Depends:** `SAR-002`, `SAR-006`
 - **Docs:** `docs/architecture/ARCHITECTURE.md` §§2, 5 · `docs/screens/SCREEN-CAPTURE.md` §§2, 7, 10 · `docs/experience/FLOWS.md` F3 · `docs/architecture/TECH-STACK.md` §3
 - **Acceptance:**
@@ -153,6 +167,7 @@
 
 ### SAR-014 — Coach engine, adaptations, and game mechanics
 
+- **Status:** ✅ **LANDED 2026-07-18** — one framework-clean `CoachEngine` reads exactly four `DomainSpec` entries (Health, Money, Habits, Skills) and produces deterministic fake capture lines plus staleness-keyed deep daily/weekly briefs grounded in typed evidence and open profile gaps. Glass-box re-entry creates a visible proposal only; **Keep** writes one typed, latest-batch-undoable plan patch through `CommitService`, while **Revert** preserves the plan. The schema's nullable `adaptations.appliedCommitId` keeps undo status coherent. `pnpm check` 205 tests, build, invariants, and Sol two-pass review pass keyless; no rendered screen changed, so the Coach D-041 shots remain SAR-015.
 - **Agent:** `pipeline` (Terra) · **Size:** XL · **Depends:** `SAR-008`–`SAR-010`, `SAR-012`
 - **Docs:** `docs/architecture/ARCHITECTURE.md` §§4, 6, 8–9 · `docs/screens/SCREEN-COACH.md` · `docs/experience/FLOWS.md` F2, F6, F7, F9
 - **Acceptance:**
@@ -162,7 +177,9 @@
   - Deterministically calculate XP, levels, streaks, mastery, plan effects, re-entry lightening, and evidence counts from typed rows.
 - **Moves:** F2/F6/F7/F9 and `adaptationSanityRate`.
 
-### SAR-015 — Coach reading room and Stats/Journey views
+### SAR-015 — Coach reading room and Stats/Journey views ✅ LANDED 2026-07-18
+
+- **Status:** LANDED — scoped server composition plus framework-clean Coach/Stats/Journey views; Coach reads daily/weekly notes, presentational proposed adaptations, typed gap backfill, session-only Ask, and F9's visible proposal; Stats supplies Current/Potential-unavailable/Day-1 faces; Journey renders typed evidence, derived milestones, grouped proofs, and a keyboard viewer. F6's `View recap` and Today lens hand-offs are wired. Weekly evidence is Sunday-gated and derives only from the signed weekly note; Potential stays explicitly unavailable rather than fabricated. `pnpm check` 213 green, build/invariants/diff clean. **D-041 manual visual gate accepted by Satvik**; captured evidence is under `.verify/screens/{coach,stats,journey}-*`.
 
 - **Agent:** `screens` (Terra) · **Size:** L · **Depends:** `SAR-014`
 - **Docs:** `docs/screens/SCREEN-COACH.md` · `docs/screens/SCREEN-STATS.md` · `docs/screens/SCREEN-JOURNEY.md` · `docs/experience/DESIGN-PROMPTS.md` P5–P7 · `docs/experience/FLOWS.md` F6–F7, F9–F11
@@ -171,23 +188,27 @@
 - **Acceptance (verbatim P7):** “it scrolls like a memory, not a log; milestones punctuate; the rail stays continuous.”
 - **Moves:** F6/F7/F9 and F11 shots 6–8, 10.
 
-### SAR-016 — Tools: Focus and Meditation loops
+### SAR-016 — Tools: Focus and Meditation loops ✅ LANDED 2026-07-19
 
+- **Status:** LANDED — explicit idempotent Focus/Meditation commands write only typed rows through the shared undo seam; first-use Meditation is an atomic reversible habit + log batch. `timer-session` is a keyless deterministic eval and D-041 screenshots cover the signed live states.
 - **Agent:** `screens` (Terra) · **Size:** L · **Depends:** `SAR-009`, `SAR-010`, `SAR-014`
 - **Docs:** `docs/screens/SCREEN-TOOLS.md` · `docs/experience/DESIGN-PROMPTS.md` P8 · `docs/experience/FLOWS.md` F8 · `docs/architecture/ARCHITECTURE.md` §§5, 8
 - **Acceptance (verbatim P8):** “the grid looks full but calm; both live tools run their loop; domain ticks make the earning rule visible.”
 - **Additional data scope:** timer completion is an explicit, idempotent typed commit with undo; Meditation asks consent before its habit write; no “soon” tool creates a row.
 - **Moves:** F8 and `timer-session` fixture.
 
-### SAR-017 — Settings and authorised provider override
+### SAR-017 — Settings and authorised provider override ✅ LANDED 2026-07-19
 
+- **Status:** LANDED — avatar Settings sheet, token previews, local preferences, scoped export, and honest unavailable destructive controls are real. The LLM selector is browser-memory + request-header scoped in dev/judge only; public production omits and ignores it. D-041 six-mode screenshots pass.
 - **Agent:** `screens` (Terra) · **Size:** M · **Depends:** `SAR-002`, `SAR-012`, `SAR-014`
 - **Docs:** `docs/screens/SCREEN-SETTINGS.md` · `docs/experience/DESIGN-PROMPTS.md` P9 · `docs/experience/FLOWS.md` F10–F11 · `docs/architecture/ARCHITECTURE.md` §§2, 7
 - **Acceptance (verbatim P9):** “theme preview cards are real token renders; the provider row exists (the live-demo moment); danger zone can't be hit accidentally.”
 - **Additional safety scope:** provider flip is available only in dev or a separately configured judge environment; production has no gesture or client-settable environment selector.
 - **Moves:** F10 and F11 shot 9.
 
-### SAR-018 — Flow stitch and domain-complete integration
+### SAR-018 — Flow stitch and domain-complete integration ✅ LANDED 2026-07-19
+
+- **Status:** LANDED — F2–F11's live scoped-repository seams have no prototype dead end, and the 41-scene art library ships as typed, optimized WebP under a 3 MB gate. D-041 review passed with representative mobile/desktop evidence; full P11 six-mode coverage remains SAR-019.
 
 - **Agent:** `pipeline` (Terra) · **Size:** L · **Depends:** `SAR-008`–`SAR-017`
 - **Docs:** `docs/experience/FLOWS.md` F2–F11 · `docs/experience/DESIGN-PROMPTS.md` P10 · `docs/architecture/ARCHITECTURE.md` §§5–6
@@ -195,13 +216,20 @@
 - **Additional production scope:** run each journey against real scoped repositories/fake providers, repair only integration seams, and preserve the one rich capture write path.
 - **Moves:** F2/F4–F11 integration gate.
 
-### SAR-019 — Token sweep and screenshot verification
+### SAR-019 — Token sweep and screenshot verification ✅ MANUALLY ACCEPTED 2026-07-19
 
 - **Agent:** `screens` (Terra) · **Size:** M · **Depends:** `SAR-018`
 - **Docs:** `docs/experience/DESIGN.md` · all `docs/screens/SCREEN-*.md` screenshot checklists · `docs/experience/DESIGN-PROMPTS.md` P11 · `AGENTS.md` §3
 - **Acceptance (verbatim P11):** “Sweep every screen in all SIX theme-modes (Ember/Bone/Moss × light/dark): fix contrast to AA (use the -strong domain variants on light), tune the Bone/Moss surface values where they feel off, verify amber discipline (nothing amber that isn't XP/streak/level), verify shimmer-not-spinner everywhere, verify the coach never speaks outside Fraunces.”
 - **Additional proof:** screenshot every state at 390px and its responsive desktop smoke state; save evidence to `.verify/screens/`.
 - **Moves:** screenshot-verify gate and F11 visual readiness. Generated art stays gradients + grain if cut line #4 fires.
+
+### SAR-019A — Visual Narrative and voice-first refinement
+
+- **Status:** LANDED 2026-07-19 · **Agent:** `pipeline` + `screens` (Terra) · **Size:** XL · **Depends:** `SAR-018`, manual `SAR-019`
+- **Docs:** `.codex/plans/SAR-019A.md` · `docs/experience/DESIGN.md` · `docs/screens/SCREEN-TODAY.md` · `docs/screens/SCREEN-JOURNEY.md` · `docs/screens/SCREEN-CAPTURE.md` · `docs/product/DECISIONS.md` D-047–D-048
+- **Acceptance:** Bone/system is the persisted default; all Today pending items are art-led, swipeable, and remain accessible/scoped; DailyReflection and ReflectionMedia are typed, user-bound, keyless/local, image-only records with no XP/plan/adaptation effects; Journey renders real four-tile day cards and a scoped image viewer; Capture FAB/orb preserves the transcript-confirmed F3 path; Stats/lenses use registry art without obscuring data; Tools has no external-store update loop.
+- **Moves:** D-041 visual narrative review; blocks `SAR-020` until accepted.
 
 ### SAR-020 — Eval report and F11 dry-run evidence
 

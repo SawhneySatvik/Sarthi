@@ -5,6 +5,15 @@
 | **Role** | The emotional scroll-back: a vertical memory timeline of proof photos, coach notes, and milestone markers. Cheap to build (a view over evidence rows) — the demo's closer. |
 | **Inherits** | `docs/experience/DESIGN.md` · imagery rules §8 |
 
+> **SAR-019A / D-047 amendment:** each real day is a rounded story card on the
+> timeline, with a cinematic cover and four equal tiles: Wellness, Task
+> Progress, Memories, and Journal & AI Reflection. `DailyReflection` is an
+> explicit, scoped memory record (mood, integer energy, optional integer sleep
+> minutes, journal); it is not a fifth domain and never changes XP, plans, or
+> adaptations. Images are private JPEG/PNG/WebP attachments (max four); web
+> video is deferred to native mobile. Empty data renders an intentional prompt,
+> never invented history.
+
 ---
 
 ## 0. The one-sentence spec

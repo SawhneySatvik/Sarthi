@@ -1,0 +1,90 @@
+import { z } from "zod";
+
+import type { CommitService, CommitResult } from "@/core/capture";
+import type { ProposalKind } from "@/core/capture/contract";
+import type { LlmGateway, UserScopedRepositories } from "@/core/contracts";
+import type { AdaptationRecord, CoachEvidence, CoachNoteRecord, Domain } from "@/data/schema/contract";
+
+export interface DateRange {
+  start: string;
+  end: string;
+}
+
+export interface CoachEvidenceItem {
+  domain: Exclude<Domain, "overall">;
+  entryKind: string;
+  entryId: string | null;
+  label: string;
+  valueInt: number | null;
+  unit: string | null;
+}
+
+export interface DomainCoachContext {
+  domain: Exclude<Domain, "overall">;
+  entryCount: number;
+  evidence: readonly CoachEvidenceItem[];
+}
+
+export type CoachToolName = "read-progress" | "read-plan" | "propose-adaptation";
+
+export interface DomainEvent {
+  domain: Exclude<Domain, "overall">;
+  entryKind: string;
+  entryId: string;
+  localDate: string;
+}
+
+/** A read-only, typed view of a domain's eligible plan effects. */
+export interface PlanEffect {
+  planItemId: string;
+  domain: Exclude<Domain, "overall">;
+  status: "pending" | "active" | "done" | "skipped" | "missed";
+  completionSource: string | null;
+}
+
+export interface DomainSpec {
+  domain: Exclude<Domain, "overall">;
+  proposalKinds: readonly ProposalKind[];
+  parseHints: string;
+  coachInstructions: string;
+  contextLoader: (repos: UserScopedRepositories, range: DateRange) => Promise<DomainCoachContext>;
+  allowedTools: readonly CoachToolName[];
+  evaluatePlanEffects: (input: DomainEvent, repos: UserScopedRepositories) => Promise<readonly PlanEffect[]>;
+}
+
+export const coachBriefOutputSchema = z.object({
+  scope: z.enum(["daily", "weekly"]),
+  text: z.string().min(1).max(2000),
+});
+export type CoachBriefOutput = z.infer<typeof coachBriefOutputSchema>;
+
+export interface CoachEngine {
+  captureLine(input: { commit: CommitResult; domains: readonly Exclude<Domain, "overall">[] }): Promise<string>;
+  dailyBrief(input: { localDate: string; timezone: string }): Promise<CoachNoteRecord>;
+  weeklyBrief(input: { weekStart: string; timezone: string }): Promise<CoachNoteRecord>;
+  ask(input: { text: string; timezone: string }): Promise<{ text: string; action?: "adjust-plan" }>;
+  proposeAdaptation(input: {
+    planItemId: string;
+    before: AdaptationRecord["beforeJson"];
+    after: AdaptationRecord["afterJson"];
+    reason: string;
+  }): Promise<AdaptationRecord>;
+  ensureReentryAdaptation(input: { localDate: string }): Promise<AdaptationRecord | null>;
+  findReentryAdaptation(input: { localDate: string }): Promise<AdaptationRecord | null>;
+  resolveAdaptation(input: { adaptationId: string; action: "keep" | "revert" }): Promise<AdaptationRecord>;
+  gameSummary(input: { localDate: string }): Promise<import("@/core/game").GameSummary>;
+}
+
+export interface CreateCoachEngineOptions {
+  repos: UserScopedRepositories;
+  llm: LlmGateway;
+  commits: CommitService;
+  now?: () => string;
+}
+
+export function toCoachEvidence(localDate: string, items: readonly CoachEvidence["items"][number][]): CoachEvidence {
+  return {
+    generatedForLocalDate: localDate,
+    items: items.map((item) => ({ ...item })),
+  };
+}

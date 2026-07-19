@@ -1,0 +1,13 @@
+✅ SAR-018 (Flow stitch + art system) LANDED 2026-07-19. F2–F11 now use their real scoped repository/read/commit seams with no dead-end hand-off: Today Done reframes capture, Stats reaches a real lens, Skills starts a scoped 50-minute Focus preset, Journey evidence opens, Coach adaptations remain glass-box, and Settings returns to the live shell. The full 41-scene painterly set ships as a typed registry plus optimized `public/art` WebP derivatives (1.13 MB; raw 68 MB PNGs remain local/untracked); it appears only on Today, Tools, onboarding, Journey, and the Coach weekly band. `pnpm check` 223 green; build, invariants, diff check, payload gate, and the focused D-041 screenshot review pass keyless.
+
+State: SAR-001–SAR-018 accepted/landed. All four domain lenses, vision, onboarding, safe PTT voice capture, Coach/game backend, Tools, Settings, and the end-to-end F11 stitch are real. All commits stack on branch `sar-003-schema-repository`.
+
+STANDING GATE (D-041): a SAR with a screen/state is screenshot-verified — `pnpm screenshots` (Playwright headless Chromium, 390 + desktop) → Sol (`reviewer`) design review of the rendered shots → fixes → re-shoot. Mobile 390 deviations block; desktop blocks only correctness (D-034). (SAR-012 Pass 3 was closed without the final re-shoot at the human's call — see D-046; the two Pass-3 polish fixes are pnpm-check-green but un-re-screenshotted.)
+
+✅ SAR-019 (Token sweep + screenshot verification) MANUALLY ACCEPTED 2026-07-19. Satvik performed the visual review; existing evidence is retained unchanged.
+
+✅ SAR-019A (Visual Narrative & Voice-First Refinement) LANDED 2026-07-19. D-047's typed, scoped daily reflections/gallery are image-only private Journey memory—not a fifth domain—and D-048's full Today art/swipe surface preserves the scoped status path. Bone/system is the default, Stats/lenses have disciplined art bands, the FAB/orb keeps transcript-confirmed F3 intact, and Tools' external clock snapshot is stable. `pnpm check`, build, art check, diff check, and invariants pass keyless.
+
+NEXT: **SAR-020 (Eval report and F11 dry-run evidence)** only. It owns the full 12-fixture / provider-A/B EvalReport and the keyless F11 rehearsal; it must not edit production modules. HARD STOP before SAR-021.
+
+Invariants: nothing estimated writes unconfirmed (server-enforced at the capture seam, D-040); integer units; provider-blind keyless core; repository-bound userId scoping; tokens-only UI (amber only when earned — D-041; the A→D onboarding hairline is the sanctioned SCREEN-ONBOARDING §1 exception); typed per-domain writes; no new domain concepts mid-build; never paywall the demo path.

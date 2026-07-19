@@ -4,6 +4,12 @@ import test from "node:test";
 import { z } from "zod";
 
 import {
+  RUNTIME_LLM_PROVIDER_HEADER,
+  RuntimeOverrideError,
+  isDeveloperControlAllowed,
+  resolveRequestLlmProvider,
+} from "../app/lib/runtimeOverride";
+import {
   createLlmGateway,
   createVisionProvider,
   createVoiceProvider,
@@ -98,6 +104,39 @@ test("live LLM factories construct their adapters without a network request", ()
   }
 });
 
+test("public production ignores client provider headers while development and judge mode allow the signed matrix", () => {
+  assert.equal(
+    resolveRequestLlmProvider(new Headers({ [RUNTIME_LLM_PROVIDER_HEADER]: "fake" }), { judgeMode: false }, "production"),
+    null,
+  );
+  assert.equal(isDeveloperControlAllowed({ judgeMode: false }, "production"), false);
+  assert.equal(
+    resolveRequestLlmProvider(new Headers({ [RUNTIME_LLM_PROVIDER_HEADER]: "fake" }), { judgeMode: false }, "development"),
+    "fake",
+  );
+  assert.equal(
+    resolveRequestLlmProvider(new Headers({ [RUNTIME_LLM_PROVIDER_HEADER]: "openai" }), { judgeMode: true }, "production"),
+    "openai",
+  );
+});
+
+test("runtime override ignores voice headers, rejects Anthropic, and never shares a selection across requests", () => {
+  const config = { judgeMode: false };
+  assert.throws(
+    () => resolveRequestLlmProvider(new Headers({ [RUNTIME_LLM_PROVIDER_HEADER]: "anthropic" }), config, "development"),
+    RuntimeOverrideError,
+  );
+  assert.equal(
+    resolveRequestLlmProvider(new Headers({ "x-sarthi-voice-provider": "sarvam" }), config, "development"),
+    null,
+  );
+  assert.equal(
+    resolveRequestLlmProvider(new Headers({ [RUNTIME_LLM_PROVIDER_HEADER]: "fake" }), config, "development"),
+    "fake",
+  );
+  assert.equal(resolveRequestLlmProvider(new Headers(), config, "development"), null);
+});
+
 test("fake adapters are keyless, deterministic, and never invoke fetch", async () => {
   const savedFetch = globalThis.fetch;
   const savedGoogleKey = process.env.GOOGLE_API_KEY;
@@ -153,17 +192,21 @@ test("fake adapters are keyless, deterministic, and never invoke fetch", async (
       languageCode: "en-IN",
     });
 
+    // SAR-011 override #1: meal vs receipt is chosen by the toggle-derived PROMPT the
+    // FakeVisionProvider keys on ("receipt" ⇒ receipt fixture), never the filename. The
+    // filenames below are deliberately CROSSED (meal bytes named receipt.jpg and vice
+    // versa) to document that the old filename cue is dead — the prompt alone decides.
     const vision = createVisionProvider("fake");
     const meal = await vision.analyze({
-      images: [{ bytes: new Uint8Array([1]), mimeType: "image/jpeg", filename: "meal.jpg" }],
+      images: [{ bytes: new Uint8Array([1]), mimeType: "image/jpeg", filename: "receipt.jpg" }],
       schema: mealSchema,
-      prompt: "Identify this meal",
+      prompt: "Analyze this meal photo and return the estimated nutrition as a typed meal entry.",
       tier: "balanced",
     });
     const receipt = await vision.analyze({
-      images: [{ bytes: new Uint8Array([2]), mimeType: "image/jpeg", filename: "receipt.jpg" }],
+      images: [{ bytes: new Uint8Array([2]), mimeType: "image/jpeg", filename: "meal.jpg" }],
       schema: receiptSchema,
-      prompt: "Read this receipt",
+      prompt: "Read this receipt photo and return the printed transactions as typed money entries.",
       tier: "deep",
     });
     assert.equal(meal.provider, "fake");
