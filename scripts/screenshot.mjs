@@ -11,6 +11,10 @@ import { mkdirSync } from "node:fs";
 import { chromium } from "playwright";
 
 const BASE = process.env.BASE_URL ?? "http://localhost:3111";
+// The populated art placements and the true new-user onboarding placement need
+// different deterministic seed states. A caller can point this at the existing
+// fresh-state local server without resetting the populated art fixture.
+const ONBOARDING_BASE = process.env.ONBOARDING_BASE_URL ?? BASE;
 const OUT = process.env.OUT ?? ".verify/screens";
 const SHOTS = process.env.SHOTS ?? "main";
 mkdirSync(OUT, { recursive: true });
@@ -805,6 +809,79 @@ async function settingsScreens(browser, themes, widths) {
   });
 }
 
+// SAR-018: concise F2-F11 route/action proof. Each capture starts from a real app route;
+// no seed-like UI state is fabricated in the browser.
+async function stitchScreens(browser) {
+  for (const width of [MOBILE, DESKTOP]) await withPage(browser, { theme: "ember", mode: "dark", width }, async (page) => {
+    await page.goto(`${BASE}/today`, { waitUntil: "networkidle" });
+    await page.getByRole("button", { name: "Done" }).first().click().catch(() => {});
+    await page.getByLabel("Capture your day").waitFor({ timeout: 4000 });
+    await shot(page, `stitch-today-capture-context-${width}-ember-dark`);
+
+    await page.goto(`${BASE}/stats`, { waitUntil: "networkidle" });
+    await page.getByRole("link", { name: /Skills:/ }).click().catch(() => {});
+    await page.getByText("tap a track for its mastery").waitFor({ timeout: 4000 }).catch(() => {});
+    await shot(page, `stitch-stats-lens-${width}-ember-dark`);
+    await page.getByRole("button", { name: /System design/ }).first().click().catch(() => {});
+    await page.getByRole("link", { name: "Start 50m focus" }).click().catch(() => {});
+    await page.getByRole("button", { name: /Start 50 min/ }).waitFor({ timeout: 4000 }).catch(() => {});
+    await shot(page, `stitch-skills-focus-preset-${width}-ember-dark`);
+
+    await page.goto(`${BASE}/journey`, { waitUntil: "networkidle" });
+    await page.getByRole("button", { name: /photos/ }).first().click().catch(() => {});
+    await page.getByRole("button", { name: /View proof:/ }).first().click().catch(() => {});
+    await page.getByRole("dialog", { name: "Evidence viewer" }).waitFor({ timeout: 4000 }).catch(() => {});
+    await shot(page, `stitch-journey-evidence-${width}-ember-dark`);
+
+    await page.goto(`${BASE}/coach`, { waitUntil: "networkidle" });
+    await page.getByText(/Deep work|lighter restart/).first().click().catch(() => {});
+    await shot(page, `stitch-coach-adaptation-${width}-ember-dark`);
+    await page.goto(`${BASE}/today`, { waitUntil: "networkidle" });
+    await page.getByRole("button", { name: "Settings and profile" }).click().catch(() => {});
+    await page.getByRole("dialog", { name: "Settings" }).waitFor({ timeout: 4000 }).catch(() => {});
+    await shot(page, `stitch-settings-${width}-ember-dark`);
+  });
+}
+
+// Painterly art is intentionally sampled by placement family, not by every screen state.
+async function artScreens(browser) {
+  for (const width of [MOBILE, DESKTOP]) await withPage(browser, { theme: "ember", mode: "dark", width }, async (page) => {
+    await page.goto(`${ONBOARDING_BASE}/onboarding`, { waitUntil: "networkidle" });
+    await page.getByRole("button", { name: "Begin" }).waitFor({ state: "visible", timeout: 4000 });
+    await page.waitForTimeout(SETTLE_MS);
+    await shot(page, `art-onboarding-${width}-ember-dark`);
+
+    await page.goto(`${BASE}/today`, { waitUntil: "networkidle" }); await shot(page, `art-today-${width}-ember-dark`);
+    await page.goto(`${BASE}/tools`, { waitUntil: "networkidle" }); await shot(page, `art-tools-${width}-ember-dark`);
+    await page.getByRole("button", { name: "Focus" }).click();
+    await page.getByRole("heading", { name: "Focus" }).waitFor({ timeout: 4000 });
+    await page.getByRole("button", { name: "Start 25 min" }).waitFor({ timeout: 4000 });
+    await page.waitForTimeout(SETTLE_MS);
+    await shot(page, `art-focus-detail-${width}-ember-dark`);
+    await page.goto(`${BASE}/journey`, { waitUntil: "networkidle" }); await shot(page, `art-journey-${width}-ember-dark`);
+    // Weekly is intentionally shown only on Sunday evening. Freeze this document's
+    // browser clock, then wait for the real seeded weekly brief and frame its art band.
+    await page.addInitScript((iso) => {
+      const RealDate = Date;
+      const fixedNow = new RealDate(iso).valueOf();
+      class SundayEveningDate extends RealDate {
+        constructor(...args) { super(...(args.length === 0 ? [fixedNow] : args)); }
+        static now() { return fixedNow; }
+      }
+      Object.defineProperty(window, "Date", { configurable: true, writable: true, value: SundayEveningDate });
+    }, "2026-07-19T20:00:00");
+    await page.goto(`${BASE}/coach`, { waitUntil: "networkidle" });
+    const weekly = page.getByText("This week", { exact: true });
+    await weekly.waitFor({ state: "visible", timeout: 6000 });
+    await weekly.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(SETTLE_MS);
+    await shot(page, `art-coach-${width}-ember-dark`);
+  });
+  // Targeted contrast-risk checks: light scrim on Today and Moss-dark tool text.
+  await withPage(browser, { theme: "ember", mode: "light", width: MOBILE }, async (page) => { await page.goto(`${BASE}/today`, { waitUntil: "networkidle" }); await shot(page, "art-today-390-ember-light"); });
+  await withPage(browser, { theme: "moss", mode: "dark", width: MOBILE }, async (page) => { await page.goto(`${BASE}/tools`, { waitUntil: "networkidle" }); await shot(page, "art-tools-390-moss-dark"); });
+}
+
 const browser = await chromium.launch({ headless: true });
 try {
   if (SHOTS === "main") {
@@ -857,6 +934,10 @@ try {
     await today(browser, "empty", [["ember", "dark"]], [MOBILE, DESKTOP]);
   } else if (SHOTS === "alldone") {
     await today(browser, "alldone", [["ember", "dark"]], [MOBILE, DESKTOP]);
+  } else if (SHOTS === "stitch") {
+    await stitchScreens(browser);
+  } else if (SHOTS === "art") {
+    await artScreens(browser);
   }
 } finally {
   await browser.close();
