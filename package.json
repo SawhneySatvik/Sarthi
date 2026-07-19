@@ -21,16 +21,19 @@
     "test:domains": "tsx --test tests/today.test.ts tests/health.test.ts tests/money-view.test.ts tests/habits-view.test.ts tests/skills-view.test.ts",
     "test:tools": "tsx --test tests/tools.test.ts",
     "test:views": "tsx --test tests/sar-015-views.test.ts",
+    "test:art": "tsx --test tests/art.test.ts",
     "test:coach": "tsx --test tests/coach.test.ts",
     "test:onboarding": "tsx --test tests/onboarding-contract.test.ts tests/onboarding-spine.test.ts tests/onboarding-accept.test.ts tests/onboarding-detail.test.ts",
     "test:ui": "tsx --test tests/tokens.test.ts tests/capture-deck.test.ts",
     "test:eval": "tsx --test tests/eval/f3-gate.eval.test.ts tests/eval/f5-receipt.eval.test.ts tests/eval/timer-session.eval.test.ts",
-    "test": "pnpm test:core-boundary && pnpm test:providers && pnpm test:data && pnpm test:migrations && pnpm test:capture && pnpm test:domains && pnpm test:tools && pnpm test:views && pnpm test:coach && pnpm test:onboarding && pnpm test:ui && pnpm test:eval",
+    "test": "pnpm test:core-boundary && pnpm test:providers && pnpm test:data && pnpm test:migrations && pnpm test:capture && pnpm test:domains && pnpm test:tools && pnpm test:views && pnpm test:art && pnpm test:coach && pnpm test:onboarding && pnpm test:ui && pnpm test:eval",
     "check": "pnpm typecheck && pnpm lint && pnpm check:core-boundary && pnpm test",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:seed:dev": "tsx scripts/seed-dev.ts",
-    "screenshots": "node scripts/screenshot.mjs"
+    "screenshots": "node scripts/screenshot.mjs",
+    "art:build": "node scripts/build-art.mjs",
+    "art:check": "node scripts/build-art.mjs --check"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "4.0.15",
@@ -56,6 +59,7 @@
     "eslint": "9.39.1",
     "eslint-config-next": "16.1.6",
     "playwright": "1.61.1",
+    "sharp": "0.34.5",
     "tailwindcss": "4.1.17",
     "tsx": "4.20.6",
     "typescript": "5.9.3"

@@ -2,6 +2,7 @@ import { Check } from "lucide-react";
 import Link from "next/link";
 
 import { Card } from "@/components/ui/Card";
+import { ArtFrame } from "@/components/art/ArtFrame";
 import type { TodayItem, TodayView } from "@/core/domains/today";
 
 import { DOMAIN_DOT } from "./domain";
@@ -52,12 +53,14 @@ function EmptyNote({ title, body }: { title: string; body: string }) {
 function AllDone() {
   return (
     <div className="px-4 pt-8">
-      <Card className="flex flex-col items-center gap-2 text-center">
+      <ArtFrame artKey="today.done_evening" eager className="min-h-56">
+      <Card className="flex h-full flex-col items-center justify-end gap-2 bg-transparent text-center shadow-none">
         <Check size={26} strokeWidth={1.5} aria-hidden className="text-ok" />
         <p className="font-display text-title text-ink-1">All done for today</p>
         <p className="font-ui text-body text-ink-2">Every planned item is complete. Rest well.</p>
         <Link href="/coach" className="mt-2 inline-flex min-h-11 items-center font-ui text-body text-ink-1 underline decoration-line underline-offset-4">View recap</Link>
       </Card>
+      </ArtFrame>
     </div>
   );
 }
@@ -68,7 +71,7 @@ export function PlanSpine({ view }: { view: TodayView }) {
     return <EmptyNote title="No arcs yet" body="Your plan appears here once your first arc begins." />;
   }
   if (view.state === "nothing-planned") {
-    return <EmptyNote title="Nothing planned today" body="Enjoy the open day — or capture something to begin." />;
+    return <div className="px-4 pt-8"><ArtFrame artKey="today.rest" eager className="min-h-56"><div className="flex h-full flex-col justify-end p-5"><p className="font-display text-title text-ink-1">Nothing planned today</p><p className="mt-2 font-ui text-body text-ink-2">Enjoy the open day - or capture something to begin.</p></div></ArtFrame></div>;
   }
   if (view.state === "all-done") {
     return <AllDone />;

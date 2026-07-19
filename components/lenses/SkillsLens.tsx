@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, ChevronLeft, Circle, CircleDot } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 
 import { cn } from "@/app/lib/utils";
@@ -139,6 +140,7 @@ function DrillView({ track, onBack }: { track: SkillTrack; onBack: () => void })
       <h2 className="mt-2 font-ui text-caption uppercase tracking-wide text-skills">{track.name}</h2>
       <p className="font-display text-display-xl tabular-nums text-skills">{formatMasteryShort(track.masteryMinutes)}</p>
       <p className="font-ui text-caption text-ink-3">hours practiced{tier && ` · ${tier}`}</p>
+      <Link href={`/tools?focusSkillId=${encodeURIComponent(track.id)}&focusMinutes=50`} className="mt-3 inline-flex min-h-11 items-center font-ui text-caption text-skills-strong underline decoration-line underline-offset-4">Start 50m focus</Link>
 
       {track.targetMinutes !== null && track.fraction !== null && (
         <div className="mt-3">

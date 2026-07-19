@@ -22,6 +22,8 @@ import { ConfirmCards } from "./ConfirmCards";
 import { DetailFlow } from "./detail/DetailFlow";
 import { DetailIntro } from "./detail/DetailIntro";
 import { Landing } from "./Landing";
+import { ArtFrame } from "@/components/art/ArtFrame";
+import type { ArtKey } from "@/components/art/registry";
 import { MOTION } from "./motion";
 import { SpineGeneration } from "./SpineGeneration";
 import type { SpineOutcome } from "./spineClient";
@@ -252,6 +254,15 @@ export function OnboardingFlow({ authMode }: { authMode: AuthenticatedUser["mode
   const showHairline = !isWelcome && !postAccept;
   const showHeader = !isWelcome;
   const showBack = !isWelcome && !postAccept;
+  const backdropArt: ArtKey | null = phase === "spine"
+    ? "onboard.generate"
+    : phase === "confirm"
+      ? "onboard.confirm"
+      : screen === "welcome"
+        ? "onboard.welcome"
+        : phase === "core"
+          ? "onboard.core"
+          : null;
 
   return (
     <>
@@ -270,9 +281,18 @@ export function OnboardingFlow({ authMode }: { authMode: AuthenticatedUser["mode
           animate={{ opacity: 1, y: 0 }}
           exit={reduce ? { opacity: 0 } : { opacity: 0, y: -MOTION.risePx }}
           transition={{ duration: MOTION.crossfadeSec, ease: MOTION.ease }}
-          className="flex flex-1 flex-col"
+          className="relative flex flex-1 flex-col"
         >
-          {renderStage()}
+          {backdropArt && (
+            <div className="pointer-events-none absolute inset-0 z-0">
+              <ArtFrame
+                artKey={backdropArt}
+                eager={backdropArt === "onboard.welcome"}
+                className="h-full w-full rounded-none border-0 opacity-35"
+              />
+            </div>
+          )}
+          <div className="relative z-10 flex flex-1 flex-col">{renderStage()}</div>
         </motion.div>
       </AnimatePresence>
     </>

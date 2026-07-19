@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ArtFrame } from "@/components/art/ArtFrame";
+import { milestoneArt } from "@/components/art/registry";
 import type { DisplayDomain, JourneyEvidence, JourneyView } from "@/core/game";
 
 const domains: Record<DisplayDomain, { label: string; chipClass: string; captionClass: string; gradient: string }> = {
@@ -51,7 +53,7 @@ function FirstProofPrompt() {
 }
 
 function Milestone({ label }: { label: string }) {
-  return <div className="relative mt-4 border-y border-line py-3"><span className="absolute -left-[2.03rem] top-4 h-3 w-3 rotate-45 bg-energy" aria-hidden /><p className="font-display text-body text-ink-1">{label}</p></div>;
+  return <div className="relative mt-4 overflow-hidden rounded-card border border-line"><span className="absolute -left-[0.78rem] top-4 z-10 h-3 w-3 rotate-45 bg-energy" aria-hidden /><ArtFrame artKey={milestoneArt(label)} ratio="min-h-28 rounded-none border-0"><p className="flex h-full items-end p-4 font-display text-body text-ink-1">{label}</p></ArtFrame></div>;
 }
 
 function EvidenceCard({ item, note, onOpen }: { item: JourneyEvidence; note: string | null; onOpen: () => void }) {

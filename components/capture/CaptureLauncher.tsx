@@ -24,11 +24,13 @@ export function CaptureLauncher() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [text, setText] = useState("");
+  const [contextPrompt, setContextPrompt] = useState<string | null>(null);
   const [session, setSession] = useState<CaptureInput | null>(null);
   const [nonce, setNonce] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textInputRef = useRef<HTMLInputElement>(null);
   const pressStartedAtRef = useRef(0);
+  const contextTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (searchParams.get("capture") !== "1") return;
@@ -47,6 +49,24 @@ export function CaptureLauncher() {
     };
     window.addEventListener("sarthi:capture-note", openNote);
     return () => window.removeEventListener("sarthi:capture-note", openNote);
+  }, []);
+
+  useEffect(() => {
+    const setContext = (event: Event) => {
+      const prompt = (event as CustomEvent<{ prompt?: string }>).detail?.prompt;
+      if (!prompt) return;
+      if (contextTimerRef.current !== null) window.clearTimeout(contextTimerRef.current);
+      setContextPrompt(prompt);
+      contextTimerRef.current = window.setTimeout(() => {
+        setContextPrompt(null);
+        contextTimerRef.current = null;
+      }, 30000);
+    };
+    window.addEventListener("sarthi:capture-context", setContext);
+    return () => {
+      window.removeEventListener("sarthi:capture-context", setContext);
+      if (contextTimerRef.current !== null) window.clearTimeout(contextTimerRef.current);
+    };
   }, []);
 
   function openText(raw: string) {
@@ -161,7 +181,7 @@ export function CaptureLauncher() {
             ref={textInputRef}
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Tell Sarthi about your day…"
+            placeholder={contextPrompt ?? "Tell Sarthi about your day…"}
             aria-label="Capture your day"
             className="flex-1 bg-transparent font-ui text-body text-ink-1 placeholder:text-ink-3 focus:outline-none"
           />
