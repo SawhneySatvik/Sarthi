@@ -7,7 +7,12 @@ export { ProviderConfigurationError };
 export type EnabledLlmProviderName = Exclude<LlmProviderName, "anthropic">;
 export type LlmModelId = string | null;
 
-/** Verified IDs, including OpenAI's approved deep-tier alias. */
+/**
+ * Verified IDs, including OpenAI's approved deep-tier alias.
+ * `gemini-2.5-pro` remains a real, verified ID but is PAID-only (since Apr 2026),
+ * so the runtime matrix no longer maps any tier to it — the free-tier trio
+ * (`gemini-2.5-flash` / `gemini-2.5-flash-lite`) covers deep/balanced/fast.
+ */
 export const VERIFIED_LLM_MODEL_IDS = Object.freeze({
   google: Object.freeze(["gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.5-flash-lite"]),
   openai: Object.freeze(["gpt-5.6-sol", "gpt-5.6", "gpt-5.6-terra", "gpt-5.6-luna"]),
@@ -21,7 +26,9 @@ export const LLM_MODEL_MATRIX: Readonly<Record<LlmProviderName, Readonly<Record<
     fast: "fake-fast-v1",
   }),
   google: Object.freeze({
-    deep: "gemini-2.5-pro",
+    // deep remapped off gemini-2.5-pro (PAID-only since Apr 2026) to the free,
+    // multimodal 2.5-flash — adequate for structured capture parse.
+    deep: "gemini-2.5-flash",
     balanced: "gemini-2.5-flash",
     fast: "gemini-2.5-flash-lite",
   }),
