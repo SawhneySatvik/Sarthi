@@ -41,6 +41,11 @@
   --font-ui: var(--font-ui-family);
   --font-coach: var(--font-coach-family);
 
+  /* Landing hero display size — the ONE surface allowed above the app's 40px cap
+   * (marketing front door, desktop only via `md:text-hero`). Added to the token
+   * layer (never a raw px in a component) mirroring the --text-display-xl pattern. */
+  --text-hero: 58px;
+  --text-hero--line-height: 60px;
   --text-display-xl: 40px;
   --text-display-xl--line-height: 44px;
   --text-display: 28px;
