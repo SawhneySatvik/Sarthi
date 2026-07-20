@@ -66,7 +66,7 @@ export function B5Goals({ answers, patch, onContinue }: StepProps) {
             onChange={(e) => patch({ goals: { ...goals, skillName: e.target.value.length ? e.target.value : null } })}
             placeholder="+ name one (e.g. system design)"
             aria-label="Name a skill"
-            className="w-full rounded-input border border-line bg-canvas px-3 py-3 font-ui text-body text-ink-1 placeholder:text-ink-3 focus:outline-none"
+            className="w-full rounded-input border border-line bg-canvas px-3 py-3 font-ui text-body text-ink-1 placeholder:text-ink-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
         </div>
       </div>

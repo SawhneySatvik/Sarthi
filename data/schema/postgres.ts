@@ -63,6 +63,7 @@ export const profiles = pgTable(
     wakeTimeMinutes: integer('wakeTimeMinutes'),
     sleepTimeMinutes: integer('sleepTimeMinutes'),
     timeBudgetMinutes: integer('timeBudgetMinutes'),
+    timezone: text('timezone').notNull(),
     foodPattern: text('foodPattern'),
     screenTimeMinutes: integer('screenTimeMinutes'),
     focusPreference: text('focusPreference'),
@@ -700,13 +701,14 @@ export const billingEvents = pgTable(
   ],
 );
 
-/* ── waitlist_requests — immutable base. Matches waitlistRequestsTable. */
-export const waitlistRequests = pgTable(
-  'waitlist_requests',
+/* ── waitlist — email-based anonymous waitlist. Matches waitlistTable.
+ * Dedupe key is `email` (global unique); `userId` is NOT NULL metadata only. */
+export const waitlist = pgTable(
+  'waitlist',
   {
     ...immutableBase,
-    source: text('source').notNull(),
-    requestedAt: text('requestedAt').notNull(),
+    email: text('email').notNull(),
+    source: text('source').notNull().default('pricing'),
   },
-  (t) => [uniqueIndex('waitlist_requests_userId_source_uq').on(t.userId, t.source)],
+  (t) => [uniqueIndex('waitlist_email_uq').on(t.email)],
 );

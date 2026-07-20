@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getSession } from "@/app/lib/session";
+import { scrubProviderError, withByok } from "@/app/lib/byok";
 import { summarizeReflection } from "@/core/coach";
 
 const MAX_IMAGES = 4;
@@ -33,7 +34,7 @@ export async function POST(request: Request): Promise<Response> {
       }
     }
 
-    const { user, repos, media, llm } = await getSession();
+    const { user, repos, media, llm } = withByok(await getSession(), request);
     const existing = (await repos.journey.reflections.list({ localDate: input.localDate }))[0] ?? null;
     const existingMedia = existing ? await repos.journey.media.list({ reflectionId: existing.id }) : [];
     if (existingMedia.length + images.length > MAX_IMAGES) return NextResponse.json({ ok: false, error: "This day already has four images." }, { status: 400 });
@@ -53,6 +54,9 @@ export async function POST(request: Request): Promise<Response> {
     }
     return NextResponse.json({ ok: true, reflection, media: records });
   } catch (error) {
-    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Could not save reflection." }, { status: 400 });
+    return NextResponse.json(
+      { ok: false, error: scrubProviderError(error instanceof Error ? error.message : "Could not save reflection.", request.headers) },
+      { status: 400 },
+    );
   }
 }

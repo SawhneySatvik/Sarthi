@@ -10,14 +10,20 @@ export function StatPill({
   icon,
   children,
   tone = "energy",
+  onArt = false,
 }: {
   icon?: ReactNode;
   children: ReactNode;
   tone?: "energy" | "muted";
+  /** When the pill sits over an ArtFrame scrim band, the muted tone uses the light
+   *  on-art ink so it reads on the dark-biased scrim. Amber (`energy`) is unchanged
+   *  regardless — it is earned XP/streak/level and must never be recolored (§4). */
+  onArt?: boolean;
 }) {
+  const mutedClass = onArt ? "on-art-dim" : "text-ink-3";
   return (
     <span
-      className={`inline-flex items-center gap-1 font-display text-caption tabular-nums ${tone === "energy" ? "text-energy" : "text-ink-3"}`}
+      className={`inline-flex items-center gap-1 font-display text-caption tabular-nums ${tone === "energy" ? "text-energy" : mutedClass}`}
     >
       {icon}
       {children}

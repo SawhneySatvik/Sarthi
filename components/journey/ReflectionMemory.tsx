@@ -1,12 +1,18 @@
 "use client";
 
-import { ImagePlus, LoaderCircle, Save } from "lucide-react";
+import { ImagePlus, Save } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
+import { byokHeaders } from "@/components/settings/byok";
 import type { DailyReflectionRecord, ReflectionMediaRecord } from "@/data/schema/contract";
 
-function today(): string { return new Date().toISOString().slice(0, 10); }
+// D-053: a client component, so the browser's own zone is the right authority for "what
+// day is it for me right now" — `en-CA` renders the device-local calendar day as YYYY-MM-DD
+// (a UTC slice would show tomorrow/yesterday for a slice of each day).
+function today(): string {
+  return new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+}
 
 /** A bounded, explicit day memory. It owns no capture/domain mutations. */
 export function ReflectionMemory({ reflections, media }: { reflections: readonly DailyReflectionRecord[]; media: readonly ReflectionMediaRecord[] }) {
@@ -27,7 +33,7 @@ export function ReflectionMemory({ reflections, media }: { reflections: readonly
     form.set("mood", mood); form.set("energyLevel", String(energy)); form.set("sleepMinutes", sleep); form.set("journal", journal);
     for (const file of files) form.append("images", file);
     try {
-      const response = await fetch("/api/journey/reflection", { method: "POST", body: form });
+      const response = await fetch("/api/journey/reflection", { method: "POST", body: form, headers: byokHeaders() });
       if (!response.ok) throw new Error();
       window.location.reload();
     } catch { setState("error"); }
@@ -42,7 +48,7 @@ export function ReflectionMemory({ reflections, media }: { reflections: readonly
       <div className="mt-3 grid grid-cols-2 gap-3"><label className="font-ui text-caption text-ink-2">Energy (1–5)<input value={energy} onChange={(event) => setEnergy(Math.max(1, Math.min(5, Number(event.target.value) || 1)))} inputMode="numeric" className="mt-1 min-h-11 w-full rounded-input border border-line bg-canvas px-3 font-ui text-body text-ink-1" /></label><label className="font-ui text-caption text-ink-2">Sleep minutes<input value={sleep} onChange={(event) => setSleep(event.target.value.replace(/\D/g, ""))} inputMode="numeric" className="mt-1 min-h-11 w-full rounded-input border border-line bg-canvas px-3 font-ui text-body text-ink-1" /></label></div>
       <label className="mt-3 block font-ui text-caption text-ink-2">Your note<textarea value={journal} onChange={(event) => setJournal(event.target.value)} maxLength={4000} className="mt-1 min-h-24 w-full rounded-input border border-line bg-canvas p-3 font-ui text-body text-ink-1" placeholder="What felt true today?" /></label>
       <label className="mt-3 flex min-h-11 cursor-pointer items-center gap-2 font-ui text-caption text-ink-2"><ImagePlus size={17} strokeWidth={1.5} aria-hidden />Add up to four images<input type="file" accept="image/jpeg,image/png,image/webp" multiple className="sr-only" onChange={(event) => setFiles(Array.from(event.target.files ?? []).slice(0, Math.max(0, 4 - currentMedia.length)))} /></label>
-      <Button className="mt-4 min-h-12 w-full" disabled={state === "saving"} onClick={() => void save()}>{state === "saving" ? <LoaderCircle size={17} className="animate-spin" /> : <Save size={17} strokeWidth={1.5} />}Save reflection</Button>
+      <Button className={`mt-4 min-h-12 w-full ${state === "saving" ? "animate-shimmer" : ""}`} disabled={state === "saving"} onClick={() => void save()}>{state === "saving" ? "Saving…" : <><Save size={17} strokeWidth={1.5} />Save reflection</>}</Button>
       {state === "error" && <p role="status" className="mt-2 font-ui text-caption text-danger">Could not save this reflection. Nothing else changed.</p>}
     </div>
   </section>;

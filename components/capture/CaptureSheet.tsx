@@ -289,7 +289,7 @@ export function CaptureSheet({ input, onClose }: { input: CaptureInput; onClose:
       <div className="mx-auto flex max-w-[45rem] flex-col gap-5">
         <div className="flex items-center justify-between px-4">
           <p className="font-ui text-caption uppercase tracking-wide text-ink-3">Capture</p>
-          <button type="button" onClick={onClose} className="-mr-2 px-2 py-1.5 font-ui text-caption text-ink-2">
+          <button type="button" onClick={onClose} className="-mr-2 rounded-chip px-2 py-1.5 font-ui text-caption text-ink-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             Close
           </button>
         </div>
@@ -386,7 +386,7 @@ export function CaptureSheet({ input, onClose }: { input: CaptureInput; onClose:
               value={transcript}
               onChange={(event) => setTranscript(event.target.value)}
               aria-label="Voice transcript"
-              className={`min-h-28 w-full rounded-input border bg-canvas p-3 font-coach text-body leading-[var(--leading-coach)] text-ink-1 focus:outline-none ${transcriptConfidenceBps !== null && transcriptConfidenceBps < 9000 ? "border-warn" : "border-line"}`}
+              className={`min-h-28 w-full rounded-input border bg-canvas p-3 font-coach text-body leading-[var(--leading-coach)] text-ink-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${transcriptConfidenceBps !== null && transcriptConfidenceBps < 9000 ? "border-warn" : "border-line"}`}
             />
             {voiceError && <p className="font-ui text-caption text-warn">{voiceError}</p>}
             <Button className="w-full" onClick={parseVoiceTranscript}>Parse transcript</Button>

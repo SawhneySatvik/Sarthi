@@ -253,7 +253,7 @@ function Row({
         value={row.title}
         onChange={(event) => model.setTitle(row.key, event.target.value)}
         aria-label="Row name"
-        className="min-w-0 flex-1 bg-transparent font-ui text-body text-ink-1 focus:outline-none"
+        className="min-w-0 flex-1 bg-transparent font-ui text-body text-ink-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       />
       {row.numeric && row.value !== null && (
         <Stepper value={row.value} unit={row.unit} onChange={(next) => model.setValue(row.key, next)} />

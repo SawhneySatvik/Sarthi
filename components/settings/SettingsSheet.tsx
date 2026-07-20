@@ -1,7 +1,8 @@
 "use client";
 
 import { ChevronRight, Download, UserRound, X } from "lucide-react";
-import { useSyncExternalStore, useState } from "react";
+import { useEffect, useRef, useSyncExternalStore, useState } from "react";
+import { createPortal } from "react-dom";
 
 import type { LlmProviderName, VoiceProviderName } from "@/core/contracts";
 import type { ProfileGapRecord, ProfileRecord } from "@/data/schema/contract";
@@ -13,6 +14,14 @@ import {
   setRuntimeProviderOverride,
   subscribeRuntimeProviderOverride,
 } from "./runtimeOverride";
+import {
+  clearByokCredential,
+  getByokCredential,
+  getByokServerSnapshot,
+  setByokCredential,
+  subscribeByok,
+  type ByokProvider,
+} from "./byok";
 
 type Theme = "ember" | "bone" | "moss";
 type Mode = "light" | "dark" | "system";
@@ -97,7 +106,7 @@ function Toggle({ label, value, onChange }: { label: string; value: string; onCh
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="ml-auto bg-transparent font-ui text-caption text-ink-2 outline-none"
+        className="ml-auto bg-transparent font-ui text-caption text-ink-2 outline-none focus-visible:ring-2 focus-visible:ring-ring"
         aria-label={label}
       >
         {label === "Mic" ? <><option value="hold">Hold to talk</option><option value="tap">Tap to talk</option></> : null}
@@ -182,7 +191,7 @@ function Developer({ initialProvider }: { initialProvider: LlmProviderName }) {
     <Section title="DEVELOPER">
       <label className="flex min-h-12 items-center border-b border-line px-4">
         <span className="font-ui text-body text-ink-1">AI provider</span>
-        <select value={selectedProvider} onChange={(event) => setRuntimeProviderOverride(event.target.value as LlmProviderName)} className="ml-auto bg-transparent font-ui text-caption text-ink-2 outline-none" aria-label="AI provider">
+        <select value={selectedProvider} onChange={(event) => setRuntimeProviderOverride(event.target.value as LlmProviderName)} className="ml-auto bg-transparent font-ui text-caption text-ink-2 outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="AI provider">
           {LLM_CHOICES.map((provider) => <option key={provider} value={provider} disabled={provider === "anthropic"}>{provider === "google" ? "Gemini" : provider === "openai" ? "GPT-5.6" : provider === "anthropic" ? "Claude (unavailable)" : "Fake"}</option>)}
         </select>
       </label>
@@ -191,13 +200,94 @@ function Developer({ initialProvider }: { initialProvider: LlmProviderName }) {
       </p>
       <label className="flex min-h-12 items-center border-b border-line px-4">
         <span className="font-ui text-body text-ink-1">Voice provider</span>
-        <select value="fake" className="ml-auto bg-transparent font-ui text-caption text-ink-2 outline-none" aria-label="Voice provider">
+        <select value="fake" className="ml-auto bg-transparent font-ui text-caption text-ink-2 outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="Voice provider">
           {VOICE_CHOICES.map((provider) => <option key={provider} value={provider} disabled={provider !== "fake"}>{provider === "fake" ? "Fake" : `${provider} (unavailable)`}</option>)}
         </select>
       </label>
       <button type="button" onClick={seed} disabled={seedStatus === "working"} className="flex min-h-12 w-full items-center px-4 text-left font-ui text-body text-ink-1 disabled:text-ink-3">
         Seed demo data <span className="ml-auto font-ui text-caption text-ink-2">{seedStatus === "done" ? "Seeded" : seedStatus === "error" ? "Unavailable" : seedStatus === "working" ? "Seeding" : "Run"}</span>
       </button>
+    </Section>
+  );
+}
+
+/**
+ * Bring Your Own Key — visible to EVERY user (not the gated Developer block), because its
+ * whole purpose is letting strangers on the live production deploy run real AI with their
+ * own key. The key is written only to this browser's localStorage and attached per-request;
+ * it is never sent to Sarthi's servers except transiently to power the user's own calls.
+ */
+function ByokPanel() {
+  const saved = useSyncExternalStore(subscribeByok, getByokCredential, getByokServerSnapshot);
+  const [provider, setProvider] = useState<ByokProvider>("google");
+  const [draft, setDraft] = useState("");
+
+  const savedLabel = saved ? (saved.provider === "google" ? "Gemini" : "OpenAI") : null;
+
+  function save() {
+    const apiKey = draft.trim();
+    if (!apiKey) return;
+    setByokCredential({ provider, apiKey });
+    setDraft("");
+  }
+
+  return (
+    <Section title="YOUR AI KEY">
+      <p className="border-b border-line px-4 py-3 font-coach text-caption leading-[var(--leading-coach)] text-ink-2">
+        Bring your own Gemini or OpenAI key to capture with real AI. It stays in this browser only —
+        never saved to our servers, only sent to power your own requests. Without a key you can still
+        explore the full seeded demo.
+      </p>
+      <label className="flex min-h-12 items-center border-b border-line px-4">
+        <span className="font-ui text-body text-ink-1">Provider</span>
+        <select
+          value={provider}
+          onChange={(event) => setProvider(event.target.value as ByokProvider)}
+          className="ml-auto bg-transparent font-ui text-caption text-ink-2 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label="AI key provider"
+        >
+          <option value="google">Gemini</option>
+          <option value="openai">OpenAI</option>
+        </select>
+      </label>
+      <div className="border-b border-line px-4 py-3">
+        <label htmlFor="byok-key" className="font-ui text-caption text-ink-2">
+          {provider === "google" ? "Gemini API key" : "OpenAI API key"}
+        </label>
+        <input
+          id="byok-key"
+          type="password"
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          placeholder={saved ? "Enter a new key to replace the saved one" : "Paste your key"}
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck={false}
+          className="mt-2 min-h-11 w-full rounded-input border border-line bg-canvas px-3 font-ui text-body text-ink-1 placeholder:text-ink-3 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        />
+        <div className="mt-3 flex gap-2">
+          <button
+            type="button"
+            onClick={save}
+            disabled={!draft.trim()}
+            className="min-h-11 flex-1 rounded-chip bg-ink-1 px-3 font-ui text-body text-canvas disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Save key
+          </button>
+          <button
+            type="button"
+            onClick={() => { clearByokCredential(); setDraft(""); }}
+            disabled={!saved}
+            className="min-h-11 rounded-chip border border-line px-4 font-ui text-body text-ink-2 disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Clear
+          </button>
+        </div>
+      </div>
+      <p className="px-4 py-3 font-ui text-caption text-ink-3" role="status" aria-live="polite">
+        {saved ? `Key saved · captures use real AI via ${savedLabel}.` : "No key saved · exploring the seeded demo."}
+      </p>
     </Section>
   );
 }
@@ -219,11 +309,26 @@ export function SettingsSheet({
   const [tts, setTts] = useState(() => readPreference("tts", "off"));
   const [brief, setBrief] = useState(() => readPreference("brief", "all"));
   const openGaps = gaps.filter((gap) => gap.status === "open");
+  const closeRef = useRef<HTMLButtonElement>(null);
 
   function close() {
     setOpen(false);
     setPanel("main");
   }
+
+  // GalleryViewer precedent: initial focus on Close + Escape-to-close while the dialog is open.
+  useEffect(() => {
+    if (!open) return;
+    closeRef.current?.focus();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+        setPanel("main");
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
   function changePreference(key: PreferenceKey, value: string, setter: (value: string) => void) {
     setter(value);
     writePreference(key, value);
@@ -232,18 +337,18 @@ export function SettingsSheet({
   const heading = panel === "main" ? "Settings" : panel === "appearance" ? "Appearance" : panel === "details" ? "Your details" : panel === "gaps" ? "Coach questions" : panel === "danger" ? "Danger zone" : "About";
   return (
     <>
-      <button type="button" aria-label="Settings and profile" aria-expanded={open} onClick={() => setOpen(true)} className="flex h-8 w-8 items-center justify-center rounded-chip border border-line bg-raised text-ink-2 transition-colors duration-[var(--t-fast)]">
+      <button type="button" aria-label="Settings and profile" aria-expanded={open} onClick={() => setOpen(true)} className="flex h-11 w-11 items-center justify-center rounded-chip border border-line bg-raised text-ink-2 transition-colors duration-[var(--t-fast)]">
         <UserRound size={17} strokeWidth={1.5} aria-hidden />
       </button>
-      {open ? (
+      {open && typeof document !== "undefined" ? createPortal((
         <div className="fixed inset-0 z-50 bg-[var(--scrim)] p-3 md:flex md:items-center md:justify-center" role="presentation">
-          <section className="ml-auto flex h-full w-full max-w-[35rem] flex-col overflow-hidden rounded-card bg-canvas shadow-[var(--elev-card)] md:mx-auto md:h-auto md:max-h-[calc(100vh-var(--space-6))]" role="dialog" aria-modal="true" aria-labelledby="settings-sheet-title">
+          <section className="ml-auto flex h-full w-full max-w-[35rem] flex-col overflow-hidden rounded-card border border-line bg-raised shadow-[var(--elev-card)] md:mx-auto md:h-auto md:max-h-[calc(100vh-var(--space-6))]" role="dialog" aria-modal="true" aria-labelledby="settings-sheet-title">
             <header className="flex items-center gap-3 border-b border-line px-4 py-4">
               <div className="min-w-0 flex-1">
                 <h2 id="settings-sheet-title" className="font-display text-title text-ink-1">{heading}</h2>
                 {panel === "main" ? <p className="mt-1 font-ui text-caption text-ink-3">{profile.displayName ?? "Your profile"} · local mode</p> : null}
               </div>
-              <button type="button" onClick={close} className="flex min-h-11 min-w-11 items-center justify-center rounded-chip text-ink-2" aria-label="Close settings"><X size={18} strokeWidth={1.5} /></button>
+              <button ref={closeRef} type="button" onClick={close} className="flex min-h-11 min-w-11 items-center justify-center rounded-chip text-ink-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="Close settings"><X size={18} strokeWidth={1.5} /></button>
             </header>
             <div className="overflow-y-auto px-4 pb-8">
               {panel === "appearance" ? <div className="pt-6"><Appearance initialTheme={profile.theme} initialMode={profile.themeMode} /></div> : null}
@@ -257,13 +362,14 @@ export function SettingsSheet({
                 <Section title="CAPTURE & VOICE"><Toggle label="Mic" value={mic} onChange={(value) => changePreference("mic", value, setMic)} /><Toggle label="Spoken replies" value={tts} onChange={(value) => changePreference("tts", value, setTts)} /></Section>
                 <Section title="COACH"><Row label="Morning brief" value="7:00 AM" /><Row label="Weekly brief" value="Sun evening" /><Toggle label="On-open briefs" value={brief} onChange={(value) => changePreference("brief", value, setBrief)} /></Section>
                 <Section title="DATA"><a href="/api/settings/export" className="flex min-h-12 items-center px-4"><span className="font-ui text-body text-ink-1">Export my data</span><Download size={16} strokeWidth={1.5} className="ml-auto text-ink-2" aria-hidden /></a><Row label="Danger zone" onClick={() => setPanel("danger")} /></Section>
+                <ByokPanel />
                 {isDeveloperControlAllowed ? <Developer initialProvider={llmProvider} /> : null}
                 <footer className="mt-8 flex items-center justify-between px-1 font-ui text-caption text-ink-3"><button type="button" onClick={() => setPanel("about")}>Sarthi v1.0 · About</button><span>Local mode</span></footer>
               </> : null}
             </div>
           </section>
         </div>
-      ) : null}
+      ), document.body) : null}
     </>
   );
 }

@@ -3,6 +3,7 @@ import { ZodError } from "zod";
 
 import { getSessionForRuntimeRequest } from "@/app/lib/session";
 import { isRuntimeOverrideError } from "@/app/lib/runtimeOverride";
+import { withByok } from "@/app/lib/byok";
 import { createCommitService } from "@/core/capture";
 import { ToolCommandError, createToolsService } from "@/core/tools";
 
@@ -10,7 +11,7 @@ import { ToolCommandError, createToolsService } from "@/core/tools";
 export async function POST(request: Request): Promise<Response> {
   try {
     const body = await request.json().catch(() => ({}));
-    const { repos, llm } = await getSessionForRuntimeRequest(request);
+    const { repos, llm } = withByok(await getSessionForRuntimeRequest(request), request);
     const tools = createToolsService({ repos, commits: createCommitService({ repos, llm }) });
     const result = await tools.completeMeditation(body);
     if (result.status === "declined") return NextResponse.json({ ok: true, status: "declined" });

@@ -264,7 +264,7 @@ export function HabitsLens({ view }: { view: HabitsView }) {
     <div className="px-4 pb-2">
       <ArtFrame artKey="habit.journal" ratio="h-20" className="mb-3"><p className="flex h-full items-end p-3 font-display text-title text-ink-1">Habits</p></ArtFrame>
       <header className="pt-1">
-        <p className="font-ui text-caption uppercase tracking-wide text-habits">Habits</p>
+        <p className="font-ui text-caption uppercase tracking-wide text-habits-strong">Habits</p>
         <p className="font-display text-display-xl tabular-nums text-ink-1">
           {view.headline.done}
           <span className="text-ink-3"> of {view.headline.total}</span>

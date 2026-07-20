@@ -110,7 +110,7 @@ export function VoiceFillButton({
                 placeholder="e.g. I'm 71 kilos, around 5'10&quot;"
                 aria-label="Your spoken answer"
                 rows={2}
-                className="w-full resize-none rounded-input border border-line bg-canvas px-3 py-2 font-ui text-body text-ink-1 placeholder:text-ink-3 focus:outline-none"
+                className="w-full resize-none rounded-input border border-line bg-canvas px-3 py-2 font-ui text-body text-ink-1 placeholder:text-ink-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
               <Button className="mt-3 w-full" onClick={submit} disabled={mode === "loading" || text.trim().length === 0}>
                 {mode === "loading" ? "Reading…" : "Fill"}

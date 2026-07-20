@@ -7,17 +7,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { ArtFrame } from "@/components/art/ArtFrame";
 import { milestoneArt, selectJourneyArt } from "@/components/art/registry";
+import { relativeDay } from "@/app/lib/relativeDay";
 import type { DailyReflectionRecord, ReflectionMediaRecord } from "@/data/schema/contract";
 import type { JourneyDay, JourneyView } from "@/core/game";
 
 import { ReflectionMemory } from "./ReflectionMemory";
 
 type MergedDay = { localDate: string; source: JourneyDay | null; reflection: DailyReflectionRecord | null; media: readonly ReflectionMediaRecord[] };
-
-function labelDate(localDate: string): string {
-  const date = new Date(`${localDate}T12:00:00`);
-  return new Intl.DateTimeFormat("en-IN", { weekday: "short", month: "short", day: "numeric" }).format(date);
-}
 
 function mergeDays(view: JourneyView, reflections: readonly DailyReflectionRecord[], media: readonly ReflectionMediaRecord[]): readonly MergedDay[] {
   const map = new Map<string, MergedDay>();
@@ -47,7 +43,7 @@ function DayCard({ day, onOpenMedia }: { day: MergedDay; onOpenMedia: (item: Ref
   const evidence = day.source?.evidence[0] ?? null;
   const artKey = evidence ? selectJourneyArt(evidence.domain, evidence.entryKind, evidence.caption) : day.source?.milestones[0] ? milestoneArt(day.source.milestones[0].label) : "coach.week_band";
   const taskProgress = day.source?.taskProgress ?? null;
-  return <section className="relative pb-7"><span aria-hidden className="absolute -left-[1.86rem] top-5 h-3 w-3 rounded-chip border-2 border-canvas bg-ink-3" /><article className="overflow-hidden rounded-card border border-line bg-card shadow-[var(--elev-card)]"><ArtFrame artKey={artKey} ratio="h-24" className="rounded-none border-0"><div className="flex h-full items-end p-4"><p className="font-display text-title text-ink-1">{labelDate(day.localDate)}</p></div></ArtFrame><div className="grid grid-cols-2 gap-px bg-line"><Tile label="Wellness" value={day.reflection ? `${day.reflection.mood} · energy ${day.reflection.energyLevel}/5${day.reflection.sleepMinutes === null ? "" : ` · sleep ${day.reflection.sleepMinutes}m`}` : "No check-in saved"} /><Tile label="Task progress" value={taskProgress ? `${taskProgress.done} / ${taskProgress.total} done` : "No plan item saved"} /><MemoriesTile media={day.media} evidenceCount={facts} onOpen={onOpenMedia} /><Tile label="Journal + reflection" value={day.reflection?.summary ?? day.source?.note ?? "No reflection saved"} /></div></article></section>;
+  return <section className="relative pb-7"><span aria-hidden className="absolute -left-[1.86rem] top-5 h-3 w-3 rounded-chip border-2 border-canvas bg-ink-3" /><article className="overflow-hidden rounded-card border border-line bg-card shadow-[var(--elev-card)]"><ArtFrame artKey={artKey} ratio="h-24" className="rounded-none border-0"><div className="flex h-full items-end p-4"><p className="font-display text-title text-ink-1">{relativeDay(day.localDate)}</p></div></ArtFrame><div className="grid grid-cols-2 gap-px bg-line"><Tile label="Wellness" value={day.reflection ? `${day.reflection.mood} · energy ${day.reflection.energyLevel}/5${day.reflection.sleepMinutes === null ? "" : ` · sleep ${day.reflection.sleepMinutes}m`}` : "No check-in saved"} /><Tile label="Task progress" value={taskProgress ? `${taskProgress.done} / ${taskProgress.total} done` : "No plan item saved"} /><MemoriesTile media={day.media} evidenceCount={facts} onOpen={onOpenMedia} /><Tile label="Journal + reflection" value={day.reflection?.summary ?? "No reflection saved"} /></div></article></section>;
 }
 
 function Tile({ label, value }: { label: string; value: string }) { return <div className="min-h-28 bg-card p-3"><p className="font-ui text-caption uppercase tracking-wide text-ink-3">{label}</p><p className="mt-2 line-clamp-3 font-ui text-caption text-ink-1">{value}</p></div>; }

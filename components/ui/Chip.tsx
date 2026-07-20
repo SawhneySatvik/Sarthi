@@ -13,7 +13,7 @@ export function Chip({
       type="button"
       aria-pressed={active}
       className={cn(
-        "shrink-0 rounded-chip border px-3 py-1.5 font-ui text-caption transition-colors duration-[var(--t-fast)]",
+        "inline-flex min-h-11 shrink-0 items-center rounded-chip border px-3 py-1.5 font-ui text-caption transition-colors duration-[var(--t-fast)]",
         active ? "border-line bg-raised text-ink-1" : "border-transparent text-ink-2",
         className,
       )}

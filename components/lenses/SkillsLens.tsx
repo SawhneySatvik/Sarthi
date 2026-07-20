@@ -138,8 +138,8 @@ function DrillView({ track, onBack }: { track: SkillTrack; onBack: () => void })
         <ChevronLeft size={16} aria-hidden /> Skills
       </button>
 
-      <h2 className="mt-2 font-ui text-caption uppercase tracking-wide text-skills">{track.name}</h2>
-      <p className="font-display text-display-xl tabular-nums text-skills">{formatMasteryShort(track.masteryMinutes)}</p>
+      <h2 className="mt-2 font-ui text-caption uppercase tracking-wide text-skills-strong">{track.name}</h2>
+      <p className="font-display text-display-xl tabular-nums text-skills-strong">{formatMasteryShort(track.masteryMinutes)}</p>
       <p className="font-ui text-caption text-ink-3">hours practiced{tier && ` · ${tier}`}</p>
       <Link href={`/tools?focusSkillId=${encodeURIComponent(track.id)}&focusMinutes=50`} className="mt-3 inline-flex min-h-11 items-center font-ui text-caption text-skills-strong underline decoration-line underline-offset-4">Start 50m focus</Link>
 
@@ -190,7 +190,7 @@ export function SkillsLens({ view }: { view: SkillsView }) {
 
   return (
     <div className="px-4 pb-2">
-      <ArtFrame artKey="skills.desk_code" ratio="h-20" className="mb-3"><p className="flex h-full items-end p-3 font-display text-title text-ink-1">Skills</p></ArtFrame>
+      <ArtFrame artKey="skills.desk_code" ratio="h-20" className="mb-3"><p className="flex h-full items-end p-3 font-display text-title on-art">Skills</p></ArtFrame>
       <header className="pt-1">
         <p className="font-ui text-caption uppercase tracking-wide text-skills">Skills</p>
         <p className="font-display text-display-xl tabular-nums text-ink-1">

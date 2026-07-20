@@ -134,9 +134,9 @@ import type {
   BillingEventRecord,
   BillingEventCreate,
   BillingEventQuery,
-  WaitlistRequestRecord,
-  WaitlistRequestCreate,
-  WaitlistRequestQuery,
+  WaitlistRecord,
+  WaitlistCreate,
+  WaitlistQuery,
 } from "@/data/schema/contract";
 
 /** The verified identity a request runs as. No repository method accepts a caller-supplied `userId`. */
@@ -248,7 +248,7 @@ export interface CommitRepository {
 export interface BillingRepository {
   checkoutSessions: ScopedEntityRepository<CheckoutSessionRecord, CheckoutSessionCreate, CheckoutSessionUpdate, CheckoutSessionQuery>;
   events: AppendOnlyRepository<BillingEventRecord, BillingEventCreate, BillingEventQuery>;
-  waitlist: AppendOnlyRepository<WaitlistRequestRecord, WaitlistRequestCreate, WaitlistRequestQuery>;
+  waitlist: AppendOnlyRepository<WaitlistRecord, WaitlistCreate, WaitlistQuery>;
 }
 
 /** The full per-user repository surface, obtained via `RepositoryFactory.forUser`. */

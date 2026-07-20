@@ -23,7 +23,7 @@ export function B1Name({ answers, patch, onContinue }: StepProps) {
         onChange={(e) => patch({ displayName: e.target.value })}
         placeholder="Your name"
         aria-label="Your name"
-        className="w-full border-b border-line bg-transparent pb-2 font-display text-display text-ink-1 placeholder:text-ink-3 focus:outline-none"
+        className="w-full border-b border-line bg-transparent pb-2 font-display text-display text-ink-1 placeholder:text-ink-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       />
     </StepFrame>
   );

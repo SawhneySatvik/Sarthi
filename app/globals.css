@@ -64,6 +64,13 @@
   --t-base: 200ms;
   --t-slow: 320ms;
   --t-hero: 900ms;
+  /* Skeleton sheen loop — deliberately far slower than the ≤900ms transition tokens
+   * so it reads as a calm sweep, never a strobe (DESIGN §5.2, the one CSS-keyframe
+   * exception). Structure-invariant, so it lives in :root, not the per-theme blocks. */
+  --t-shimmer: 1600ms;
+  /* 3D perspective for the Stats card flip (consumed in UIE-0d). A spacing token was
+   * being laundered as perspective before; this is the real, named value. */
+  --perspective-flip: 1000px;
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --leading-coach: 1.65;
 
@@ -87,7 +94,7 @@
   --line: #2a241c;
   --ink-1: #f4efe4;
   --ink-2: #a79e8e;
-  --ink-3: #70675a;
+  --ink-3: #8d8377;
   --energy: #e8913e;
   --dom-health: #7fb08c;
   --dom-money: #c0883a;
@@ -101,6 +108,9 @@
   --warn: #e6972e;
   --danger: #c96e63;
   --scrim: rgb(12 11 10 / 72%);
+  --scrim-art: rgb(10 8 6 / 82%);
+  --ink-on-art-1: #f8f3ea;
+  --ink-on-art-2: #ded6c6;
   --ring: #f4efe4;
   --elev-card: 0 1px 8px rgb(0 0 0 / 16%);
 }
@@ -113,7 +123,7 @@
   --line: #2a241c;
   --ink-1: #f4efe4;
   --ink-2: #a79e8e;
-  --ink-3: #70675a;
+  --ink-3: #8d8377;
   --energy: #e8913e;
   --dom-health: #7fb08c;
   --dom-money: #c0883a;
@@ -127,6 +137,9 @@
   --warn: #e6972e;
   --danger: #c96e63;
   --scrim: rgb(12 11 10 / 72%);
+  --scrim-art: rgb(10 8 6 / 82%);
+  --ink-on-art-1: #f8f3ea;
+  --ink-on-art-2: #ded6c6;
   --ring: #f4efe4;
   --elev-card: 0 1px 8px rgb(0 0 0 / 16%);
 }
@@ -137,7 +150,7 @@
   --line: #e8e0d2;
   --ink-1: #1c1710;
   --ink-2: #6b6153;
-  --ink-3: #8a8073;
+  --ink-3: #787061;
   --energy: #c86f1b;
   --dom-health: #7fb08c;
   --dom-money: #d8a24a;
@@ -151,6 +164,9 @@
   --warn: #a47417;
   --danger: #b0483c;
   --scrim: rgb(250 246 238 / 72%);
+  --scrim-art: rgb(28 22 14 / 76%);
+  --ink-on-art-1: #f8f3ea;
+  --ink-on-art-2: #ded6c6;
   --ring: #1c1710;
   --elev-card: 0 1px 8px rgb(60 40 20 / 8%);
 }
@@ -163,7 +179,7 @@
   --line: #3a3633;
   --ink-1: #f4f1ec;
   --ink-2: #a3a09b;
-  --ink-3: #6f6c67;
+  --ink-3: #87847d;
   --energy: #e8913e;
   --dom-health: #7fb08c;
   --dom-money: #c0883a;
@@ -177,6 +193,9 @@
   --warn: #e6972e;
   --danger: #c96e63;
   --scrim: rgb(19 18 17 / 72%);
+  --scrim-art: rgb(14 13 12 / 82%);
+  --ink-on-art-1: #f7f4ef;
+  --ink-on-art-2: #dcd6cd;
   --ring: #f4f1ec;
   --elev-card: none;
 }
@@ -187,7 +206,7 @@
   --line: #e5dfd6;
   --ink-1: #211e1c;
   --ink-2: #6f6a66;
-  --ink-3: #837d75;
+  --ink-3: #736d65;
   --energy: #c86f1b;
   --dom-health: #7fb08c;
   --dom-money: #d8a24a;
@@ -201,6 +220,9 @@
   --warn: #a47417;
   --danger: #b0483c;
   --scrim: rgb(250 247 242 / 72%);
+  --scrim-art: rgb(22 20 18 / 76%);
+  --ink-on-art-1: #f7f4ef;
+  --ink-on-art-2: #dcd6cd;
   --ring: #211e1c;
   --elev-card: none;
 }
@@ -213,7 +235,7 @@
   --line: #263127;
   --ink-1: #eef3ec;
   --ink-2: #9fac9d;
-  --ink-3: #6b766a;
+  --ink-3: #828d80;
   --energy: #e8913e;
   --dom-health: #7fb08c;
   --dom-money: #c0883a;
@@ -227,6 +249,9 @@
   --warn: #e6972e;
   --danger: #c96e63;
   --scrim: rgb(11 14 11 / 72%);
+  --scrim-art: rgb(7 11 8 / 82%);
+  --ink-on-art-1: #f2f6ef;
+  --ink-on-art-2: #d3dacf;
   --ring: #eef3ec;
   --elev-card: 0 1px 8px rgb(0 0 0 / 18%);
 }
@@ -237,7 +262,7 @@
   --line: #dde5da;
   --ink-1: #1a211a;
   --ink-2: #616b60;
-  --ink-3: #7d867b;
+  --ink-3: #697268;
   --energy: #c86f1b;
   --dom-health: #7fb08c;
   --dom-money: #d8a24a;
@@ -251,6 +276,9 @@
   --warn: #a47417;
   --danger: #b0483c;
   --scrim: rgb(244 247 242 / 72%);
+  --scrim-art: rgb(14 20 15 / 76%);
+  --ink-on-art-1: #f2f6ef;
+  --ink-on-art-2: #d3dacf;
   --ring: #1a211a;
   --elev-card: 0 1px 8px rgb(30 45 30 / 8%);
 }
@@ -337,4 +365,198 @@ body {
   .animate-onboarding-pulse {
     animation: none;
   }
+}
+
+/*
+ * UIE-0b (D-052) — on-art type convention. Type placed over an `ArtFrame`'s
+ * `--scrim-art` band uses the LIGHT on-art inks regardless of theme mode: the scrim
+ * is dark-biased in both light and dark, so light type is what passes AA on top.
+ * Components reference these semantic classes — never a raw ink token or hex. Kept
+ * unlayered so they reliably win over a Tailwind `text-*` utility if both are present.
+ */
+.on-art {
+  color: var(--ink-on-art-1);
+}
+.on-art-dim {
+  color: var(--ink-on-art-2);
+}
+
+/*
+ * De-slop D-025 / DESIGN §11 — no naked gradient placeholders. The always-painted
+ * ArtFrame underlay carries a fine grain so a slow/missing/remounting image reveals
+ * an intentional plate, never a flat rectangle. Greyscale SVG fractal noise (no color
+ * token), overlaid low so it reads as texture, not a pattern. Suppressed for print.
+ */
+.art-grain::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.1;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+}
+
+/*
+ * UIE-0c (DESIGN §5.2 / §11 no-spinner law) — the ONE shimmer utility. A calm diagonal
+ * sheen sweeps across a skeleton surface (never a spinner). Self-contained: the sheen is a
+ * `::after` overlay so any element already carrying its own `bg-*` (the Coach reading-room
+ * skeleton, the Reflection "Saving…" button) animates with ZERO markup change. The band is
+ * a mid-tone ink so it reads as motion in both light and dark modes. Duration = the
+ * `--t-shimmer` motion token (no raw durations, invariant #4). Reduced-motion → static.
+ */
+.animate-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.animate-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  transform: translateX(-100%);
+  background: linear-gradient(100deg, transparent 25%, var(--ink-2) 50%, transparent 75%);
+  opacity: 0.16;
+  animation: shimmer var(--t-shimmer) var(--ease-standard) infinite;
+}
+
+@keyframes shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-shimmer::after {
+    animation: none;
+  }
+}
+
+/*
+ * ── UI-enhancement (landing only) — atmosphere layer ────────────────────────
+ * Cinematic depth for the PUBLIC landing exclusively. Every value is derived from
+ * the existing brand tokens (domain hues + canvas + ink) via color-mix, so both Bone
+ * modes stay legible and no raw hex/px/ms leaks into a component (invariant #4). These
+ * live OUTSIDE the six [data-theme][data-mode] blocks / :root / @theme inline, scoped to
+ * `.landing`, so tokens.test.ts six-block parity is untouched. Light mode softens the
+ * glows below so contrast holds on the warm-paper canvas. Amber (--energy) is deliberately
+ * NOT referenced here — atmosphere is domain-hued + neutral only; amber stays the earned beat.
+ */
+.landing {
+  --atmo-glow-money: color-mix(in oklab, var(--dom-money) 24%, transparent);
+  --atmo-glow-health: color-mix(in oklab, var(--dom-health) 22%, transparent);
+  --atmo-glow-habits: color-mix(in oklab, var(--dom-habits) 22%, transparent);
+  --atmo-glow-skills: color-mix(in oklab, var(--dom-skills) 22%, transparent);
+  --atmo-vignette-tint: color-mix(in oklab, var(--ink-1) 7%, transparent);
+  --atmo-mesh-image:
+    radial-gradient(58% 48% at 10% 6%, var(--atmo-glow-money), transparent 70%),
+    radial-gradient(52% 44% at 90% 3%, var(--atmo-glow-skills), transparent 70%),
+    radial-gradient(60% 52% at 94% 58%, var(--atmo-glow-health), transparent 72%),
+    radial-gradient(56% 50% at 4% 82%, var(--atmo-glow-habits), transparent 72%);
+}
+[data-mode="light"] .landing {
+  /* Warm-paper canvas: halve the glow strength so light-mode contrast holds. */
+  --atmo-glow-money: color-mix(in oklab, var(--dom-money) 13%, transparent);
+  --atmo-glow-health: color-mix(in oklab, var(--dom-health) 12%, transparent);
+  --atmo-glow-habits: color-mix(in oklab, var(--dom-habits) 12%, transparent);
+  --atmo-glow-skills: color-mix(in oklab, var(--dom-skills) 12%, transparent);
+  --atmo-vignette-tint: color-mix(in oklab, var(--ink-1) 5%, transparent);
+}
+
+/* Full-page ambient mesh — a dusk wash of the four domain hues behind all content.
+ * Absolute inside the isolated `.landing` main; pointer-events off; grain via .art-grain. */
+.atmo-layer {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: var(--atmo-mesh-image);
+}
+/* Cinematic vignette — deepens the canvas toward the edges in both modes (ink-derived). */
+.atmo-vignette {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(135% 105% at 50% -8%, transparent 52%, var(--atmo-vignette-tint) 100%);
+}
+
+/* A localized hue glow used by the hero live-demo halo + editorial four-lens cards. The
+ * decorative-only radial sits at a card corner; text stays above it and legible at 14%. */
+.lens-atmo-health {
+  background-image: radial-gradient(96% 92% at 100% 0%, color-mix(in oklab, var(--dom-health) 14%, transparent), transparent 66%);
+}
+.lens-atmo-money {
+  background-image: radial-gradient(96% 92% at 100% 0%, color-mix(in oklab, var(--dom-money) 14%, transparent), transparent 66%);
+}
+.lens-atmo-habits {
+  background-image: radial-gradient(96% 92% at 100% 0%, color-mix(in oklab, var(--dom-habits) 14%, transparent), transparent 66%);
+}
+.lens-atmo-skills {
+  background-image: radial-gradient(96% 92% at 100% 0%, color-mix(in oklab, var(--dom-skills) 14%, transparent), transparent 66%);
+}
+/* Hero live-demo halo — a soft warm bloom behind the capture panel (health+skills mix). */
+.demo-halo {
+  position: absolute;
+  inset: -8%;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(60% 60% at 20% 12%, var(--atmo-glow-skills), transparent 70%),
+    radial-gradient(64% 64% at 84% 84%, var(--atmo-glow-health), transparent 72%);
+  filter: blur(2px);
+}
+
+/*
+ * Live-capture demo (hero centerpiece) — the deterministic typewriter caret. A calm
+ * step blink on the --t-slow token; suppressed (and hidden) under reduced-motion, where
+ * the demo renders its completed static end-state and no caret is needed.
+ */
+@keyframes landing-caret {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+.landing-caret {
+  display: inline-block;
+  animation: landing-caret var(--t-slow) steps(1, end) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .landing-caret {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+/* Each parsed domain card fades + rises as it staggers in (JS toggles data-shown). Duration
+ * and transform ride the motion tokens (invariant #4); reduced-motion pins the end-state. */
+.demo-card {
+  opacity: 0;
+  transform: translateY(10px);
+  transition:
+    opacity var(--t-slow) var(--ease-standard),
+    transform var(--t-slow) var(--ease-standard);
+}
+.demo-card[data-shown="true"] {
+  opacity: 1;
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .demo-card {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+/* Full-bleed helper — break a section out of the centered column to the viewport edges
+ * without a horizontal scrollbar. Pure layout (no color tokens), landing-scoped. */
+.full-bleed {
+  width: 100vw;
+  margin-left: 50%;
+  transform: translateX(-50%);
 }

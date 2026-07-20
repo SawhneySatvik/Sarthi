@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { transcribeVoice } from "@/components/capture/captureClient";
 import { usePressToTalk } from "@/components/capture/usePressToTalk";
 import { runtimeProviderHeaders } from "@/components/settings/runtimeOverride";
+import { byokHeaders } from "@/components/settings/byok";
 import { E1Food } from "@/components/onboarding/detail/sections/E1Food";
 import { E2Screen } from "@/components/onboarding/detail/sections/E2Screen";
 import { E3Focus } from "@/components/onboarding/detail/sections/E3Focus";
@@ -15,6 +16,7 @@ import { E5Money } from "@/components/onboarding/detail/sections/E5Money";
 import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
 import { ArtFrame } from "@/components/art/ArtFrame";
+import { relativeDay } from "@/app/lib/relativeDay";
 import { formatAdaptationSnapshot, summarizeWeeklyEvidence, type CoachReadingView } from "@/core/coach";
 import type { AdaptationRecord, CoachNoteRecord } from "@/data/schema/contract";
 import type { OnboardingDetailInput } from "@/core/onboarding";
@@ -126,7 +128,7 @@ export function CoachReadingRoom({ initial, reentryEligible, reentry }: { initia
     setBriefError(null);
     try {
       const response = await fetch("/api/coach/brief", {
-        method: "POST", headers: { "content-type": "application/json", ...runtimeProviderHeaders() },
+        method: "POST", headers: { "content-type": "application/json", ...runtimeProviderHeaders(), ...byokHeaders() },
         body: JSON.stringify({
           scope,
           localDate: scope === "weekly" ? trailingWeekStart(localDay()) : localDay(),
@@ -163,7 +165,7 @@ export function CoachReadingRoom({ initial, reentryEligible, reentry }: { initia
     void (async () => {
       try {
         const response = await fetch("/api/coach/adaptation", {
-          method: "POST", headers: { "content-type": "application/json" },
+          method: "POST", headers: { "content-type": "application/json", ...byokHeaders() },
           body: JSON.stringify({ action: "propose-reentry", localDate: localDay() }),
         });
         const body = await jsonBody(response);
@@ -188,7 +190,7 @@ export function CoachReadingRoom({ initial, reentryEligible, reentry }: { initia
     setActionError(null);
     try {
       const response = await fetch("/api/coach/adaptation", {
-        method: "POST", headers: { "content-type": "application/json" },
+        method: "POST", headers: { "content-type": "application/json", ...byokHeaders() },
         body: JSON.stringify({ action, adaptationId: adaptation.id }),
       });
       const body = await jsonBody(response);
@@ -227,7 +229,7 @@ export function CoachReadingRoom({ initial, reentryEligible, reentry }: { initia
     setActionError(null);
     try {
       const response = await fetch("/api/coach/ask", {
-        method: "POST", headers: { "content-type": "application/json", ...runtimeProviderHeaders() }, body: JSON.stringify({ text, timezone: zone() }),
+        method: "POST", headers: { "content-type": "application/json", ...runtimeProviderHeaders(), ...byokHeaders() }, body: JSON.stringify({ text, timezone: zone() }),
       });
       const body = await jsonBody(response);
       if (!body?.ok || !body.answer || typeof body.answer !== "object" || typeof (body.answer as { text?: unknown }).text !== "string") throw new Error("ask unavailable");
@@ -288,11 +290,11 @@ export function CoachReadingRoom({ initial, reentryEligible, reentry }: { initia
 
       {view.weekly && <section className="mt-8 overflow-hidden rounded-card border border-line bg-card shadow-[var(--elev-card)]"><ArtFrame artKey="coach.week_band" ratio="h-10 rounded-none border-0" /><div className="p-5"><p className="font-ui text-caption uppercase tracking-wide text-ink-3">This week</p><div className="mt-4 space-y-3">{view.weeklyDomainLines.map((line) => <div key={line.domain} className="border-b border-line pb-3 last:border-b-0"><p className="font-ui text-caption uppercase tracking-wide text-ink-2">{line.domain}</p><p className="mt-1 font-ui text-body text-ink-1">{line.text}</p><p className="mt-1 font-ui text-caption text-ink-3">{line.count} entries · trend recorded in this week’s evidence</p></div>)}</div><p className="mt-4 font-ui text-caption uppercase tracking-wide text-ink-3">Coach observation</p><p className="mt-2 font-coach text-body leading-[var(--leading-coach)] text-ink-1">{view.weekly.text}</p>{view.adaptations[0] && <button type="button" onClick={() => setOpen(view.adaptations[0].id)} className="mt-4 min-h-11 font-ui text-body text-ink-1 underline">Adjustment · {view.adaptations[0].label}</button>}<p className="mt-4 font-ui text-caption text-ink-3">Based on {view.evidenceCount} typed entries</p></div></section>}
 
-      <section className="mt-8"><p className="font-ui text-caption uppercase tracking-wide text-ink-3">Earlier</p>{view.history.map((note) => <details key={note.id} className="border-b border-line py-3"><summary className="cursor-pointer font-ui text-body text-ink-2">{note.localDate} · {note.scope}</summary><p className="mt-3 font-coach text-body leading-[var(--leading-coach)] text-ink-1">{note.text}</p></details>)}</section>
+      <section className="mt-8"><p className="font-ui text-caption uppercase tracking-wide text-ink-3">Earlier</p>{view.history.map((note) => <details key={note.id} className="border-b border-line py-3"><summary className="cursor-pointer font-ui text-body text-ink-2">{relativeDay(note.localDate)} · {note.scope}</summary><p className="mt-3 font-coach text-body leading-[var(--leading-coach)] text-ink-1">{note.text}</p></details>)}</section>
       {answer && <p className="mt-6 font-coach text-body leading-[var(--leading-coach)] text-ink-2">{answer}</p>}
       {actionError && <p role="status" className="mt-3 font-ui text-caption text-ink-2">{actionError}</p>}
 
-      <div className="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+3.5rem)] z-20 border-t border-line bg-canvas p-3 md:bottom-0"><div className="mx-auto flex max-w-[38.75rem] items-center gap-2"><input aria-label="Ask your coach" value={question} onChange={(event) => setQuestion(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void ask(); } }} placeholder="Ask your coach…" className="min-h-11 min-w-0 flex-1 rounded-input border border-line bg-raised px-3 font-ui text-body text-ink-1 outline-none" /><button type="button" aria-label={recorder.state === "tap-to-stop" ? "Stop recording" : "Hold to talk"} aria-pressed={recorder.state === "recording" || recorder.state === "tap-to-stop" || recorder.state === "requesting"} onPointerDown={startVoice} onPointerUp={releaseVoice} onPointerCancel={() => recorder.finish(true)} onKeyDown={keyVoice} onKeyUp={keyVoice} onContextMenu={(event) => event.preventDefault()} className="flex h-11 w-11 items-center justify-center rounded-chip text-ink-2"><Mic size={18} strokeWidth={1.5} /></button><button type="button" aria-label="Send question" disabled={asking || transcribing || !question.trim()} onClick={() => void ask()} className="flex h-11 w-11 items-center justify-center rounded-chip bg-raised text-ink-1 disabled:text-ink-3"><Send size={18} strokeWidth={1.5} /></button></div>{transcribing ? <p aria-live="polite" className="mx-auto mt-2 max-w-[38.75rem] font-ui text-caption text-ink-2">Turning your voice into an editable question…</p> : <div className="mx-auto max-w-[38.75rem]"><RecorderMessage state={recorder.state} elapsedMs={recorder.elapsedMs} /></div>}</div>
+      <div className="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+3.5rem)] z-20 border-t border-line bg-canvas p-3 md:bottom-0"><div className="mx-auto flex max-w-[38.75rem] items-center gap-2"><input aria-label="Ask your coach" value={question} onChange={(event) => setQuestion(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void ask(); } }} placeholder="Ask your coach…" className="min-h-11 min-w-0 flex-1 rounded-input border border-line bg-raised px-3 font-ui text-body text-ink-1 outline-none focus-visible:ring-2 focus-visible:ring-ring" /><button type="button" aria-label={recorder.state === "tap-to-stop" ? "Stop recording" : "Hold to talk"} aria-pressed={recorder.state === "recording" || recorder.state === "tap-to-stop" || recorder.state === "requesting"} onPointerDown={startVoice} onPointerUp={releaseVoice} onPointerCancel={() => recorder.finish(true)} onKeyDown={keyVoice} onKeyUp={keyVoice} onContextMenu={(event) => event.preventDefault()} className="flex h-11 w-11 items-center justify-center rounded-chip text-ink-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Mic size={18} strokeWidth={1.5} /></button><button type="button" aria-label="Send question" disabled={asking || transcribing || !question.trim()} onClick={() => void ask()} className="flex h-11 w-11 items-center justify-center rounded-chip bg-raised text-ink-1 disabled:text-ink-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Send size={18} strokeWidth={1.5} /></button></div>{transcribing ? <p aria-live="polite" className="mx-auto mt-2 max-w-[38.75rem] font-ui text-caption text-ink-2">Turning your voice into an editable question…</p> : <div className="mx-auto max-w-[38.75rem]"><RecorderMessage state={recorder.state} elapsedMs={recorder.elapsedMs} /></div>}</div>
 
       {adaptation && <div role="dialog" aria-modal="true" aria-label="Adaptation" className="fixed inset-0 z-40 flex items-end bg-[var(--scrim)] p-4 md:items-center md:justify-center"><div className="w-full max-w-md rounded-card bg-card p-5"><button type="button" aria-label="Close adaptation" disabled={resolving} onClick={() => setOpen(null)} className="float-right min-h-11 min-w-11 text-ink-2"><X size={18} strokeWidth={1.5} /></button><p className="font-ui text-caption uppercase tracking-wide text-ink-3">Visible plan change</p><p className="mt-4 font-ui text-body text-ink-2">Before</p><p className="font-display text-title text-ink-1">{adaptation.before}</p><p className="mt-3 font-ui text-body text-ink-2">After</p><p className="font-display text-title text-ink-1">{adaptation.after}</p><p className="mt-4 font-coach text-body leading-[var(--leading-coach)] text-ink-2">{adaptation.reason}</p><div className="mt-6 flex gap-2"><Button disabled={resolving || adaptation.status !== "proposed"} onClick={() => void resolve("keep")}>Keep</Button><Button variant="ghost" disabled={resolving || adaptation.status !== "proposed"} onClick={() => void resolve("revert")}>Revert</Button></div></div></div>}
     </div>

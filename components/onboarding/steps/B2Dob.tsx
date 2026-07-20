@@ -46,7 +46,7 @@ export function B2Dob({ answers, patch, onContinue }: StepProps) {
         onChange={(e) => patch({ birthDate: e.target.value })}
         aria-label="Date of birth"
         className={cn(
-          "w-full rounded-input border border-line bg-canvas px-3 py-3 font-ui text-body text-ink-1 focus:outline-none",
+          "w-full rounded-input border border-line bg-canvas px-3 py-3 font-ui text-body text-ink-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           // Token the native control so no OS-blue leaks (invariant #4): the picker accent
           // and text selection ride the ink token, and the native calendar glyph is muted
           // to read as ink rather than a system swatch.
