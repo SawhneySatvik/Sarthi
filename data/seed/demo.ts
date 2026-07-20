@@ -319,6 +319,39 @@ async function seedBody(repos: UserScopedRepositories, state: DemoSeedState): Pr
   await evidence("habits", "habitLog", wakeLogs[1]!, "Early wake check-in", "wake-3");
   await evidence("skills", "skillSession", shardingSession, "System Design notes · sharding", "sharding");
   await evidence("skills", "skillSession", capReviewSession, "CAP theorem review", "cap-review");
+
+  // ── Daily reflections (SAR ui/enhancement): a short, first-person memory on the demo's
+  // recent days so the Journey rail reads as a lived-in log instead of a wall of "No
+  // reflection saved". Reuses the seed's day offsets (unique on `(userId, localDate)` → each
+  // delta distinct). `populated` only — `empty` returns before the arc; `alldone` skips these
+  // (screenshot variant). No media: object storage is not wired on serverless.
+  if (state === "populated") {
+    const reflection = (
+      delta: number,
+      mood: "rough" | "low" | "steady" | "good" | "great",
+      energyLevel: number,
+      sleepMinutes: number | null,
+      journal: string,
+      summary: string,
+    ) =>
+      repos.journey.reflections.create({
+        localDate: isoDaysFromToday(delta),
+        mood,
+        energyLevel,
+        sleepMinutes,
+        journal,
+        summary,
+        summaryProvider: "seed",
+        summaryModelId: "seed",
+      });
+    await reflection(0, "good", 4, 420, "Long focus block on system design this morning — the sharding notes finally clicked.", "Long focus block on system design; felt clear.");
+    await reflection(-1, "steady", 3, 390, "Kept the streak, walked in the evening — nothing dramatic, but I showed up.", "Held the streak; a quiet, steady day.");
+    await reflection(-2, "great", 5, 450, "Woke early and everything just clicked — best I've felt all week.", "Woke early and everything just clicked.");
+    await reflection(-3, "good", 4, null, "Deep dive on partitioning paid off, though I paid for it with a short night.", "Deep dive on partitioning; a little short on sleep.");
+    await reflection(-4, "low", 2, 360, "Slow morning and dragged through the day, but I still put in the work.", "Slow start, but I still showed up.");
+    await reflection(-6, "steady", 3, 435, "Solid distributed-systems session; ate well and stayed hydrated.", "Solid study block; ate well, stayed hydrated.");
+    await reflection(-8, "good", 4, 405, "Early start set the tone and the small wins added up by evening.", "Early start; small wins added up.");
+  }
 }
 
 /**
