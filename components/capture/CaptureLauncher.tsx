@@ -1,6 +1,6 @@
 "use client";
 
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Camera, Pencil, Send, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
@@ -46,6 +46,7 @@ export function CaptureLauncher() {
   const contextTimerRef = useRef<number | null>(null);
   // Gentle, non-blocking BYOK hint: when no key is saved, captures run the seeded/fake path.
   const byokCredential = useSyncExternalStore(subscribeByok, getByokCredential, getByokServerSnapshot);
+  const reduce = useReducedMotion();
 
   useEffect(() => {
     if (searchParams.get("capture") !== "1") return;
@@ -188,7 +189,36 @@ export function CaptureLauncher() {
         className="pointer-events-none fixed inset-x-0 bottom-0 z-10 h-32"
         style={{ background: "linear-gradient(to top, var(--bg-canvas) 70%, transparent)" }}
       />
-      {!composerOpen && <button type="button" onClick={() => setComposerOpen(true)} aria-label="Open capture" className="fixed bottom-20 right-4 z-20 flex h-14 w-14 items-center justify-center rounded-chip border border-canvas bg-ink-1 text-canvas shadow-[var(--elev-card)] md:bottom-6 md:right-8"><Pencil size={22} strokeWidth={1.5} aria-hidden /></button>}
+      {!composerOpen && (
+        <div className="group fixed bottom-20 right-4 z-20 md:bottom-6 md:right-8">
+          {/* Hover message — pointer/desktop devices only (kept off touch via hover media). */}
+          <span
+            aria-hidden
+            className="pointer-events-none absolute right-[4.5rem] top-1/2 hidden -translate-y-1/2 whitespace-nowrap rounded-chip border border-line bg-raised px-3 py-1.5 font-ui text-caption text-ink-1 opacity-0 shadow-[var(--elev-card)] transition-opacity duration-[var(--t-base)] group-hover:opacity-100 [@media(hover:hover)]:block"
+          >
+            Tell Sarthi about your day
+          </span>
+          <div className="relative h-14 w-14">
+            {/* Soft hover glow behind the button (skills hue, tokenized) — hover devices only. */}
+            <span
+              aria-hidden
+              className="pointer-events-none absolute -inset-2 rounded-chip opacity-0 blur-md transition-opacity duration-[var(--t-base)] [@media(hover:hover)]:group-hover:opacity-70"
+              style={{ background: "radial-gradient(circle, var(--dom-skills), transparent 70%)" }}
+            />
+            <motion.button
+              type="button"
+              onClick={() => setComposerOpen(true)}
+              aria-label="Open capture"
+              whileHover={reduce ? undefined : { scale: 1.06 }}
+              whileTap={reduce ? undefined : { scale: 0.92 }}
+              transition={{ type: "spring", stiffness: 400, damping: 22 }}
+              className="relative flex h-14 w-14 items-center justify-center rounded-chip border border-canvas bg-ink-1 text-canvas shadow-[var(--elev-card)] focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <Pencil size={22} strokeWidth={1.5} aria-hidden />
+            </motion.button>
+          </div>
+        </div>
+      )}
       <AnimatePresence>{composerOpen && <>
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setComposerOpen(false)} className="fixed inset-0 z-40 bg-[var(--scrim)] backdrop-blur-sm" />
         <motion.section
