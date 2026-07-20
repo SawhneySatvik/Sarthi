@@ -37,7 +37,8 @@ Each proposal must match its domain's payload exactly. Be literal and grounded: 
 export async function parseDump(input: ParseDumpInput, llm: LlmGateway): Promise<ParseResult> {
   try {
     const result = await llm.generateObject({
-      tier: "deep",
+      // Model plan: capture parse runs on the light structured model (fast → gemini-2.5-flash-lite).
+      tier: "fast",
       schema: captureDraftSchema,
       system: SYSTEM_PROMPT,
       prompt: `Captured at ${input.capturedAt} (${input.timezone}), source ${input.source ?? "text"}: ${input.rawText}`,

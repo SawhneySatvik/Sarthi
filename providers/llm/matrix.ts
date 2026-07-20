@@ -8,13 +8,12 @@ export type EnabledLlmProviderName = Exclude<LlmProviderName, "anthropic">;
 export type LlmModelId = string | null;
 
 /**
- * Verified IDs, including OpenAI's approved deep-tier alias.
- * `gemini-2.5-pro` remains a real, verified ID but is PAID-only (since Apr 2026),
- * so the runtime matrix no longer maps any tier to it — the free-tier trio
- * (`gemini-2.5-flash` / `gemini-2.5-flash-lite`) covers deep/balanced/fast.
+ * Verified runtime model IDs. Google uses two free-tier models per the model plan:
+ * `gemini-2.5-flash` (deep / reasoning) and `gemini-2.5-flash-lite` (light structured
+ * work). `gemini-2.5-pro` is paid-only (since Apr 2026) and intentionally unused.
  */
 export const VERIFIED_LLM_MODEL_IDS = Object.freeze({
-  google: Object.freeze(["gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.5-flash-lite"]),
+  google: Object.freeze(["gemini-2.5-flash", "gemini-flash-lite-latest"]),
   openai: Object.freeze(["gpt-5.6-sol", "gpt-5.6", "gpt-5.6-terra", "gpt-5.6-luna"]),
 });
 
@@ -26,11 +25,14 @@ export const LLM_MODEL_MATRIX: Readonly<Record<LlmProviderName, Readonly<Record<
     fast: "fake-fast-v1",
   }),
   google: Object.freeze({
-    // deep remapped off gemini-2.5-pro (PAID-only since Apr 2026) to the free,
-    // multimodal 2.5-flash — adequate for structured capture parse.
+    // Model plan: deep = gemini-2.5-flash (reasoning — daily/weekly briefs, goal +
+    // challenge planning, long/complex chat). balanced + fast = gemini-flash-lite-latest
+    // (light structured work — capture parse, photo vision, voice-fill, short coaching).
+    // NOTE: the pinned `gemini-2.5-flash-lite` is deprecated for new API keys; the
+    // `-latest` alias tracks the current lite model and never 404s on a new key.
     deep: "gemini-2.5-flash",
-    balanced: "gemini-2.5-flash",
-    fast: "gemini-2.5-flash-lite",
+    balanced: "gemini-flash-lite-latest",
+    fast: "gemini-flash-lite-latest",
   }),
   openai: Object.freeze({
     deep: "gpt-5.6-sol",

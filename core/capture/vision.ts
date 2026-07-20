@@ -236,7 +236,8 @@ export async function parsePhoto(input: ParsePhotoInput, vision: VisionProvider)
       images: input.images,
       schema: visionResultSchema,
       prompt: promptFor(input.photoType),
-      tier: "deep",
+      // Model plan: photo vision runs on the light structured model (balanced → gemini-2.5-flash-lite).
+      tier: "balanced",
     });
     // Defensive re-validation: a malformed vision object must NEVER become rows — it
     // is a retryable draft, not a crash and not a silent write (mirrors parseDump).
