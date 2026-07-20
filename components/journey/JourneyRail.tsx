@@ -1,8 +1,8 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Sparkles, X } from "lucide-react";
 import Image from "next/image";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { ArtFrame } from "@/components/art/ArtFrame";
@@ -13,7 +13,14 @@ import type { JourneyDay, JourneyView } from "@/core/game";
 
 import { ReflectionMemory } from "./ReflectionMemory";
 
+const EXPAND_SEC = 0.2;
+
 type MergedDay = { localDate: string; source: JourneyDay | null; reflection: DailyReflectionRecord | null; media: readonly ReflectionMediaRecord[] };
+
+// Device-local calendar day — matches ReflectionMemory.today()/relativeDay's authority for "today".
+function deviceToday(): string {
+  return new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+}
 
 function mergeDays(view: JourneyView, reflections: readonly DailyReflectionRecord[], media: readonly ReflectionMediaRecord[]): readonly MergedDay[] {
   const map = new Map<string, MergedDay>();
@@ -25,12 +32,40 @@ function mergeDays(view: JourneyView, reflections: readonly DailyReflectionRecor
   return [...map.values()].sort((a, b) => b.localDate.localeCompare(a.localDate));
 }
 
+/** The one-line preview shown on a collapsed day. `fromCoach` marks AI-authored text so it can be attributed. */
+function collapsedLine(day: MergedDay): { text: string; fromCoach: boolean } {
+  if (day.reflection?.summary) return { text: day.reflection.summary, fromCoach: true };
+  const facts = day.source?.evidence.length ?? 0;
+  if (facts > 0) return { text: `${facts} typed moment${facts === 1 ? "" : "s"}`, fromCoach: false };
+  const progress = day.source?.taskProgress;
+  if (progress) return { text: `${progress.done} / ${progress.total} tasks done`, fromCoach: false };
+  return { text: "A quiet day", fromCoach: false };
+}
+
 export function JourneyRail({ view, reflections = [], media = [] }: { view: JourneyView; reflections?: readonly DailyReflectionRecord[]; media?: readonly ReflectionMediaRecord[] }) {
   const days = useMemo(() => mergeDays(view, reflections, media), [view, reflections, media]);
   const gallery = useMemo(() => days.flatMap((day) => day.media), [days]);
   const [openIndex, setOpenIndex] = useState<number | null>(null);
-  return <div className="mx-auto max-w-[45rem] px-4 pb-8">
-    {days.length === 0 ? <FirstProof /> : <div className="relative border-l-2 border-line pl-6">{days.map((day) => <DayCard key={day.localDate} day={day} onOpenMedia={(item) => setOpenIndex(gallery.findIndex((mediaItem) => mediaItem.id === item.id))} />)}</div>}
+  // Accordion (mirrors the gallery openIndex pattern as a single nullable): today opens by default,
+  // else the most-recent day; a second tap collapses. null = every day collapsed.
+  const initialOpen = useMemo(() => {
+    const today = deviceToday();
+    return days.find((day) => day.localDate === today)?.localDate ?? days[0]?.localDate ?? null;
+  }, [days]);
+  const [openDate, setOpenDate] = useState<string | null>(initialOpen);
+  const [interacted, setInteracted] = useState(false);
+  const reduce = useReducedMotion();
+  const todayStr = deviceToday();
+
+  const toggle = (localDate: string) => { setInteracted(true); setOpenDate((prev) => (prev === localDate ? null : localDate)); };
+  const openMedia = (item: ReflectionMediaRecord) => setOpenIndex(gallery.findIndex((mediaItem) => mediaItem.id === item.id));
+
+  return <div className="mx-auto max-w-[45rem] px-4 pb-8 lg:max-w-[64rem]">
+    {days.length === 0
+      ? <FirstProof />
+      : <div className="relative border-l-2 border-line pl-6 lg:grid lg:grid-cols-2 lg:gap-5 lg:border-l-0 lg:pl-0">
+          {days.map((day) => <DayCard key={day.localDate} day={day} open={day.localDate === openDate} isToday={day.localDate === todayStr} animate={interacted && !reduce} onToggle={() => toggle(day.localDate)} onOpenMedia={openMedia} />)}
+        </div>}
     <ReflectionMemory reflections={reflections} media={media} />
     {openIndex !== null && gallery[openIndex] && <GalleryViewer items={gallery} index={openIndex} onClose={() => setOpenIndex(null)} onIndex={setOpenIndex} />}
   </div>;
@@ -38,18 +73,55 @@ export function JourneyRail({ view, reflections = [], media = [] }: { view: Jour
 
 function FirstProof() { return <section className="rounded-card border border-line bg-card p-5"><p className="font-display text-title text-ink-1">Your first day is waiting.</p><p className="mt-2 font-coach text-body leading-[var(--leading-coach)] text-ink-2">Save a reflection or capture a real moment when you are ready.</p></section>; }
 
-function DayCard({ day, onOpenMedia }: { day: MergedDay; onOpenMedia: (item: ReflectionMediaRecord) => void }) {
+function DayCard({ day, open, isToday, animate, onToggle, onOpenMedia }: { day: MergedDay; open: boolean; isToday: boolean; animate: boolean; onToggle: () => void; onOpenMedia: (item: ReflectionMediaRecord) => void }) {
   const facts = day.source?.evidence.length ?? 0;
   const evidence = day.source?.evidence[0] ?? null;
-  const artKey = evidence ? selectJourneyArt(evidence.domain, evidence.entryKind, evidence.caption) : day.source?.milestones[0] ? milestoneArt(day.source.milestones[0].label) : "coach.week_band";
-  const taskProgress = day.source?.taskProgress ?? null;
-  return <section className="relative pb-7"><span aria-hidden className="absolute -left-[1.86rem] top-5 h-3 w-3 rounded-chip border-2 border-canvas bg-ink-3" /><article className="overflow-hidden rounded-card border border-line bg-card shadow-[var(--elev-card)]"><ArtFrame artKey={artKey} ratio="h-24" className="rounded-none border-0"><div className="flex h-full items-end p-4"><p className="font-display text-title text-ink-1">{relativeDay(day.localDate)}</p></div></ArtFrame><div className="grid grid-cols-2 gap-px bg-line"><Tile label="Wellness" value={day.reflection ? `${day.reflection.mood} · energy ${day.reflection.energyLevel}/5${day.reflection.sleepMinutes === null ? "" : ` · sleep ${day.reflection.sleepMinutes}m`}` : "No check-in saved"} /><Tile label="Task progress" value={taskProgress ? `${taskProgress.done} / ${taskProgress.total} done` : "No plan item saved"} /><MemoriesTile media={day.media} evidenceCount={facts} onOpen={onOpenMedia} /><Tile label="Journal + reflection" value={day.reflection?.summary ?? "No reflection saved"} /></div></article></section>;
+  const milestones = day.source?.milestones ?? [];
+  const artKey = evidence ? selectJourneyArt(evidence.domain, evidence.entryKind, evidence.caption) : milestones[0] ? milestoneArt(milestones[0].label) : "coach.week_band";
+  const preview = collapsedLine(day);
+  const panelId = `journey-panel-${day.localDate}`;
+
+  return <section className={`relative pb-7 lg:pb-0 ${open ? "lg:col-span-2" : ""}`}>
+    {/* Mobile spine node; hidden on the desktop multi-column grid. Milestone days earn an amber diamond. */}
+    <span aria-hidden className={`absolute -left-[1.86rem] top-5 lg:hidden ${milestones.length ? "h-3 w-3 rotate-45 rounded-none bg-energy" : "h-3 w-3 rounded-chip bg-ink-3"} border-2 border-canvas`} />
+    <article className="overflow-hidden rounded-card border border-line bg-card shadow-[var(--elev-card)]">
+      <button type="button" onClick={onToggle} aria-expanded={open} aria-controls={panelId} className="block w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
+        <ArtFrame artKey={artKey} ratio={open ? "h-28 lg:h-36" : "h-24"} className="rounded-none border-0">
+          <div className="flex h-full items-end justify-between p-4">
+            <p className="font-display text-title on-art">{relativeDay(day.localDate)}</p>
+            <ChevronDown size={20} strokeWidth={1.5} aria-hidden className={`on-art transition-transform motion-reduce:transition-none ${open ? "rotate-180" : ""}`} />
+          </div>
+        </ArtFrame>
+        {!open && <div className="flex items-center gap-2 px-4 py-3">
+          {milestones.length > 0 && <span aria-hidden className="h-2 w-2 shrink-0 rotate-45 rounded-none bg-energy" />}
+          <p className="line-clamp-1 font-ui text-caption text-ink-2">{preview.text}{preview.fromCoach && <span className="text-ink-3"> — Sarthi</span>}</p>
+        </div>}
+      </button>
+      {open && <motion.div id={panelId} initial={animate ? { opacity: 0, y: 6 } : false} animate={{ opacity: 1, y: 0 }} transition={{ duration: animate ? EXPAND_SEC : 0 }}>
+        {milestones.length > 0 && <div className="flex flex-wrap items-center gap-2 border-t border-line px-4 py-3">
+          {milestones.map((milestone) => <span key={milestone.id} className="inline-flex items-center gap-1.5 font-ui text-caption text-ink-1"><span aria-hidden className="h-2 w-2 rotate-45 rounded-none bg-energy" />{milestone.label}</span>)}
+        </div>}
+        <div className="grid grid-cols-2 gap-px border-t border-line bg-line lg:grid-cols-4">
+          <Tile label="Wellness" value={day.reflection ? `${day.reflection.mood} · energy ${day.reflection.energyLevel}/5${day.reflection.sleepMinutes === null ? "" : ` · sleep ${day.reflection.sleepMinutes}m`}` : "No check-in saved"} />
+          <Tile label="Task progress" value={day.source?.taskProgress ? `${day.source.taskProgress.done} / ${day.source.taskProgress.total} done` : "No plan item saved"} />
+          <MemoriesTile media={day.media} evidenceCount={facts} onOpen={onOpenMedia} />
+          <Tile label="Your words" value={day.reflection?.journal.trim() ? day.reflection.journal : "No note saved"} />
+        </div>
+        {/* AI reflection is attributed and kept clearly separate from the user's own words above.
+            Today's summary is owned by the editor below (ReflectionMemory), so skip it here to avoid the echo. */}
+        {!isToday && day.reflection?.summary && <div className="border-t border-line px-4 py-3">
+          <p className="flex items-center gap-1 font-ui text-caption uppercase tracking-wide text-ink-3"><Sparkles size={13} strokeWidth={1.5} aria-hidden />Sarthi&apos;s reflection</p>
+          <p className="mt-1 font-coach text-body leading-[var(--leading-coach)] text-ink-1">{day.reflection.summary}</p>
+        </div>}
+      </motion.div>}
+    </article>
+  </section>;
 }
 
 function Tile({ label, value }: { label: string; value: string }) { return <div className="min-h-28 bg-card p-3"><p className="font-ui text-caption uppercase tracking-wide text-ink-3">{label}</p><p className="mt-2 line-clamp-3 font-ui text-caption text-ink-1">{value}</p></div>; }
 
 function MemoriesTile({ media, evidenceCount, onOpen }: { media: readonly ReflectionMediaRecord[]; evidenceCount: number; onOpen: (item: ReflectionMediaRecord) => void }) {
-  if (media.length === 0) return <Tile label="Memories" value={evidenceCount ? `${evidenceCount} typed moments, no image saved` : "No image saved"} />;
+  if (media.length === 0) return <Tile label="Memories" value={evidenceCount ? `${evidenceCount} typed moment${evidenceCount === 1 ? "" : "s"}, no image saved` : "No image saved"} />;
   return <button type="button" onClick={() => onOpen(media[0])} className="relative min-h-28 overflow-hidden bg-card text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"><span className="absolute inset-0 grid grid-cols-2 grid-rows-2 gap-px">{media.slice(0, 4).map((item) => <span key={item.id} className="relative overflow-hidden"><Image src={`/api/journey/media/${item.id}`} alt="" fill sizes="(max-width: 45rem) 50vw, 16rem" unoptimized className="object-cover" /></span>)}</span><span className="absolute inset-0 bg-[var(--scrim)] opacity-30" /><span className="relative z-10 block p-3 font-ui text-caption uppercase tracking-wide text-ink-1">Memories · {media.length}</span></button>;
 }
 

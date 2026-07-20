@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { summarizeReflection } from "../core/coach";
+import { pickTodayReflection } from "../components/journey/pickTodayReflection";
+import type { DailyReflectionRecord } from "../data/schema/contract";
 import type { LlmGateway } from "../core/contracts";
 import { createRepositoryFactory } from "../data/repository";
 import { createLlmGateway } from "../providers";
@@ -24,6 +26,15 @@ test("reflection summary uses the keyless fake LLM with only explicit fields and
   assert.equal(result.usedFallback, false);
   assert.match(result.text, /great mood and energy 4\/5/);
   assert.match(result.text, /1 typed facts/);
+});
+
+test("pickTodayReflection never pre-fills a past day (data-loss guard)", () => {
+  const past = { localDate: "2026-07-18" } as DailyReflectionRecord;
+  const todayRecord = { localDate: "2026-07-20" } as DailyReflectionRecord;
+  // Returning user on a fresh day with only past reflections → clean slate, never the past record.
+  assert.equal(pickTodayReflection([past], "2026-07-20"), null);
+  // Today's own record is the only thing that may pre-fill.
+  assert.equal(pickTodayReflection([past, todayRecord], "2026-07-20"), todayRecord);
 });
 
 test("reflection summary retains a factual deterministic fallback only after provider failure", async () => {
