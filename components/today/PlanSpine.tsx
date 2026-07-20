@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/Card";
 import { ArtFrame } from "@/components/art/ArtFrame";
 import type { TodayItem, TodayView } from "@/core/domains/today";
 
+import { ArcCompleteCard, ArcSettledBanner } from "./ArcCompleteCard";
 import { NextUpCard } from "./NextUpCard";
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
@@ -58,8 +59,23 @@ function AllDone() {
   );
 }
 
-/** The plan spine: NEXT UP (one card) → LATER TODAY → COMPLETED, or a day-state note. */
+/**
+ * The plan spine: the arc-complete celebration (UIE-0e S1), else the settled banner (S2) atop
+ * the normal day-state body — NEXT UP (one card) → LATER TODAY → COMPLETED, or a day-state note.
+ */
 export function PlanSpine({ view }: { view: TodayView }) {
+  if (view.state === "arc-complete" && view.arcComplete) {
+    return <ArcCompleteCard summary={view.arcComplete} stat={view.stat} />;
+  }
+  return (
+    <>
+      {view.settledArc && <ArcSettledBanner summary={view.settledArc} />}
+      <SpineBody view={view} />
+    </>
+  );
+}
+
+function SpineBody({ view }: { view: TodayView }) {
   if (view.state === "new-user") {
     return <EmptyNote title="No arcs yet" body="Your plan appears here once your first arc begins." />;
   }

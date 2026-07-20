@@ -170,3 +170,98 @@ test("day-states: new-user / nothing-planned / all-done / fresh", () => {
   const fresh = buildTodayView({ localDate: DAY, items: [item({ id: "a", status: "active" })], progress: [], arcs: [arc({ id: "arc-1" })], coachNote: NO_COACH });
   assert.equal(fresh.state, "fresh");
 });
+
+// ── UIE-0e — arc-complete celebration day-state (§11.6). Read-only view derivation. ──
+
+test("UIE-0e S1: in-window completed arc + no active arc + nothing today → arc-complete summary", () => {
+  const view = buildTodayView({
+    localDate: DAY, // 2026-07-18
+    items: [],
+    progress: [progress({ domain: "overall", level: 4, xp: 1240 }), progress({ domain: "skills", streak: 6 })],
+    arcs: [arc({ id: "a1", status: "complete", startDate: "2026-06-16", endDate: "2026-07-15" })], // ended 3d ago
+    coachNote: NO_COACH,
+    arcHistoryItems: [
+      item({ id: "h1", arcId: "a1", localDate: "2026-07-01", domain: "health", status: "done", completionSource: "manual" }),
+      item({ id: "h2", arcId: "a1", localDate: "2026-07-02", domain: "skills", status: "done", completionSource: "manual" }),
+      item({ id: "h3", arcId: "a1", localDate: "2026-07-03", domain: "money", status: "done", completionSource: "manual" }),
+      item({ id: "h4", arcId: "a1", localDate: "2026-07-04", domain: "habits", status: "missed" }),
+    ],
+  });
+  assert.equal(view.state, "arc-complete");
+  assert.equal(view.settledArc, null);
+  assert.ok(view.arcComplete);
+  assert.equal(view.arcComplete?.lengthDays, 30); // Jun 16 .. Jul 15 inclusive
+  assert.equal(view.arcComplete?.daysEngaged, 3); // distinct days with a `done`
+  assert.equal(view.arcComplete?.tasksDone, 3);
+  assert.equal(view.arcComplete?.tasksMissed, 1);
+  assert.equal(view.arcComplete?.tasksTotal, 4);
+  assert.equal(view.arcComplete?.perDomainDone.health, 1);
+  assert.equal(view.arcComplete?.perDomainDone.skills, 1);
+  assert.equal(view.arcComplete?.perDomainDone.money, 1);
+  assert.equal(view.arcComplete?.perDomainDone.habits, 0);
+});
+
+test("UIE-0e S1: a completion past the 7-day window falls back to nothing-planned", () => {
+  const view = buildTodayView({
+    localDate: DAY,
+    items: [],
+    progress: [],
+    arcs: [arc({ id: "a1", status: "complete", startDate: "2026-06-01", endDate: "2026-07-08" })], // 10d ago
+    coachNote: NO_COACH,
+    arcHistoryItems: [item({ id: "h1", arcId: "a1", localDate: "2026-07-01", status: "done", completionSource: "manual" })],
+  });
+  assert.equal(view.state, "nothing-planned");
+  assert.equal(view.arcComplete, null);
+  assert.equal(view.settledArc, null);
+});
+
+test("UIE-0e S2: a recent completion beside a live arc populates settledArc, not S1", () => {
+  const view = buildTodayView({
+    localDate: DAY,
+    items: [item({ id: "t1", arcId: "live", status: "active" })],
+    progress: [],
+    arcs: [
+      arc({ id: "live", status: "active", endDate: null }),
+      arc({ id: "done1", status: "complete", startDate: "2026-07-01", endDate: "2026-07-16" }), // 2d ago
+    ],
+    coachNote: NO_COACH,
+    arcHistoryItems: [
+      item({ id: "h1", arcId: "done1", localDate: "2026-07-05", status: "done", completionSource: "manual" }),
+      item({ id: "h2", arcId: "done1", localDate: "2026-07-06", status: "missed" }),
+    ],
+  });
+  assert.notEqual(view.state, "arc-complete");
+  assert.equal(view.arcComplete, null);
+  assert.ok(view.settledArc);
+  assert.equal(view.settledArc?.tasksDone, 1);
+  assert.equal(view.settledArc?.tasksTotal, 2);
+});
+
+test("UIE-0e edge: an in-window completion with no history rows → arc-complete but zero counts (no fake 0 of 0)", () => {
+  const view = buildTodayView({
+    localDate: DAY,
+    items: [],
+    progress: [],
+    arcs: [arc({ id: "a1", status: "complete", startDate: "2026-06-16", endDate: "2026-07-15" })],
+    coachNote: NO_COACH,
+    arcHistoryItems: [],
+  });
+  assert.equal(view.state, "arc-complete");
+  assert.ok(view.arcComplete);
+  assert.equal(view.arcComplete?.tasksTotal, 0);
+  assert.equal(view.arcComplete?.tasksDone, 0);
+  assert.equal(view.arcComplete?.daysEngaged, 0);
+});
+
+test("UIE-0e S1 requires an empty today: a materialized item today blocks the celebration", () => {
+  const view = buildTodayView({
+    localDate: DAY,
+    items: [item({ id: "t1", arcId: "a1", status: "active" })],
+    progress: [],
+    arcs: [arc({ id: "a1", status: "complete", startDate: "2026-06-16", endDate: "2026-07-15" })],
+    coachNote: NO_COACH,
+    arcHistoryItems: [],
+  });
+  assert.notEqual(view.state, "arc-complete");
+  assert.equal(view.arcComplete, null);
+});

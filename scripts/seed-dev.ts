@@ -19,8 +19,9 @@ const DB_URL = process.env.DB_URL ?? "file:./sarthi.dev.db";
 const FILE = DB_URL.replace(/^file:/, "");
 const USER: AuthenticatedUser = { userId: "local-dev", email: null, mode: "local" };
 /**
- * populated (default) · empty (new-user, no arc) · alldone (every item complete) · fresh
- * (no profile at all → the SAR-012 onboarding gate routes to /onboarding) — screenshot states.
+ * populated (default) · empty (new-user, no arc) · alldone (every item complete) · arc-complete
+ * (UIE-0e S1 full celebration) · arc-settled (UIE-0e S2 banner + live spine) · fresh (no profile
+ * at all → the SAR-012 onboarding gate routes to /onboarding) — screenshot states.
  */
 const STATE = process.env.SEED_STATE ?? "populated";
 
@@ -53,7 +54,12 @@ async function main(): Promise<void> {
   // The dev script always resets the file first, so the `seed_runs` guard inside `seedDemo`
   // is a clean pass here — the same shared body the demo gesture runs (SAR-012 D-G).
   const repos = createSqliteRepositoryFactory(DB_URL).forUser(USER);
-  const state: DemoSeedState = STATE === "empty" ? "empty" : STATE === "alldone" ? "alldone" : "populated";
+  const state: DemoSeedState =
+    STATE === "empty" ? "empty"
+    : STATE === "alldone" ? "alldone"
+    : STATE === "arc-complete" ? "arc-complete"
+    : STATE === "arc-settled" ? "arc-settled"
+    : "populated";
   await seedDemo(repos, { state });
   console.log(`seeded dev db (${state}) at ${DB_URL}`);
 }

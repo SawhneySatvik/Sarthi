@@ -26,8 +26,11 @@ const HOST_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
 export const DEMO_SEED_KEY = "dev-demo-v1";
 export const DEMO_SEED_VERSION = 1;
 
-/** The dev/screenshot states the shared body can produce (§10). `populated` is the demo. */
-export type DemoSeedState = "populated" | "empty" | "alldone";
+/** The dev/screenshot states the shared body can produce (§10). `populated` is the demo.
+ *  UIE-0e adds two READ-ONLY-surface fixtures: `arc-complete` (S1 full celebration — a finished
+ *  arc, no active arc, nothing today) and `arc-settled` (S2 — a live arc with a recent
+ *  completion acknowledged above it). Neither touches `populated`, so the live demo is unchanged. */
+export type DemoSeedState = "populated" | "empty" | "alldone" | "arc-complete" | "arc-settled";
 
 export interface SeedDemoResult {
   /** True when the body ran; false when the `seed_runs` guard short-circuited a replay. */
@@ -79,6 +82,12 @@ async function seedBody(repos: UserScopedRepositories, state: DemoSeedState): Pr
 
   if (state === "empty") {
     // New-user / nothing-planned Today: canonical entities exist (capture still works), no arc.
+    return;
+  }
+
+  if (state === "arc-complete") {
+    // UIE-0e S1: a finished arc, no active arc, nothing planned today → the full celebration.
+    await seedArcCompleteFixture(repos);
     return;
   }
 
@@ -352,6 +361,85 @@ async function seedBody(repos: UserScopedRepositories, state: DemoSeedState): Pr
     await reflection(-6, "steady", 3, 435, "Solid distributed-systems session; ate well and stayed hydrated.", "Solid study block; ate well, stayed hydrated.");
     await reflection(-8, "good", 4, 405, "Early start set the tone and the small wins added up by evening.", "Early start; small wins added up.");
   }
+
+  if (state === "arc-settled") {
+    // UIE-0e S2: a SECOND, recently-completed arc alongside the live "First 30 days" arc → the
+    // spine keeps its normal state and a compact "settled" banner rides above it.
+    await seedSettledArcFixture(repos);
+  }
+}
+
+/** UIE-0e history titles per domain so seeded rows read as real tasks (never a blank title). */
+const HISTORY_DOMAINS = ["health", "money", "habits", "skills"] as const;
+const HISTORY_TITLE: Record<(typeof HISTORY_DOMAINS)[number], string> = {
+  health: "Log meals",
+  money: "Track spend",
+  habits: "Evening walk",
+  skills: "Deep work block",
+};
+
+/** One completed-arc history row (integer/ISO only; `missed` rows carry no completion source). */
+function seedHistoryItem(
+  repos: UserScopedRepositories,
+  arcId: string,
+  delta: number,
+  domain: (typeof HISTORY_DOMAINS)[number],
+  status: "done" | "missed",
+) {
+  return repos.plans.items.create({
+    arcId,
+    domain,
+    kind: "task",
+    title: HISTORY_TITLE[domain],
+    dueAt: null,
+    localDate: isoDaysFromToday(delta),
+    targetValue: null,
+    targetUnit: null,
+    status,
+    completionSource: status === "done" ? "manual" : null,
+    ruleJson: null,
+    linkedHabitId: null,
+    linkedSkillId: null,
+  });
+}
+
+/** UIE-0e S1 fixture: a finished 30-day arc that ended 3 days ago, with a believable done/missed
+ *  history (22 days engaged of 27 tasks) and NO items today → the full arc-complete celebration. */
+async function seedArcCompleteFixture(repos: UserScopedRepositories): Promise<void> {
+  const today = isoDaysFromToday(0);
+  await repos.plans.progress.create({ domain: "overall", xp: 1240, level: 4, streak: 6, bestStreak: 8, cumulativeMinutes: 7710, lastActiveDate: today });
+  await repos.plans.progress.create({ domain: "health", xp: 120, level: 2, streak: 4, bestStreak: 4, cumulativeMinutes: 0, lastActiveDate: today });
+  await repos.plans.progress.create({ domain: "skills", xp: 260, level: 2, streak: 6, bestStreak: 6, cumulativeMinutes: 900, lastActiveDate: today });
+  await repos.plans.progress.create({ domain: "money", xp: 140, level: 2, streak: 3, bestStreak: 5, cumulativeMinutes: 0, lastActiveDate: today });
+  await repos.plans.progress.create({ domain: "habits", xp: 180, level: 2, streak: 6, bestStreak: 8, cumulativeMinutes: 0, lastActiveDate: today });
+
+  const arc = await repos.plans.arcs.create({
+    domain: "overall", mode: "build", title: "First 30 days",
+    startDate: isoDaysFromToday(-32), endDate: isoDaysFromToday(-3), dayNumber: 30, status: "complete",
+  });
+
+  const engaged = [-3, -4, -5, -6, -7, -9, -10, -11, -12, -14, -15, -16, -18, -19, -20, -22, -23, -25, -26, -28, -30, -32];
+  await Promise.all(engaged.map((delta, i) => seedHistoryItem(repos, arc.id, delta, HISTORY_DOMAINS[i % 4], "done")));
+  await Promise.all([-8, -13, -17, -21, -24].map((delta, i) => seedHistoryItem(repos, arc.id, delta, HISTORY_DOMAINS[i % 4], "missed")));
+
+  await repos.coach.notes.create({
+    scope: "daily", localDate: today,
+    text: "Thirty days, done. Rest today — a fresh arc keeps better when it starts on a clear morning.",
+    modelProvider: "fake", modelId: "seed",
+    evidenceJson: { generatedForLocalDate: today, items: [] }, stalenessKey: "seed:today",
+  });
+}
+
+/** UIE-0e S2 fixture: a second, recently-completed arc (ended 2 days ago) to sit beside the live
+ *  arc from the populated body — 11 days engaged of 13 tasks → the compact settled banner. */
+async function seedSettledArcFixture(repos: UserScopedRepositories): Promise<void> {
+  const arc = await repos.plans.arcs.create({
+    domain: "skills", mode: "build", title: "System design sprint",
+    startDate: isoDaysFromToday(-16), endDate: isoDaysFromToday(-2), dayNumber: 15, status: "complete",
+  });
+  const engaged = [-2, -3, -4, -5, -6, -8, -9, -10, -12, -13, -15];
+  await Promise.all(engaged.map((delta, i) => seedHistoryItem(repos, arc.id, delta, HISTORY_DOMAINS[i % 4], "done")));
+  await Promise.all([-7, -11].map((delta, i) => seedHistoryItem(repos, arc.id, delta, HISTORY_DOMAINS[i % 4], "missed")));
 }
 
 /**

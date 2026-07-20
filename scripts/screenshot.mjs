@@ -987,6 +987,12 @@ try {
     await today(browser, "empty", THEME_OVERRIDE ?? [["ember", "dark"]], [MOBILE, DESKTOP]);
   } else if (SHOTS === "alldone") {
     await today(browser, "alldone", THEME_OVERRIDE ?? [["ember", "dark"]], [MOBILE, DESKTOP]);
+  } else if (SHOTS === "arccomplete") {
+    // UIE-0e S1 — seed with SEED_STATE=arc-complete first (see the ticket Verification block).
+    await today(browser, "arccomplete", THEME_OVERRIDE ?? [["bone", "dark"], ["bone", "light"]], [MOBILE, DESKTOP]);
+  } else if (SHOTS === "arcsettled") {
+    // UIE-0e S2 — seed with SEED_STATE=arc-settled first (live spine + settled banner).
+    await today(browser, "arcsettled", THEME_OVERRIDE ?? [["bone", "dark"], ["bone", "light"]], [MOBILE, DESKTOP]);
   } else if (SHOTS === "stitch") {
     await stitchScreens(browser);
   } else if (SHOTS === "art") {

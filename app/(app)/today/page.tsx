@@ -5,7 +5,8 @@ import { buildHabitsView, resolveRuleDayTotals } from "@/core/domains/habits";
 import { buildHealthView } from "@/core/domains/health";
 import { buildMoneyView } from "@/core/domains/money";
 import { buildSkillsView } from "@/core/domains/skills";
-import { buildTodayView } from "@/core/domains/today";
+import { ARC_COMPLETE_WINDOW_DAYS, buildTodayView } from "@/core/domains/today";
+import { toDayNumber } from "@/core/game";
 import { ensurePlanRolledOver } from "@/core/plan/rollover";
 import { isValidTimeZone, localDateInZone } from "@/core/time";
 
@@ -61,12 +62,28 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
   // Live per-rule source aggregates for the satisfied-by badges (repos-injected core helper).
   const ruleTotals = await resolveRuleDayTotals(repos, satisfactionRules, localDate);
 
+  // UIE-0e: the arc-complete/settled surfaces need a completed arc's OWN history rows (its
+  // per-arc task/day counts). Fetch only for `complete` arcs still inside the 7-day window
+  // (which covers the 3-day settled window too) — so the steady state (no recent completion)
+  // runs ZERO extra queries. One bounded read per in-window completed arc.
+  const inWindowCompletedArcs = arcs.filter(
+    (arc) =>
+      arc.status === "complete" &&
+      arc.endDate !== null &&
+      toDayNumber(localDate) - toDayNumber(arc.endDate) >= 0 &&
+      toDayNumber(localDate) - toDayNumber(arc.endDate) <= ARC_COMPLETE_WINDOW_DAYS,
+  );
+  const arcHistoryItems = (
+    await Promise.all(inWindowCompletedArcs.map((arc) => repos.plans.items.list({ arcId: arc.id })))
+  ).flat();
+
   const view = buildTodayView({
     localDate,
     items,
     progress,
     arcs,
     coachNote: notes[0] ?? null,
+    arcHistoryItems,
   });
   const healthView = buildHealthView({ meals, waterLogs, workouts, weighIns });
   const moneyView = buildMoneyView({ localDate, transactions, categories, budgets, recurringRules });
