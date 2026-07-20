@@ -226,8 +226,8 @@ export interface ParsePhotoInput {
  */
 function promptFor(photoType: VisionPhotoType): string {
   return photoType === "receipt"
-    ? "Read this receipt photo and return the printed transactions as typed money entries."
-    : "Analyze this meal photo and return the estimated nutrition as a typed meal entry.";
+    ? "Read this receipt photo. Return every printed line item as a typed money transaction: amount in integer paise (rupees × 100), the merchant or item label, and a category if it is clear. Transcribe only what is printed — never invent a line, price, or tax. Return only the structured object."
+    : "Analyze this meal photo. Identify the foods and return one typed meal entry with estimated nutrition in integer units — kcal, plus protein/carbs/fat in grams. Base each estimate on a typical portion of the foods you can actually see, and mark them estimated. Do not invent foods that are not visible. Return only the structured object.";
 }
 
 export async function parsePhoto(input: ParsePhotoInput, vision: VisionProvider): Promise<ParseResult> {

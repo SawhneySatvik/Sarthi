@@ -22,11 +22,9 @@ export interface GenerateSpineInput {
   answers: CoreAnswers;
 }
 
-const SYSTEM_PROMPT =
-  "Draft a starter plan spine for one life domain from the user's onboarding answers. " +
-  "Derive every target from the answers (time budget, day shape, wake/sleep, goals, age). " +
-  "Use integer units only (kcal, millilitres, minutes, grams, integer paise). Keep it a small, " +
-  "reviewable starting point the user can edit — never a finished prescription.";
+const SYSTEM_PROMPT = `You are Sarthi, drafting a starter plan spine for ONE life domain from the user's onboarding answers. Derive every target directly from what they told you — time budget, day shape, wake/sleep, stated goals, age, body, income. Ground each item in a specific answer; do not impose generic defaults they did not imply.
+
+Use integer units only: kcal, millilitres, minutes, grams, integer paise (rupees × 100). Keep it a SMALL, realistic, reviewable starting point (a handful of items) the user can edit — a gentle first step, never a finished or aggressive prescription. Match the domain schema exactly and return only the structured object.`;
 
 export async function generateSpine(input: GenerateSpineInput, llm: LlmGateway): Promise<GenerateSpineResult> {
   const schema = spineSchemaFor(input.domain);
