@@ -159,6 +159,27 @@ function arcLength(arc: PlanArcRecord): number | null {
   return toDayNumber(arc.endDate) - toDayNumber(arc.startDate) + 1;
 }
 
+/**
+ * The identity-header pair (T2) — the Settings sheet's "Day N · Level L" summary. Reuses the
+ * SAME `selectArc` + overall-progress rollup that `buildTodayView` (`view.stat`) and the Stats
+ * wall (`view.overall`) render, so the three surfaces can never contradict. `dayOfArc` is null
+ * when no active arc holds the spine; `level` defaults to 1 (a Day-1 user, never level zero).
+ * A pure projection — no clock read, no framework/DB import (invariant #9).
+ */
+export interface TodayIdentity {
+  dayOfArc: number | null;
+  level: number;
+}
+
+export function buildIdentity(input: {
+  progress: readonly DomainProgressRecord[];
+  arcs: readonly PlanArcRecord[];
+}): TodayIdentity {
+  const overall = input.progress.find((row) => row.domain === "overall") ?? null;
+  const arc = selectArc(input.arcs);
+  return { dayOfArc: arc ? arc.dayNumber : null, level: overall ? overall.level : 1 };
+}
+
 /** Whole days from a `complete` arc's `endDate` up to `localDate` (integer, non-negative). */
 function daysSinceEnd(endDate: string, localDate: string): number {
   return toDayNumber(localDate) - toDayNumber(endDate);

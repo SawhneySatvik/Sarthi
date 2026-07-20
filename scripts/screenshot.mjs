@@ -815,6 +815,24 @@ async function settingsScreens(browser, themes, widths) {
     await page.getByRole("dialog", { name: "Settings" }).waitFor({ timeout: 4000 });
     await page.waitForTimeout(SETTLE_MS);
     await shot(page, `settings-main-${width}-${theme}-${mode}`);
+    // T2 — the new load-bearing controls sit below the fold inside the sheet's own
+    // overflow-y-auto container, so (like the Developer block) they must be scrolled into
+    // view before capture rather than relying on viewport/fullPage framing.
+    const tz = page.getByLabel("Time zone");
+    if (await tz.count()) {
+      await tz.scrollIntoViewIfNeeded();
+      await page.waitForTimeout(SETTLE_MS);
+      await shot(page, `settings-timezone-${width}-${theme}-${mode}`);
+    }
+    // Scroll a LOWER element (the On-open briefs control, below the whole COACH block) into
+    // view so the dense Weekly-brief row (label + day select + time) lands in-frame at 390 —
+    // "Morning brief" alone sits at the fold edge and never scrolls the weekly row up.
+    const onOpen = page.getByLabel("On-open briefs");
+    if (await onOpen.count()) {
+      await onOpen.scrollIntoViewIfNeeded();
+      await page.waitForTimeout(SETTLE_MS);
+      await shot(page, `settings-coach-brief-${width}-${theme}-${mode}`);
+    }
     const provider = page.getByLabel("AI provider");
     if (await provider.count()) {
       await provider.scrollIntoViewIfNeeded();
@@ -832,6 +850,14 @@ async function settingsScreens(browser, themes, widths) {
     await page.getByText("Danger zone", { exact: true }).click();
     await page.getByRole("dialog", { name: "Danger zone" }).waitFor({ timeout: 4000 });
     await shot(page, `settings-danger-${width}-${theme}-${mode}`);
+    await page.getByRole("button", { name: "Close settings" }).click();
+
+    // About panel — evidence for the T2 Privacy/Terms legal stubs (routes land in a later ticket).
+    await page.getByRole("button", { name: "Settings and profile" }).click();
+    await page.getByRole("button", { name: /Sarthi v1\.0/ }).click();
+    await page.getByRole("dialog", { name: "About" }).waitFor({ timeout: 4000 });
+    await page.waitForTimeout(SETTLE_MS);
+    await shot(page, `settings-about-${width}-${theme}-${mode}`);
     await page.getByRole("button", { name: "Close settings" }).click();
   });
 }
@@ -970,7 +996,9 @@ try {
     await toolsMeditationFinal(browser, EMBER, [MOBILE, DESKTOP]);
   } else if (SHOTS === "settings") {
     await settingsScreens(browser, [...EMBER, ...NON_EMBER], [MOBILE]);
-    await settingsScreens(browser, EMBER, [DESKTOP]);
+    // Desktop: Ember + Bone (both modes) so the T2 controls are verified at 1280 in the
+    // Bone tuning theme the ticket calls out, not Ember alone.
+    await settingsScreens(browser, THEME_OVERRIDE ?? [["ember", "dark"], ["ember", "light"], ["bone", "dark"], ["bone", "light"]], [DESKTOP]);
   } else if (SHOTS === "coach") {
     await coachScreens(browser, EMBER, [MOBILE, DESKTOP]);
     if (!THEME_OVERRIDE) await coachScreens(browser, [["bone", "dark"], ["moss", "light"]], [MOBILE]);

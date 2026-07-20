@@ -45,7 +45,7 @@ export function TodayBody({
     <div>
       <ArtFrame artKey={headerArt} eager ratio="aspect-[16/7]" className="rounded-none border-x-0 border-t-0">
         <div className="flex h-full flex-col justify-end p-4">
-          <div className="flex items-start justify-between gap-3"><div><p className="font-ui text-caption uppercase tracking-wide on-art-dim">{date}</p><h1 className="mt-1 font-display text-display on-art">Today</h1></div>{profile && <SettingsSheet profile={profile} gaps={gaps} isDeveloperControlAllowed={isDeveloperControlAllowed} llmProvider={llmProvider} />}</div>
+          <div className="flex items-start justify-between gap-3"><div><p className="font-ui text-caption uppercase tracking-wide on-art-dim">{date}</p><h1 className="mt-1 font-display text-display on-art">Today</h1></div>{profile && <SettingsSheet profile={profile} gaps={gaps} identity={{ dayOfArc: view.stat.dayOfArc, level: view.stat.level }} isDeveloperControlAllowed={isDeveloperControlAllowed} llmProvider={llmProvider} />}</div>
           <StatCluster stat={view.stat} onArt />
         </div>
       </ArtFrame>

@@ -5,6 +5,7 @@ import { useEffect, useRef, useSyncExternalStore, useState } from "react";
 import { createPortal } from "react-dom";
 
 import type { LlmProviderName, VoiceProviderName } from "@/core/contracts";
+import type { TodayIdentity } from "@/core/domains/today";
 import type { ProfileGapRecord, ProfileRecord } from "@/data/schema/contract";
 import { LLM_MODEL_MATRIX } from "@/providers/llm";
 import { DetailFlow } from "@/components/onboarding/detail/DetailFlow";
@@ -25,11 +26,38 @@ import {
 
 type Theme = "ember" | "bone" | "moss";
 type Mode = "light" | "dark" | "system";
-type PreferenceKey = "mic" | "tts" | "brief";
+type PreferenceKey = "mic" | "tts" | "brief" | "morningBriefTime" | "weeklyBriefDay" | "weeklyBriefTime";
 
 const THEMES: readonly Theme[] = ["ember", "bone", "moss"];
 const LLM_CHOICES: readonly LlmProviderName[] = ["google", "openai", "anthropic", "fake"];
 const VOICE_CHOICES: readonly VoiceProviderName[] = ["gemini", "sarvam", "openai", "webspeech", "fake"];
+
+/** A curated set of common IANA zones, grouped by region for a scannable native <select>. The
+ *  user's stored zone is always shown even when it is outside this list (see TimezoneControl). */
+const TIMEZONE_GROUPS: readonly { region: string; zones: readonly string[] }[] = [
+  { region: "India", zones: ["Asia/Kolkata"] },
+  { region: "Asia", zones: ["Asia/Dubai", "Asia/Karachi", "Asia/Dhaka", "Asia/Bangkok", "Asia/Singapore", "Asia/Shanghai", "Asia/Tokyo"] },
+  { region: "Europe", zones: ["Europe/London", "Europe/Paris", "Europe/Berlin", "Europe/Moscow"] },
+  { region: "Americas", zones: ["America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles", "America/Sao_Paulo"] },
+  { region: "Pacific", zones: ["Australia/Sydney", "Pacific/Auckland"] },
+  { region: "Universal", zones: ["UTC"] },
+];
+
+const WEEKDAYS: readonly { value: string; label: string }[] = [
+  { value: "sun", label: "Sunday" },
+  { value: "mon", label: "Monday" },
+  { value: "tue", label: "Tuesday" },
+  { value: "wed", label: "Wednesday" },
+  { value: "thu", label: "Thursday" },
+  { value: "fri", label: "Friday" },
+  { value: "sat", label: "Saturday" },
+];
+
+/** "Asia/Kolkata" → "Kolkata" — the region prefix is already the optgroup label. */
+function zoneCity(zone: string): string {
+  const city = zone.includes("/") ? zone.slice(zone.lastIndexOf("/") + 1) : zone;
+  return city.replace(/_/g, " ");
+}
 
 function resolveMode(mode: Mode): "light" | "dark" {
   if (mode !== "system") return mode;
@@ -171,6 +199,105 @@ function Appearance({ initialTheme, initialMode }: { initialTheme: Theme; initia
   );
 }
 
+/**
+ * The real day-boundary control (T2). Shows the profile's stored IANA zone and persists a
+ * change through the SAME `/api/onboarding/detail` path the theme picker already uses — no new
+ * endpoint, no dialect change (the `profiles.timezone` column pre-dates this). This is
+ * load-bearing: every "what local day is it" read (Today, daily brief, plan rollover) keys off
+ * it, so the value here is authoritative rather than cosmetic.
+ */
+function TimezoneControl({ initial }: { initial: string }) {
+  const [tz, setTz] = useState(initial);
+  const [saving, setSaving] = useState(false);
+  const known = TIMEZONE_GROUPS.some((group) => group.zones.includes(tz));
+
+  async function change(next: string) {
+    setTz(next);
+    setSaving(true);
+    try {
+      await fetch("/api/onboarding/detail", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ section: "timezone", timezone: next }),
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <>
+      <label className="flex min-h-12 items-center border-b border-line px-4">
+        <span className="font-ui text-body text-ink-1">Time zone</span>
+        <select
+          value={tz}
+          onChange={(event) => void change(event.target.value)}
+          className="ml-auto max-w-[60%] bg-transparent font-ui text-caption text-ink-2 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label="Time zone"
+        >
+          {!known ? <option value={tz}>{zoneCity(tz)}</option> : null}
+          {TIMEZONE_GROUPS.map((group) => (
+            <optgroup key={group.region} label={group.region}>
+              {group.zones.map((zone) => <option key={zone} value={zone}>{zoneCity(zone)}</option>)}
+            </optgroup>
+          ))}
+        </select>
+      </label>
+      <p className="px-4 py-3 font-ui text-caption text-ink-3" role="status" aria-live="polite">
+        {saving ? "Saving…" : "Sets when your day rolls over — Today, streaks, and briefs follow this zone."}
+      </p>
+    </>
+  );
+}
+
+/**
+ * Honest coach-brief scheduling (T2). The morning + weekly times were static strings implying
+ * a scheduler that doesn't exist yet; these are now real, editable preferences persisted to the
+ * same `localStorage` seam as the other capture/coach prefs. A later PWA ticket reads them to
+ * fire local notifications — the caption says exactly that, so nothing here overpromises.
+ */
+function CoachBrief() {
+  const [morning, setMorning] = useState(() => readPreference("morningBriefTime", "07:00"));
+  const [weeklyDay, setWeeklyDay] = useState(() => readPreference("weeklyBriefDay", "sun"));
+  const [weeklyTime, setWeeklyTime] = useState(() => readPreference("weeklyBriefTime", "18:00"));
+
+  const timeInputClass =
+    "min-h-11 rounded-input border border-line bg-canvas px-2 font-ui text-caption tabular-nums text-ink-1 outline-none focus-visible:ring-2 focus-visible:ring-ring";
+
+  return (
+    <>
+      <label className="flex min-h-12 items-center border-b border-line px-4">
+        <span className="font-ui text-body text-ink-1">Morning brief</span>
+        <input
+          type="time"
+          value={morning}
+          onChange={(event) => { setMorning(event.target.value); writePreference("morningBriefTime", event.target.value); }}
+          className={`ml-auto ${timeInputClass}`}
+          aria-label="Morning brief time"
+        />
+      </label>
+      <div className="flex min-h-12 items-center gap-2 border-b border-line px-4">
+        <span className="font-ui text-body text-ink-1">Weekly brief</span>
+        <select
+          value={weeklyDay}
+          onChange={(event) => { setWeeklyDay(event.target.value); writePreference("weeklyBriefDay", event.target.value); }}
+          className="ml-auto min-h-11 rounded-input border border-line bg-canvas px-2 font-ui text-caption text-ink-1 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label="Weekly brief day"
+        >
+          {WEEKDAYS.map((day) => <option key={day.value} value={day.value}>{day.label}</option>)}
+        </select>
+        <input
+          type="time"
+          value={weeklyTime}
+          onChange={(event) => { setWeeklyTime(event.target.value); writePreference("weeklyBriefTime", event.target.value); }}
+          className={timeInputClass}
+          aria-label="Weekly brief time"
+        />
+      </div>
+    </>
+  );
+}
+
 function Developer({ initialProvider }: { initialProvider: LlmProviderName }) {
   const override = useSyncExternalStore(subscribeRuntimeProviderOverride, getRuntimeProviderOverride, () => null);
   const selectedProvider = override ?? initialProvider;
@@ -295,11 +422,14 @@ function ByokPanel() {
 export function SettingsSheet({
   profile,
   gaps,
+  identity,
   isDeveloperControlAllowed,
   llmProvider,
 }: {
   profile: ProfileRecord;
   gaps: readonly ProfileGapRecord[];
+  /** Real progress for the identity header — same source as `view.stat` / the Stats wall. */
+  identity: TodayIdentity;
   isDeveloperControlAllowed: boolean;
   llmProvider: LlmProviderName;
 }) {
@@ -335,6 +465,16 @@ export function SettingsSheet({
   }
 
   const heading = panel === "main" ? "Settings" : panel === "appearance" ? "Appearance" : panel === "details" ? "Your details" : panel === "gaps" ? "Coach questions" : panel === "danger" ? "Danger zone" : "About";
+
+  // Identity header — only what is derivable (no fabricated numbers). Join date is the profile's
+  // real `createdAt`; Day/Level mirror `view.stat` / the Stats wall via the shared `buildIdentity`.
+  const joinedLabel = new Intl.DateTimeFormat("en-IN", { month: "short", day: "numeric" }).format(new Date(profile.createdAt));
+  const identityBits = [
+    ...(identity.dayOfArc !== null ? [`Day ${identity.dayOfArc}`] : []),
+    `L${identity.level}`,
+    `joined ${joinedLabel}`,
+  ];
+  const identitySummary = `${profile.displayName ?? "Your profile"} · ${identityBits.join(" · ")}`;
   return (
     <>
       <button type="button" aria-label="Settings and profile" aria-expanded={open} onClick={() => setOpen(true)} className="flex h-11 w-11 items-center justify-center rounded-chip border border-line bg-raised text-ink-2 transition-colors duration-[var(--t-fast)]">
@@ -346,7 +486,7 @@ export function SettingsSheet({
             <header className="flex items-center gap-3 border-b border-line px-4 py-4">
               <div className="min-w-0 flex-1">
                 <h2 id="settings-sheet-title" className="font-display text-title text-ink-1">{heading}</h2>
-                {panel === "main" ? <p className="mt-1 font-ui text-caption text-ink-3">{profile.displayName ?? "Your profile"} · local mode</p> : null}
+                {panel === "main" ? <p className="mt-1 font-ui text-caption tabular-nums text-ink-3">{identitySummary}</p> : null}
               </div>
               <button ref={closeRef} type="button" onClick={close} className="flex min-h-11 min-w-11 items-center justify-center rounded-chip text-ink-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="Close settings"><X size={18} strokeWidth={1.5} /></button>
             </header>
@@ -355,12 +495,22 @@ export function SettingsSheet({
               {panel === "details" ? <div className="pt-6"><DetailFlow skillName={null} onDone={() => setPanel("main")} /></div> : null}
               {panel === "gaps" ? <div className="pt-6">{openGaps.length === 0 ? <p className="font-coach text-body text-ink-2">Nothing pending — I know what I need for now.</p> : <div className="space-y-2">{openGaps.map((gap) => <button type="button" key={gap.id} onClick={() => setPanel("details")} className="w-full rounded-card border border-line bg-card p-4 text-left"><p className="font-ui text-body text-ink-1">{gap.prompt}</p><p className="mt-2 font-ui text-caption text-ink-2">Answer through your signed details flow.</p></button>)}</div>}</div> : null}
               {panel === "danger" ? <div className="pt-6"><p className="font-coach text-body text-ink-2">Destructive data controls need a signed, scoped operation. This build does not pretend an unavailable reset has happened.</p><div className="mt-5 rounded-card border border-danger bg-card p-4"><p className="font-ui text-body text-ink-1">No destructive action available</p><p className="mt-2 font-ui text-caption text-ink-2">Export your data first; reset and deletion stay unavailable until their typed operations land.</p></div></div> : null}
-              {panel === "about" ? <div className="pt-6"><p className="font-coach text-body text-ink-2">Sarthi is a quiet, typed life coach for Health, Money, Habits, and Skills.</p><p className="mt-4 font-ui text-caption text-ink-3">Built with an intentional house style.</p></div> : null}
+              {panel === "about" ? <div className="pt-6"><p className="font-coach text-body text-ink-2">Sarthi is a quiet, typed life coach for Health, Money, Habits, and Skills.</p><p className="mt-4 font-ui text-caption text-ink-3">Built with an intentional house style.</p><div className="mt-6 overflow-hidden rounded-card border border-line bg-card"><a href="/privacy" className="flex min-h-12 items-center border-b border-line px-4 focus-visible:ring-2 focus-visible:ring-ring"><span className="font-ui text-body text-ink-1">Privacy</span><ChevronRight size={16} strokeWidth={1.5} className="ml-auto text-ink-2" aria-hidden /></a><a href="/terms" className="flex min-h-12 items-center px-4 focus-visible:ring-2 focus-visible:ring-ring"><span className="font-ui text-body text-ink-1">Terms</span><ChevronRight size={16} strokeWidth={1.5} className="ml-auto text-ink-2" aria-hidden /></a></div></div> : null}
               {panel === "main" ? <>
                 <Section title="APPEARANCE"><Row label="Theme" value={profile.theme[0].toUpperCase() + profile.theme.slice(1)} onClick={() => setPanel("appearance")} /><Row label="Mode" value={profile.themeMode[0].toUpperCase() + profile.themeMode.slice(1)} onClick={() => setPanel("appearance")} /></Section>
-                <Section title="PROFILE"><Row label="Your details" onClick={() => setPanel("details")} /><Row label="Coach's open questions" value={openGaps.length ? String(openGaps.length) : "None"} onClick={() => setPanel("gaps")} /><Row label="Units" value={profile.unitSystem === "metric" ? "Metric" : "Imperial"} /></Section>
+                <Section title="PROFILE">
+                  <Row label="Your details" onClick={() => setPanel("details")} />
+                  <Row label="Coach's open questions" value={openGaps.length ? String(openGaps.length) : "None"} onClick={() => setPanel("gaps")} />
+                  <TimezoneControl initial={profile.timezone} />
+                  <Row label="Units" value={profile.unitSystem === "metric" ? "Metric · kg, km, ₹" : "Imperial · lb, mi, ₹"} />
+                  <p className="px-4 py-3 font-ui text-caption text-ink-3">Stored in metric integer units (paise, ml, minutes, grams).</p>
+                </Section>
                 <Section title="CAPTURE & VOICE"><Toggle label="Mic" value={mic} onChange={(value) => changePreference("mic", value, setMic)} /><Toggle label="Spoken replies" value={tts} onChange={(value) => changePreference("tts", value, setTts)} /></Section>
-                <Section title="COACH"><Row label="Morning brief" value="7:00 AM" /><Row label="Weekly brief" value="Sun evening" /><Toggle label="On-open briefs" value={brief} onChange={(value) => changePreference("brief", value, setBrief)} /></Section>
+                <Section title="COACH">
+                  <CoachBrief />
+                  <Toggle label="On-open briefs" value={brief} onChange={(value) => changePreference("brief", value, setBrief)} />
+                  <p className="px-4 py-3 font-ui text-caption text-ink-3">These times will drive local reminders once notifications are turned on.</p>
+                </Section>
                 <Section title="DATA"><a href="/api/settings/export" className="flex min-h-12 items-center px-4"><span className="font-ui text-body text-ink-1">Export my data</span><Download size={16} strokeWidth={1.5} className="ml-auto text-ink-2" aria-hidden /></a><Row label="Danger zone" onClick={() => setPanel("danger")} /></Section>
                 <ByokPanel />
                 {isDeveloperControlAllowed ? <Developer initialProvider={llmProvider} /> : null}

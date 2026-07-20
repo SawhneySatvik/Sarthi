@@ -54,7 +54,7 @@ export function DetailFlow({ skillName, onDone }: { skillName: string | null; on
       ok = false;
     }
     setSaving(false);
-    if (ok && payload.section !== "theme") {
+    if (ok && payload.section !== "theme" && payload.section !== "timezone") {
       const section = payload.section;
       setAnswered((prev) => new Set(prev).add(section));
       setOpen(null);
