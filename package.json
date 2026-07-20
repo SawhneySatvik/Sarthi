@@ -30,7 +30,10 @@
     "check": "pnpm typecheck && pnpm lint && pnpm check:core-boundary && pnpm test",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:generate:postgres": "drizzle-kit generate --config=drizzle.config.postgres.ts",
+    "db:push:postgres": "drizzle-kit push --config=drizzle.config.postgres.ts",
     "db:seed:dev": "tsx scripts/seed-dev.ts",
+    "db:seed:postgres": "tsx scripts/seed-postgres.ts",
     "screenshots": "node scripts/screenshot.mjs",
     "art:build": "node scripts/build-art.mjs",
     "art:check": "node scripts/build-art.mjs --check"

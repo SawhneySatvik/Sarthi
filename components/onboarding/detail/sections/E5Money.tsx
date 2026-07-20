@@ -104,7 +104,7 @@ export function E5Money({
                   onChange={(event) => updateBill(bill.key, { label: event.target.value })}
                   placeholder="rent"
                   aria-label="Bill name"
-                  className="min-w-0 flex-1 rounded-input border border-line bg-canvas px-3 py-2.5 font-ui text-body text-ink-1 placeholder:text-ink-3 focus:outline-none"
+                  className="min-w-0 flex-1 rounded-input border border-line bg-canvas px-3 py-2.5 font-ui text-body text-ink-1 placeholder:text-ink-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 />
                 <input
                   value={bill.rupees}
@@ -112,7 +112,7 @@ export function E5Money({
                   inputMode="numeric"
                   placeholder="15000"
                   aria-label="Bill amount in rupees"
-                  className="w-28 rounded-input border border-line bg-canvas px-3 py-2.5 text-right font-ui text-body tabular-nums text-ink-1 placeholder:text-ink-3 focus:outline-none"
+                  className="w-28 rounded-input border border-line bg-canvas px-3 py-2.5 text-right font-ui text-body tabular-nums text-ink-1 placeholder:text-ink-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 />
                 <button
                   type="button"

@@ -1,6 +1,6 @@
-import { google } from "@ai-sdk/google";
-import { openai } from "@ai-sdk/openai";
-import { generateObject, generateText, type ModelMessage } from "ai";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { createOpenAI } from "@ai-sdk/openai";
+import { generateObject, generateText, type LanguageModel, type ModelMessage } from "ai";
 import type { z } from "zod";
 
 import type {
@@ -36,11 +36,35 @@ function integerUsage(usage: { inputTokens: number | undefined; outputTokens: nu
 }
 
 export class AiSdkLlmGateway implements LlmGateway {
-  constructor(private readonly provider: LiveLlmProviderName) {}
+  /**
+   * The provider client is constructed EXPLICITLY (not via the module-level `google`/
+   * `openai` default singletons) so a per-request BYOK key can flow in transiently.
+   * When `apiKey` is omitted the server env key is used — resolving BOTH the historical
+   * `GOOGLE_API_KEY` name and the SDK's native `GOOGLE_GENERATIVE_AI_API_KEY`, so a
+   * key set under either variable now works. `|| … || undefined` (not `??`) means an
+   * empty-string env var can never shadow a later valid one. A BYOK key is held only in
+   * this closure for the lifetime of the request — never logged, stored, or echoed.
+   */
+  private readonly client: (modelId: string) => LanguageModel;
+
+  constructor(
+    private readonly provider: LiveLlmProviderName,
+    apiKey?: string,
+  ) {
+    this.client =
+      provider === "google"
+        ? createGoogleGenerativeAI({
+            apiKey:
+              apiKey ||
+              process.env.GOOGLE_API_KEY ||
+              process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
+              undefined,
+          })
+        : createOpenAI({ apiKey: apiKey || process.env.OPENAI_API_KEY || undefined });
+  }
 
   private modelFor(tier: ObjectRequest<z.ZodType>["tier"]) {
-    const modelId = resolveLlmModelId(this.provider, tier);
-    return this.provider === "google" ? google(modelId) : openai(modelId);
+    return this.client(resolveLlmModelId(this.provider, tier));
   }
 
   async generateObject<TSchema extends z.ZodType>(

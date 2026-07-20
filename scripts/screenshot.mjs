@@ -25,12 +25,20 @@ const DESKTOP = 1280;
 // their color transition. Let that finish before a shot so captures never land
 // mid-transition (which read as inconsistent / faint chip styling).
 const SETTLE_MS = 320;
-const EMBER = [["ember", "dark"], ["ember", "light"]];
-const NON_EMBER = [["bone", "dark"], ["bone", "light"], ["moss", "dark"], ["moss", "light"]];
+// UI-audit override (ui/enhancement): THEMES="bone:dark,bone:light" forces every
+// driver that takes a themes arg to those theme-modes, so a single-theme sweep is one
+// flag. Unset → the historical Ember/sweep behaviour is byte-identical.
+const parseThemesEnv = (s) =>
+  s ? s.split(",").map((p) => p.trim().split(":").map((x) => x.trim())) : null;
+const THEME_OVERRIDE = parseThemesEnv(process.env.THEMES);
+const EMBER = THEME_OVERRIDE ?? [["ember", "dark"], ["ember", "light"]];
+const NON_EMBER = THEME_OVERRIDE ?? [["bone", "dark"], ["bone", "light"], ["moss", "dark"], ["moss", "light"]];
 
+// UI-audit run sets NAME_PREFIX="ui-audit-" so the isolated evidence is unmistakable.
+const NAME_PREFIX = process.env.NAME_PREFIX ?? "";
 async function shot(page, name) {
-  await page.screenshot({ path: `${OUT}/${name}.png` });
-  console.log("  shot", name);
+  await page.screenshot({ path: `${OUT}/${NAME_PREFIX}${name}.png` });
+  console.log("  shot", `${NAME_PREFIX}${name}`);
 }
 
 async function withPage(browser, { theme, mode, width }, fn) {
@@ -564,6 +572,9 @@ async function photoFlow(browser, themes, widths) {
           await r.continue();
         });
         await page.goto(`${BASE}/today`, { waitUntil: "networkidle" });
+        // SAR-019A moved the camera inside the FAB sheet (the persistent bottom bar is gone).
+        await page.getByRole("button", { name: "Open capture" }).click();
+        await page.locator('input[type="file"]').waitFor({ state: "attached", timeout: 4000 }).catch(() => {});
         await page.locator('input[type="file"]').setInputFiles(fileArg);
         await page.getByText("What is this?").first().waitFor({ timeout: 4000 }).catch(() => {});
         await page.waitForTimeout(300);
@@ -583,6 +594,9 @@ async function photoFlow(browser, themes, widths) {
       // Receipt pass: toggle receipt → analyze → the transaction batch (F5), also pending.
       await withPage(browser, { theme, mode, width }, async (page) => {
         await page.goto(`${BASE}/today`, { waitUntil: "networkidle" });
+        // SAR-019A moved the camera inside the FAB sheet (the persistent bottom bar is gone).
+        await page.getByRole("button", { name: "Open capture" }).click();
+        await page.locator('input[type="file"]').waitFor({ state: "attached", timeout: 4000 }).catch(() => {});
         await page.locator('input[type="file"]').setInputFiles(fileArg);
         await page.getByText("What is this?").first().waitFor({ timeout: 4000 }).catch(() => {});
         await page.getByRole("button", { name: /^receipt$/i }).first().click().catch(() => {});
@@ -635,6 +649,10 @@ async function voiceFlow(browser, themes, widths) {
       await withPage(browser, { theme, mode, width }, async (page) => {
         await installVoiceMock(page);
         await page.goto(`${BASE}/today`, { waitUntil: "networkidle" });
+        // SAR-019A moved PTT inside the FAB sheet (the persistent bottom bar is gone).
+        await page.getByRole("button", { name: "Open capture" }).click();
+        await page.getByRole("button", { name: "Hold to talk" }).waitFor({ timeout: 4000 });
+        await page.waitForTimeout(500); // let the spring sheet settle before measuring the orb box
         const mic = page.getByRole("button", { name: "Hold to talk" });
         const box = await mic.boundingBox();
         if (!box) throw new Error("voice mic missing");
@@ -667,6 +685,10 @@ async function voiceFlow(browser, themes, widths) {
           } else await route.continue();
         });
         await page.goto(`${BASE}/today`, { waitUntil: "networkidle" });
+        // SAR-019A moved PTT inside the FAB sheet (the persistent bottom bar is gone).
+        await page.getByRole("button", { name: "Open capture" }).click();
+        await page.getByRole("button", { name: "Hold to talk" }).waitFor({ timeout: 4000 });
+        await page.waitForTimeout(500); // let the spring sheet settle before measuring the orb box
         const mic = page.getByRole("button", { name: "Hold to talk" });
         const box = await mic.boundingBox();
         if (!box) throw new Error("voice mic missing");
@@ -887,13 +909,39 @@ async function artScreens(browser) {
   await withPage(browser, { theme: "moss", mode: "dark", width: MOBILE }, async (page) => { await page.goto(`${BASE}/tools`, { waitUntil: "networkidle" }); await shot(page, "art-tools-390-moss-dark"); });
 }
 
+// UI-enhancement: the master landing owns `/`. It's static/keyless (no seed needed). The
+// hero uses a mount-reveal (settles on load); below-fold sections use whileInView, so we
+// scroll through in viewport steps to trigger each reveal, shooting the hero + each section.
+async function landing(browser, themes, widths) {
+  for (const [theme, mode] of themes) {
+    for (const width of widths) {
+      await withPage(browser, { theme, mode, width }, async (page) => {
+        await page.goto(`${BASE}/`, { waitUntil: "networkidle" });
+        await page.waitForTimeout(600); // let the hero mount-reveal settle
+        await shot(page, `landing-hero-${width}-${theme}-${mode}`);
+        const vh = width < 500 ? 844 : 900;
+        const total = await page.evaluate(() => document.body.scrollHeight);
+        let y = 0;
+        let i = 1;
+        while (y + vh < total) {
+          y += Math.round(vh * 0.82);
+          await page.evaluate((yy) => window.scrollTo({ top: yy, behavior: "instant" }), y);
+          await page.waitForTimeout(500); // let whileInView reveals fire + settle
+          await shot(page, `landing-s${i}-${width}-${theme}-${mode}`);
+          i += 1;
+        }
+      });
+    }
+  }
+}
+
 const browser = await chromium.launch({ headless: true });
 try {
   if (SHOTS === "main") {
     await today(browser, "populated", EMBER, [MOBILE, DESKTOP]);
     await today(browser, "sweep", NON_EMBER, [MOBILE]); // ember covered by 'populated' → full 6-mode set
     // Health BEFORE the capture flow, so its rows show the clean seed (the flow commits meals).
-    await healthLens(browser, [["ember", "dark"], ["ember", "light"], ["bone", "dark"], ["moss", "dark"]], [MOBILE, DESKTOP]);
+    await healthLens(browser, THEME_OVERRIDE ?? [["ember", "dark"], ["ember", "light"], ["bone", "dark"], ["moss", "dark"]], [MOBILE, DESKTOP]);
     await moneyLens(browser, EMBER, [MOBILE, DESKTOP]); // Money before captureFlow (read-only; keeps the seed clean)
     await habitsLens(browser, EMBER, [MOBILE, DESKTOP]);
     await skillsLens(browser, EMBER, [MOBILE, DESKTOP]);
@@ -925,7 +973,7 @@ try {
     await settingsScreens(browser, EMBER, [DESKTOP]);
   } else if (SHOTS === "coach") {
     await coachScreens(browser, EMBER, [MOBILE, DESKTOP]);
-    await coachScreens(browser, [["bone", "dark"], ["moss", "light"]], [MOBILE]);
+    if (!THEME_OVERRIDE) await coachScreens(browser, [["bone", "dark"], ["moss", "light"]], [MOBILE]);
   } else if (SHOTS === "onboarding") {
     // SAR-012 Pass 1–3 — drive against a SEED_STATE=fresh DB (see the ticket Verification
     // block): the CORE walk + Phase C shimmer + Phase D cards/edited-row, then the
@@ -936,13 +984,25 @@ try {
     await onboardingDetail(browser, EMBER, [MOBILE, DESKTOP]);
     await onboardingLanding(browser, EMBER, [MOBILE, DESKTOP]);
   } else if (SHOTS === "empty") {
-    await today(browser, "empty", [["ember", "dark"]], [MOBILE, DESKTOP]);
+    await today(browser, "empty", THEME_OVERRIDE ?? [["ember", "dark"]], [MOBILE, DESKTOP]);
   } else if (SHOTS === "alldone") {
-    await today(browser, "alldone", [["ember", "dark"]], [MOBILE, DESKTOP]);
+    await today(browser, "alldone", THEME_OVERRIDE ?? [["ember", "dark"]], [MOBILE, DESKTOP]);
   } else if (SHOTS === "stitch") {
     await stitchScreens(browser);
   } else if (SHOTS === "art") {
     await artScreens(browser);
+  } else if (SHOTS === "landing") {
+    await landing(browser, THEME_OVERRIDE ?? [["bone", "dark"], ["bone", "light"]], [MOBILE, DESKTOP]);
+  } else if (SHOTS === "waitlist") {
+    for (const [theme, mode] of (THEME_OVERRIDE ?? [["bone", "dark"], ["bone", "light"]])) {
+      for (const width of [MOBILE, DESKTOP]) {
+        await withPage(browser, { theme, mode, width }, async (page) => {
+          await page.goto(`${BASE}/waitlist`, { waitUntil: "networkidle" });
+          await page.waitForTimeout(400);
+          await shot(page, `waitlist-${width}-${theme}-${mode}`);
+        });
+      }
+    }
   }
 } finally {
   await browser.close();

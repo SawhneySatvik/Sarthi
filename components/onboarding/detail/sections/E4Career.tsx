@@ -76,7 +76,7 @@ export function E4Career({
             onChange={(event) => setFieldOther(event.target.value)}
             placeholder="what do you do?"
             aria-label="Your field"
-            className="w-full rounded-input border border-line bg-canvas px-3 py-3 font-ui text-body text-ink-1 placeholder:text-ink-3 focus:outline-none"
+            className="w-full rounded-input border border-line bg-canvas px-3 py-3 font-ui text-body text-ink-1 placeholder:text-ink-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
         )}
 

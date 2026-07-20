@@ -8,4 +8,5 @@ export {
   assembleUserScopedRepositories,
   createRepositoryFactory,
   createSqliteRepositoryFactory,
+  createPostgresRepositoryFactory,
 } from "./factory";

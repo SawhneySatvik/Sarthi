@@ -9,10 +9,10 @@ import type { DisplayDomain, StatsCardView, StatsView } from "@/core/game";
 type Face = "current" | "potential" | "dayone";
 
 const domains: Record<DisplayDomain, { label: string; labelClass: string; railClass: string; gradient: string }> = {
-  health: { label: "Health", labelClass: "relative font-ui text-caption uppercase tracking-wide text-health", railClass: "relative mt-3 h-px bg-health opacity-50", gradient: "radial-gradient(circle at 50% 0%, var(--dom-health), transparent 68%)" },
-  money: { label: "Money", labelClass: "relative font-ui text-caption uppercase tracking-wide text-money", railClass: "relative mt-3 h-px bg-money opacity-50", gradient: "radial-gradient(circle at 50% 0%, var(--dom-money), transparent 68%)" },
-  habits: { label: "Habits", labelClass: "relative font-ui text-caption uppercase tracking-wide text-habits", railClass: "relative mt-3 h-px bg-habits opacity-50", gradient: "radial-gradient(circle at 50% 0%, var(--dom-habits), transparent 68%)" },
-  skills: { label: "Skills", labelClass: "relative font-ui text-caption uppercase tracking-wide text-skills", railClass: "relative mt-3 h-px bg-skills opacity-50", gradient: "radial-gradient(circle at 50% 0%, var(--dom-skills), transparent 68%)" },
+  health: { label: "Health", labelClass: "relative font-ui text-caption uppercase tracking-wide text-health-strong", railClass: "relative mt-3 h-px bg-health opacity-50", gradient: "radial-gradient(circle at 50% 0%, var(--dom-health), transparent 68%)" },
+  money: { label: "Money", labelClass: "relative font-ui text-caption uppercase tracking-wide text-money-strong", railClass: "relative mt-3 h-px bg-money opacity-50", gradient: "radial-gradient(circle at 50% 0%, var(--dom-money), transparent 68%)" },
+  habits: { label: "Habits", labelClass: "relative font-ui text-caption uppercase tracking-wide text-habits-strong", railClass: "relative mt-3 h-px bg-habits opacity-50", gradient: "radial-gradient(circle at 50% 0%, var(--dom-habits), transparent 68%)" },
+  skills: { label: "Skills", labelClass: "relative font-ui text-caption uppercase tracking-wide text-skills-strong", railClass: "relative mt-3 h-px bg-skills opacity-50", gradient: "radial-gradient(circle at 50% 0%, var(--dom-skills), transparent 68%)" },
 };
 
 const faces: readonly { id: Face; label: string }[] = [
@@ -54,7 +54,7 @@ export function StatsWall({ view }: { view: StatsView }) {
           initial={reduceMotion ? { opacity: 0 } : { opacity: 0, rotateY: -90 }}
           animate={reduceMotion ? { opacity: 1 } : { opacity: 1, rotateY: 0 }}
           transition={{ duration: reduceMotion ? 0 : flipDuration, ease: [0.2, 0, 0, 1] }}
-          style={{ transformPerspective: "var(--space-shell)" }}
+          style={{ transformPerspective: "var(--perspective-flip)" }}
           className="relative min-h-56 overflow-hidden rounded-card border border-line bg-card p-5 shadow-[var(--elev-card)]"
         >
           {earnedOverall && <div aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.1]" style={{ background: "radial-gradient(circle at 50% 0%, var(--energy), transparent 68%)" }} />}
@@ -100,7 +100,7 @@ function DomainCard({ card, face, unavailable, reduceMotion, flipDuration }: { c
       initial={reduceMotion ? { opacity: 0 } : { opacity: 0, rotateY: 90 }}
       animate={reduceMotion ? { opacity: 1 } : { opacity: 1, rotateY: 0 }}
       transition={{ duration: reduceMotion ? 0 : flipDuration, ease: [0.2, 0, 0, 1] }}
-      style={{ transformPerspective: "var(--space-shell)" }}
+      style={{ transformPerspective: "var(--perspective-flip)" }}
     >
       <Link href={`/today?domain=${card.domain}`} aria-label={`${domain.label}: ${value}. ${supporting}. ${card.sparklineText}`} className="relative block min-h-52 overflow-hidden rounded-card border border-line bg-card p-4 shadow-[var(--elev-card)] focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
         <div aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.1]" style={{ background: domain.gradient }} />

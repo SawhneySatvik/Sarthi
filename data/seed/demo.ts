@@ -12,8 +12,15 @@
  * #2): every quantity is paise / ml / minutes / grams. Keyless.
  */
 import type { UserScopedRepositories } from "@/core/contracts";
+import { addDaysLocal, localDateInZone } from "@/core/time";
 
 import { seedCanonicalEntities } from "./canonical";
+
+/** D-053: the seed stamps + computes day keys in the HOST zone, so the seeded rows land on
+ *  the same local day the Today page resolves (`localDateInZone(now, profile.timezone)`) —
+ *  the screenshot fixtures still land `populated`/`alldone` on "today". Always a valid IANA
+ *  zone (`resolvedOptions().timeZone` never returns junk). */
+const HOST_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 /** The demo seed's ledger identity (D-033). */
 export const DEMO_SEED_KEY = "dev-demo-v1";
@@ -28,9 +35,10 @@ export interface SeedDemoResult {
 }
 
 function isoDaysFromToday(delta: number): string {
-  const d = new Date();
-  d.setUTCDate(d.getUTCDate() + delta);
-  return d.toISOString().slice(0, 10);
+  // D-053: host-zone local day + pure YYYY-MM-DD arithmetic (was a UTC slice) so the keys
+  // agree with the page's `localDateInZone(now, profile.timezone)` day boundary.
+  const today = localDateInZone(new Date().toISOString(), HOST_TIMEZONE);
+  return addDaysLocal(today, delta);
 }
 
 /** The full populated write (profile → canonical → plan/health/habits/money/skills → coach).
@@ -53,6 +61,7 @@ async function seedBody(repos: UserScopedRepositories, state: DemoSeedState): Pr
       wakeTimeMinutes: 330,
       sleepTimeMinutes: 1380,
       timeBudgetMinutes: 60,
+      timezone: HOST_TIMEZONE,
       foodPattern: null,
       screenTimeMinutes: null,
       focusPreference: null,
@@ -281,7 +290,7 @@ async function seedBody(repos: UserScopedRepositories, state: DemoSeedState): Pr
   await repos.coach.notes.create({
     scope: "daily",
     localDate: today,
-    text: "Five days in and steady. One focused block today keeps the streak alive.",
+    text: "Twelve days in and steady. One focused block today keeps your six-day streak alive.",
     modelProvider: "fake",
     modelId: "seed",
     evidenceJson: { generatedForLocalDate: today, items: [] },

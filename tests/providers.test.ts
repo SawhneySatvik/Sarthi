@@ -26,6 +26,7 @@ import {
   VERIFIED_LLM_MODEL_IDS,
 } from "../providers/llm";
 import { AiSdkLlmGateway } from "../providers/llm/ai-sdk";
+import { AiSdkVisionProvider } from "../providers/vision/ai-sdk";
 
 const canonicalSchema = z.object({
   fixtureId: z.literal("canonical-cross-domain"),
@@ -87,7 +88,6 @@ test("provider factories select fake and fail clearly for disabled or deferred p
   assert.ok(createVisionProvider("fake") instanceof FakeVisionProvider);
   assert.throws(() => createLlmGateway("anthropic"), /wired but disabled/);
   assert.throws(() => createVoiceProvider("sarvam"), /not implemented in SAR-002/);
-  assert.throws(() => createVisionProvider("google"), /not implemented in SAR-002/);
 });
 
 test("live LLM factories construct their adapters without a network request", () => {
@@ -99,6 +99,11 @@ test("live LLM factories construct their adapters without a network request", ()
   try {
     assert.ok(createLlmGateway("google") instanceof AiSdkLlmGateway);
     assert.ok(createLlmGateway("openai") instanceof AiSdkLlmGateway);
+    // BYOK: the live vision adapter constructs the same way (with or without a per-request key).
+    assert.ok(createVisionProvider("google") instanceof AiSdkVisionProvider);
+    assert.ok(createVisionProvider("openai") instanceof AiSdkVisionProvider);
+    assert.ok(createVisionProvider("google", { apiKey: "test-key" }) instanceof AiSdkVisionProvider);
+    assert.ok(createLlmGateway("openai", { apiKey: "test-key" }) instanceof AiSdkLlmGateway);
   } finally {
     globalThis.fetch = savedFetch;
   }

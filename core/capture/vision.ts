@@ -16,12 +16,14 @@
  *   • #2 (integer units) — the schemas are non-negative integers (paise/kcal/grams);
  *     the mapper is passthrough only — no arithmetic, no float.
  *
- * Framework-clean: imports zod, core contracts/types, `node:crypto`, and `Intl` only
- * (the same node-stdlib posture as `commit.ts`). No provider, DB, React, or Next.
+ * Framework-clean: imports zod, core contracts/types, the shared `@/core/time` day
+ * helpers, and `node:crypto` only (the same node-stdlib posture as `commit.ts`). No
+ * provider, DB, React, or Next.
  */
 import { randomUUID } from "node:crypto";
 
 import type { ImageInput, VisionProvider } from "@/core/contracts";
+import { localDateInZone } from "@/core/time";
 import { z } from "zod";
 
 import {
@@ -108,18 +110,8 @@ export interface VisionDraftContext {
   mimeType?: string | null;
 }
 
-/**
- * `localDate` from a UTC instant in an IANA zone — the first correct-by-construction
- * site for the standing UTC→local follow-up. `en-CA` formats as `YYYY-MM-DD`.
- */
-function localDateInZone(iso: string, timeZone: string): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date(iso));
-}
+// `localDateInZone` now lives in the shared `@/core/time` module (D-053) — the private
+// copy that used to sit here was lifted verbatim into it. Behavior is identical.
 
 /** The single photo evidence handle attached to the draft AND every derived proposal. */
 function photoEvidenceRef(ctx: VisionDraftContext): DraftEvidenceRef {

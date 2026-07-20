@@ -31,20 +31,28 @@ export interface CommitStateTransitions {
  * Build the two guarded transitions for one already-scoped request. Bound to the
  * same `ScopeContext` as the rest of the repository surface, so it reads the
  * current executor at call time and participates in an open `transaction()`.
+ *
+ * `commitsTable` defaults to the SQLite `commits` handle but is injected by the
+ * composition root so the Postgres branch binds the SAME logic to its OWN dialect
+ * table — every table object handed to the ORM matches the active executor's
+ * dialect (no sqlite table run against a pg executor).
  */
-export function createCommitStateTransitions(ctx: ScopeContext): CommitStateTransitions {
+export function createCommitStateTransitions(
+  ctx: ScopeContext,
+  commitsTable: typeof commits = commits,
+): CommitStateTransitions {
   const transition = async (
     commitId: string,
     set: Record<string, unknown>,
   ): Promise<CommitRecord> => {
     const rows = await updateRows<CommitRecord>(
       ctx.getExecutor(),
-      commits,
+      commitsTable,
       set,
       and(
-        eq(commits.id, commitId),
-        eq(commits.userId, ctx.userId),
-        eq(commits.status, "committed"),
+        eq(commitsTable.id, commitId),
+        eq(commitsTable.userId, ctx.userId),
+        eq(commitsTable.status, "committed"),
       ),
     );
     const row = rows[0];

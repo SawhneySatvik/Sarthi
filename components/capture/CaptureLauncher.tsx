@@ -3,11 +3,13 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { Camera, Pencil, Send, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import { CaptureSheet, type CaptureInput } from "./CaptureSheet";
 import { CaptureOrb } from "./CaptureOrb";
 import { usePressToTalk } from "./usePressToTalk";
+import { getByokCredential, getByokServerSnapshot, subscribeByok } from "@/components/settings/byok";
+import { relativeDay } from "@/app/lib/relativeDay";
 import { MAX_VOICE_DURATION_MS } from "@/core/voice";
 
 /** A quick press switches into the documented tap-to-stop alternative. */
@@ -42,6 +44,8 @@ export function CaptureLauncher() {
   const textInputRef = useRef<HTMLInputElement>(null);
   const pressStartedAtRef = useRef(0);
   const contextTimerRef = useRef<number | null>(null);
+  // Gentle, non-blocking BYOK hint: when no key is saved, captures run the seeded/fake path.
+  const byokCredential = useSyncExternalStore(subscribeByok, getByokCredential, getByokServerSnapshot);
 
   useEffect(() => {
     if (searchParams.get("capture") !== "1") return;
@@ -206,12 +210,17 @@ export function CaptureLauncher() {
           </div>
           <div className="flex gap-2 overflow-x-auto pb-3" aria-label="Capture hints">{CAPTURE_HINTS.map((hint) => <button key={hint.label} type="button" onClick={() => { setText(hint.prompt); textInputRef.current?.focus(); }} className="min-h-11 shrink-0 rounded-chip border border-line bg-card px-3 font-ui text-caption text-ink-2">{hint.label}</button>)}</div>
           <form onSubmit={(event) => { event.preventDefault(); openText(text); }} className="flex items-center gap-2 rounded-card border border-line bg-card p-3">
-            <input ref={textInputRef} value={text} onChange={(event) => setText(event.target.value)} placeholder={contextPrompt ?? "Tell Sarthi about your day…"} aria-label="Capture your day" className="min-h-11 min-w-0 flex-1 bg-transparent font-ui text-body text-ink-1 placeholder:text-ink-3 focus:outline-none" />
-            <button type="button" aria-label="Add a photo" onClick={() => fileInputRef.current?.click()} className="flex min-h-11 min-w-11 items-center justify-center rounded-chip border border-line text-ink-2"><Camera size={20} strokeWidth={1.5} aria-hidden /></button>
-            <button type="submit" aria-label="Send" disabled={!text.trim()} className="flex min-h-11 min-w-11 items-center justify-center rounded-chip bg-ink-1 text-canvas disabled:opacity-50"><Send size={18} strokeWidth={1.5} aria-hidden /></button>
+            <input ref={textInputRef} value={text} onChange={(event) => setText(event.target.value)} placeholder={contextPrompt ?? "Tell Sarthi about your day…"} aria-label="Capture your day" className="min-h-11 min-w-0 flex-1 bg-transparent font-ui text-body text-ink-1 placeholder:text-ink-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+            <button type="button" aria-label="Add a photo" onClick={() => fileInputRef.current?.click()} className="flex min-h-11 min-w-11 items-center justify-center rounded-chip border border-line text-ink-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Camera size={20} strokeWidth={1.5} aria-hidden /></button>
+            <button type="submit" aria-label="Send" disabled={!text.trim()} className="flex min-h-11 min-w-11 items-center justify-center rounded-chip bg-ink-1 text-canvas disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Send size={18} strokeWidth={1.5} aria-hidden /></button>
             <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={onFilePicked} className="hidden" aria-hidden tabIndex={-1} />
           </form>
-          <p className="mt-3 font-ui text-caption text-ink-3">{lastActivity ? `Last activity · ${lastActivity.caption ?? `${lastActivity.domain} capture`} · ${lastActivity.localDate}` : "No captured activity yet."}</p>
+          {!byokCredential && (
+            <p className="mt-3 font-ui text-caption text-ink-2" role="note">
+              Add your Gemini or OpenAI key in Settings to capture with real AI — or explore the seeded demo.
+            </p>
+          )}
+          <p className="mt-3 font-ui text-caption text-ink-3">{lastActivity ? `Last activity · ${lastActivity.caption ?? `${lastActivity.domain} capture`} · ${relativeDay(lastActivity.localDate)}` : "No captured activity yet."}</p>
         </motion.section>
       </>}</AnimatePresence>
 

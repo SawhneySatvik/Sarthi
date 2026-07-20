@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { coachForSession } from "@/app/lib/coach";
 import { getSession } from "@/app/lib/session";
+import { scrubProviderError, withByok } from "@/app/lib/byok";
 
 const lookupSchema = z.object({ localDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) });
 const actionSchema = z.discriminatedUnion("action", [
@@ -25,12 +26,15 @@ export async function POST(request: Request): Promise<Response> {
   const parsed = actionSchema.safeParse(await request.json().catch(() => ({})));
   if (!parsed.success) return NextResponse.json({ ok: false, error: "invalid adaptation resolution" }, { status: 400 });
   try {
-    const engine = coachForSession(await getSession());
+    const engine = coachForSession(withByok(await getSession(), request));
     const adaptation = parsed.data.action === "propose-reentry"
       ? await engine.ensureReentryAdaptation({ localDate: parsed.data.localDate })
       : await engine.resolveAdaptation(parsed.data);
     return NextResponse.json({ ok: true, adaptation });
   } catch (error) {
-    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "adaptation unavailable" }, { status: 409 });
+    return NextResponse.json(
+      { ok: false, error: scrubProviderError(error instanceof Error ? error.message : "adaptation unavailable", request.headers) },
+      { status: 409 },
+    );
   }
 }

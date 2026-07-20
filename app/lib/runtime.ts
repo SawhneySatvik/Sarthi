@@ -8,7 +8,7 @@ import type {
 import { z } from "zod";
 
 export type { LlmProviderName, VisionProviderName, VoiceProviderName } from "@/core/contracts";
-export type AuthProviderName = "local-password" | "supabase";
+export type AuthProviderName = "local-password" | "anonymous" | "supabase";
 export type DatabaseProviderName = "sqlite" | "postgres";
 export type BillingMode = "checkout" | "waitlist";
 
@@ -21,19 +21,27 @@ export interface RuntimeConfig {
   billingMode: BillingMode;
   judgeMode: boolean;
   databaseUrl: string;
+  /** Optional libSQL/Turso auth token — the kept SQLite-transport fallback; unused on Postgres. */
+  databaseAuthToken?: string;
   appPassword?: string;
 }
+
+/** Treat a blank string the same as an unset var so defaults/optionals apply on empty envs. */
+const emptyToUndefined = (value: unknown): unknown => (value === "" ? undefined : value);
 
 const runtimeEnvironmentSchema = z.object({
   LLM_PROVIDER: z.enum(["fake", "google", "openai", "anthropic"]).default("fake"),
   VOICE_PROVIDER: z.enum(["fake", "gemini", "sarvam", "openai", "webspeech"]).default("fake"),
   VISION_PROVIDER: z.enum(["fake", "google", "openai"]).default("fake"),
-  AUTH_PROVIDER: z.enum(["local-password", "supabase"]).default("local-password"),
+  AUTH_PROVIDER: z.enum(["local-password", "anonymous", "supabase"]).default("local-password"),
   DATABASE_PROVIDER: z.enum(["sqlite", "postgres"]).default("sqlite"),
   BILLING_MODE: z.enum(["checkout", "waitlist"]).default("waitlist"),
   JUDGE_MODE: z.enum(["true", "false"]).default("false"),
-  DB_URL: z.string().min(1).default("file:./sarthi.dev.db"),
-  APP_PASSWORD: z.string().min(1).optional(),
+  // Deploy robustness: a blank env var (`DB_AUTH_TOKEN=""`, common when a host injects an
+  // empty value) must read as "unset", not fail `.min(1)` and 500 the boot before auth.
+  DB_URL: z.preprocess(emptyToUndefined, z.string().min(1).default("file:./sarthi.dev.db")),
+  DB_AUTH_TOKEN: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
+  APP_PASSWORD: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
 });
 
 /** Raw server environment values; selector validation happens inside the parser. */
@@ -51,6 +59,7 @@ export function parseRuntimeConfig(environment: RuntimeEnvironment = {}): Runtim
     billingMode: parsed.BILLING_MODE,
     judgeMode: parsed.JUDGE_MODE === "true",
     databaseUrl: parsed.DB_URL,
+    databaseAuthToken: parsed.DB_AUTH_TOKEN,
     appPassword: parsed.APP_PASSWORD,
   };
 }

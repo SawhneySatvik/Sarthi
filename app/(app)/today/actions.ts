@@ -10,6 +10,11 @@ import { executeManualTick } from "@/core/domains/habits";
  * NEVER an estimate — persisted through the user-scoped repository (the id is only
  * updatable if it belongs to this user; SAR-003 scoping enforces that). This is the
  * plain plan-item update, NOT the capture commit/auto-check path (that is SAR-006).
+ *
+ * D-053 decision (c): this does NOT re-stamp `localDate` on completion. With the
+ * clone-forward daily rollover (`core/plan/rollover.ts`), the card the user is actioning
+ * is ALREADY today's freshly-materialized row, so its `localDate` is today — re-stamping
+ * would rewrite a prior day's history for no gain. Status/`completionSource` only.
  */
 export async function setItemStatus(id: string, status: "done" | "skipped"): Promise<void> {
   // Server actions are public endpoints — validate the arg at runtime (the type is

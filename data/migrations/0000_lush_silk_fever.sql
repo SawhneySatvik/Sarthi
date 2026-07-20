@@ -449,15 +449,6 @@ CREATE TABLE `transactions` (
 CREATE INDEX `transactions_userId_localDate_idx` ON `transactions` (`userId`,`localDate`);--> statement-breakpoint
 CREATE INDEX `transactions_userId_categoryId_localDate_idx` ON `transactions` (`userId`,`categoryId`,`localDate`);--> statement-breakpoint
 CREATE INDEX `transactions_userId_recurringRuleId_idx` ON `transactions` (`userId`,`recurringRuleId`);--> statement-breakpoint
-CREATE TABLE `waitlist_requests` (
-	`id` text PRIMARY KEY NOT NULL,
-	`userId` text NOT NULL,
-	`createdAt` text NOT NULL,
-	`source` text NOT NULL,
-	`requestedAt` text NOT NULL
-);
---> statement-breakpoint
-CREATE UNIQUE INDEX `waitlist_requests_userId_source_uq` ON `waitlist_requests` (`userId`,`source`);--> statement-breakpoint
 CREATE TABLE `water_logs` (
 	`id` text PRIMARY KEY NOT NULL,
 	`userId` text NOT NULL,
