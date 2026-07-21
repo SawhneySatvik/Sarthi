@@ -11,5 +11,7 @@ export function coachForSession(session: Session) {
     repos: session.repos,
     llm: session.llm,
     commits: createCommitService({ repos: session.repos, llm: session.llm }),
+    // Per-user single-flight key for COACH-2 `converse`.
+    userId: session.user.userId,
   });
 }

@@ -154,6 +154,22 @@ test("an in-flight (sent) row is invisible to a concurrent replay pass", async (
   assert.equal(pending.length, 0, "a concurrent replay would find nothing to send");
 });
 
+test("enqueue REFUSES a non-/api/capture/ URL — no coach mutation can queue (§2.6)", async () => {
+  const backend = memoryBackend();
+  // The online-only coach mutations must never be queueable for offline replay.
+  const coachAsk: NewMutation = { idempotencyKey: "coach-1", kind: "commit", url: "/api/coach/ask", body: {} };
+  const coachAdaptation: NewMutation = { idempotencyKey: "coach-2", kind: "commit", url: "/api/coach/adaptation", body: {} };
+  const coachMemory: NewMutation = { idempotencyKey: "coach-3", kind: "commit", url: "/api/coach/memory", body: {} };
+  for (const bad of [coachAsk, coachAdaptation, coachMemory]) {
+    await assert.rejects(() => enqueue(backend, bad), /only \/api\/capture\//);
+  }
+  assert.equal(backend.rows.size, 0, "nothing was persisted for a refused URL");
+  // The capture paths still enqueue normally.
+  await enqueue(backend, commitInput("ok"));
+  await enqueue(backend, { idempotencyKey: "undo-ok", kind: "undo", url: "/api/capture/undo", body: {} });
+  assert.equal(backend.rows.size, 2, "both capture commit and undo URLs are accepted");
+});
+
 test("reclaimInFlight recovers a crashed session's orphaned `sent` row, then it replays", async () => {
   const backend = memoryBackend();
   const mutation = await enqueue(backend, commitInput("orphan"));

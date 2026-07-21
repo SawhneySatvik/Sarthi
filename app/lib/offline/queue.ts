@@ -67,14 +67,32 @@ function newId(): string {
 }
 
 /**
+ * The ONLY URL prefix the offline queue will accept (COACH-LIFT §2.6, online-only coach).
+ * Capture commit/undo are the sole safely-replayable mutations — the server key-dedupes a
+ * re-POST so a queued commit writes AT MOST once. Nothing coach-shaped (converse, adaptation
+ * Keep/Revert, memory confirm) may ever queue: those need a live connection by owner
+ * constraint, and a stale replay could double-speak or resurrect a reverted proposal.
+ */
+export const OFFLINE_QUEUE_URL_PREFIX = "/api/capture/";
+
+/**
  * Persist a new mutation, DEDUPING by `idempotencyKey`: if one with the same key is
  * already queued (pending or in-flight), this is a no-op and returns the existing row.
+ *
+ * HARD GUARD (§2.6): only `/api/capture/`-prefixed URLs may be enqueued; any other caller
+ * throws. This is the single chokepoint every offline enqueue passes through, so no future
+ * caller can silently queue a coach (or any non-capture) mutation for offline replay.
  */
 export async function enqueue(
   backend: QueueBackend,
   input: NewMutation,
   now: number = Date.now(),
 ): Promise<QueuedMutation> {
+  if (!input.url.startsWith(OFFLINE_QUEUE_URL_PREFIX)) {
+    throw new Error(
+      `offline queue refuses ${input.url}: only ${OFFLINE_QUEUE_URL_PREFIX} mutations may be queued (online-only coach, §2.6)`,
+    );
+  }
   const existing = (await backend.getAll()).find((m) => m.idempotencyKey === input.idempotencyKey);
   if (existing) return existing;
   const mutation: QueuedMutation = {

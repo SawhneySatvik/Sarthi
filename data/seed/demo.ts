@@ -319,6 +319,17 @@ async function seedBody(repos: UserScopedRepositories, state: DemoSeedState): Pr
       reason: "Keep the first restart block lighter so it is easy to begin.", status: "proposed", keptAt: null, revertedAt: null, appliedCommitId: null,
     });
   }
+  // ── Coach Layer-2 memory (COACH-2 D-054): two explicit, pinned `goal` rows so keyless
+  // F7-C exercises durable-memory retrieval on day one. The pinned floor keeps them in
+  // every coach turn's context (they can never be evicted by the rolling message window).
+  // Explicit statements → `estimated:false`, full confidence (10,000 bps); no float money.
+  await repos.coach.memory.create({
+    domain: "money", kind: "goal", text: "Save ₹5,000 every month", pinned: true, estimated: false, confidenceBps: 10000, sourceCaptureId: null,
+  });
+  await repos.coach.memory.create({
+    domain: "skills", kind: "goal", text: "Reach 500 hours on System Design", pinned: true, estimated: false, confidenceBps: 10000, sourceCaptureId: null,
+  });
+
   const evidence = (domain: "health" | "money" | "habits" | "skills", entryKind: string, entry: { id: string; occurredAt: string; localDate: string }, caption: string, suffix: string) => repos.evidence.create({ domain, entryKind, entryId: entry.id, storageProvider: "placeholder", storagePath: "", mimeType: "image/jpeg", sha256: `seed-${suffix}`, caption, occurredAt: entry.occurredAt, localDate: entry.localDate });
   await evidence("health", "meal", breakfast, "Breakfast · 620 kcal", "breakfast");
   await evidence("money", "transaction", groceries, "Grocery receipt · ₹5,380", "groceries");

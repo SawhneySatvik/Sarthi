@@ -23,7 +23,7 @@ export const DOMAIN_REGISTRY = [
     proposalKinds: ["meal", "water", "workout", "weighIn"],
     parseHints: "Meals, water, workouts, and weigh-ins use explicit integer quantities.",
     coachInstructions: "Reflect observed health entries without medical advice or invented targets.",
-    allowedTools: ["read-progress", "read-plan", "propose-adaptation"],
+    allowedTools: ["read-domain-evidence", "read-progress", "read-plan", "propose-adaptation"],
     evaluatePlanEffects: (input, repos) => activePlanEffects(input, repos),
     async contextLoader(repos: UserScopedRepositories, range: DateRange): Promise<DomainCoachContext> {
       const [meals, water, workouts, weighIns] = await Promise.all([
@@ -43,7 +43,7 @@ export const DOMAIN_REGISTRY = [
     proposalKinds: ["transaction"],
     parseHints: "Transactions require integer paise and an explicit direction.",
     coachInstructions: "Use only recorded ledger evidence; do not give financial advice or invent a balance.",
-    allowedTools: ["read-progress", "read-plan"],
+    allowedTools: ["read-domain-evidence", "read-progress", "read-plan"],
     evaluatePlanEffects: (input, repos) => activePlanEffects(input, repos),
     async contextLoader(repos: UserScopedRepositories, range: DateRange): Promise<DomainCoachContext> {
       const rows = ordered((await repos.money.transactions.list({})).filter((row) => inRange(row.localDate, range)));
@@ -56,7 +56,7 @@ export const DOMAIN_REGISTRY = [
     proposalKinds: ["habitLog"],
     parseHints: "Habit logs must match an existing habit and stay pending when ambiguous.",
     coachInstructions: "Describe logged habit states without judgment; never silently change a habit or plan.",
-    allowedTools: ["read-progress", "read-plan", "propose-adaptation"],
+    allowedTools: ["read-domain-evidence", "read-progress", "read-plan", "propose-adaptation"],
     evaluatePlanEffects: (input, repos) => activePlanEffects(input, repos),
     async contextLoader(repos: UserScopedRepositories, range: DateRange): Promise<DomainCoachContext> {
       const rows = ordered((await repos.habits.logs.list({})).filter((row) => inRange(row.localDate, range)));
@@ -69,7 +69,7 @@ export const DOMAIN_REGISTRY = [
     proposalKinds: ["skillSession"],
     parseHints: "Skill sessions require a matched existing skill and integer minutes.",
     coachInstructions: "Ground skill feedback in recorded practice minutes and named milestones only.",
-    allowedTools: ["read-progress", "read-plan", "propose-adaptation"],
+    allowedTools: ["read-domain-evidence", "read-progress", "read-plan", "propose-adaptation"],
     evaluatePlanEffects: (input, repos) => activePlanEffects(input, repos),
     async contextLoader(repos: UserScopedRepositories, range: DateRange): Promise<DomainCoachContext> {
       const rows = ordered((await repos.skills.sessions.list({})).filter((row) => inRange(row.localDate, range)));

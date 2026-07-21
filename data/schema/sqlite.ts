@@ -20,6 +20,7 @@ import type {
   PlanRule,
   DomainStatsSnapshot,
   CoachEvidence,
+  CoachToolLog,
   CommitRowSnapshot,
 } from '@/data/schema/contract';
 
@@ -495,6 +496,60 @@ export const coachNotes = sqliteTable(
   (t) => [
     uniqueIndex('coach_notes_userId_scope_stalenessKey_uq').on(t.userId, t.scope, t.stalenessKey),
     index('coach_notes_userId_localDate_scope_idx').on(t.userId, t.localDate, t.scope),
+  ],
+);
+
+/* ── coach_messages — immutable base. Matches coachMessagesTable. */
+export const coachMessages = sqliteTable(
+  'coach_messages',
+  {
+    ...immutableBase,
+    role: text('role').notNull(),
+    text: text('text').notNull(),
+    localDate: text('localDate').notNull(),
+    toolLogJson: text('toolLogJson', { mode: 'json' }).$type<CoachToolLog>(),
+    proposedAdaptationId: text('proposedAdaptationId'),
+    modelProvider: text('modelProvider'),
+    modelId: text('modelId'),
+  },
+  (t) => [index('coach_messages_userId_createdAt_idx').on(t.userId, t.createdAt)],
+);
+
+/* ── coach_memory — immutable base + bounded lifecycle update. Matches coachMemoryTable. */
+export const coachMemory = sqliteTable(
+  'coach_memory',
+  {
+    ...immutableBase,
+    domain: text('domain').notNull(),
+    kind: text('kind').notNull(),
+    text: text('text').notNull(),
+    pinned: integer('pinned', { mode: 'boolean' }).notNull().default(false),
+    useCount: integer('useCount').notNull().default(0),
+    lastUsedAt: text('lastUsedAt'),
+    sourceCaptureId: text('sourceCaptureId'),
+    estimated: integer('estimated', { mode: 'boolean' }).notNull(),
+    confidenceBps: integer('confidenceBps').notNull(),
+    retired: integer('retired', { mode: 'boolean' }).notNull().default(false),
+  },
+  (t) => [
+    index('coach_memory_userId_domain_idx').on(t.userId, t.domain),
+    index('coach_memory_userId_pinned_idx').on(t.userId, t.pinned),
+  ],
+);
+
+/* ── coach_memory_audit — immutable base. Matches coachMemoryAuditTable. */
+export const coachMemoryAudit = sqliteTable(
+  'coach_memory_audit',
+  {
+    ...immutableBase,
+    memoryId: text('memoryId').notNull(),
+    kind: text('kind').notNull(),
+    confidenceTier: text('confidenceTier').notNull(),
+    source: text('source').notNull(),
+  },
+  (t) => [
+    index('coach_memory_audit_userId_memoryId_idx').on(t.userId, t.memoryId),
+    index('coach_memory_audit_userId_createdAt_idx').on(t.userId, t.createdAt),
   ],
 );
 

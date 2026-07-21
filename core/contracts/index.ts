@@ -27,6 +27,7 @@ export type {
   SkillRepositories,
   PlanRepositories,
   CoachRepositories,
+  CoachMemoryRepository,
   EvidenceRepository,
   JourneyRepositories,
   CommitRepository,
