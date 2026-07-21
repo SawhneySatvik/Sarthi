@@ -242,7 +242,7 @@ test("routing: a neutral question defaults to health evidence", async () => {
   assert.equal(result.toolLog[0]?.args.domain, "health");
 });
 
-test("adjust intent: reads the plan then proposes exactly one adaptation intent — nothing is created", async () => {
+test("adjust intent: reads the plan then creates exactly one status:proposed adaptation — plan untouched", async () => {
   const { repos, llm } = await setup();
   const item = await seedPlanItem(repos, "health", 25, "minutes");
 
@@ -255,8 +255,23 @@ test("adjust intent: reads the plan then proposes exactly one adaptation intent 
   assert.equal(result.proposedAdaptation?.planItemId, item.id);
   assert.equal(result.proposedAdaptation?.targetValue, 20); // 25 − floor(25/5)
 
-  // COACH-0 defers creation to COACH-3: no adaptation row, plan item byte-unchanged.
-  assert.equal((await repos.coach.adaptations.list({})).length, 0);
+  // COACH-3: exactly one status:"proposed" row is created, its snapshot built SERVER-SIDE.
+  const rows = await repos.coach.adaptations.list({});
+  assert.equal(rows.length, 1);
+  const row = rows[0];
+  assert.equal(row.id, result.proposedAdaptation?.id, "the surfaced intent carries the created row id");
+  assert.equal(row.status, "proposed");
+  assert.equal(row.beforeJson.entryKind, "planItem");
+  assert.equal(row.beforeJson.entryId, item.id);
+  // Row-only columns the fake step never supplies prove the snapshot is server-authored.
+  assert.equal(row.beforeJson.columns.title, "health target");
+  assert.equal(row.beforeJson.columns.domain, "health");
+  assert.equal(row.beforeJson.columns.targetValue, 25);
+  assert.equal(row.afterJson.columns.targetValue, 20);
+  assert.equal(row.afterJson.columns.title, row.beforeJson.columns.title, "only the numeric target changes");
+  assert.equal(row.afterJson.columns.status, row.beforeJson.columns.status);
+
+  // The plan row itself is byte-unchanged until an explicit Keep (invariant #1).
   assert.equal((await repos.plans.items.byId(item.id))?.targetValue, 25);
 });
 

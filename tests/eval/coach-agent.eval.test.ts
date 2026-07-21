@@ -1,10 +1,15 @@
 /**
- * tests/eval/coach-agent.eval.test.ts — COACH-2 gate (keyless, deterministic). Drives the
- * grounded, persistent `converse` through six fixtures on the fake stack + the migrated
- * eval DB (no network, no keys) and hard-asserts the moat numbers:
+ * tests/eval/coach-agent.eval.test.ts — COACH-2 + COACH-3 gate (keyless, deterministic).
+ * Drives the grounded, persistent `converse` across the fake stack + the migrated eval DB
+ * (no network, no keys) and hard-asserts the moat numbers:
  *   groundedAnswerRate = 1.0 · ungroundedNumericClaims = 0 · pinnedGoalRetention = 1.0 ·
  *   wrongSilentWrites === 0 (reusing `countEstimatedWrites`) · a Layer-1 memory-persistence
  *   assertion (turn 2 sees turn 1's transcript).
+ * COACH-3 extends it with the glass-box adaptation lifecycle: an adjust turn creates exactly
+ * ONE `status:"proposed"` row with SERVER-built before/after snapshots (the LLM never authors
+ * them); the plan row is byte-identical until an explicit Keep; Keep applies under the REUSED
+ * undoable commit envelope and undo restores it; Revert leaves the plan untouched; a duplicate
+ * ask dedupes to the same proposal; a money-item adjust is still refused (no row).
  *
  * Grounding + retention are measured on the CAPTURED step envelopes + the persisted coach
  * answer, so the metric truly reflects what `converse` assembled and returned (not a
@@ -17,7 +22,7 @@ import test, { after, before } from "node:test";
 import { createCoachEngine } from "../../core/coach";
 import type { CoachAgentEnvelope } from "../../core/coach/agent";
 import type { UserScopedRepositories } from "../../core/contracts";
-import { EVAL_NOW, evalSetup } from "./harness";
+import { EVAL_NOW, EVAL_WITHIN, evalSetup } from "./harness";
 import { countEstimatedWrites } from "./report";
 import {
   COACH_EVAL_LOCAL_DATE,
@@ -66,7 +71,7 @@ async function buildEngine() {
   const prompts: string[] = [];
   const capturing = capturingGateway(llm, prompts);
   const engine = createCoachEngine({ repos, llm: capturing, commits: service, now: () => EVAL_NOW });
-  return { repos, engine, prompts };
+  return { repos, engine, prompts, service };
 }
 
 /** Run one turn, capture its envelopes, and fold its grounding/retention into `metrics`. */
@@ -138,18 +143,81 @@ test("coach eval · progress question — reads progress, no invented figures", 
   await foldWrongSilentWrites(repos);
 });
 
-test("coach eval · adjust intent — one adaptation intent surfaced, NO row created (C3 defers)", async () => {
-  const { repos, engine, prompts } = await buildEngine();
+test("coach eval · adjust intent — ONE status:proposed row (server snapshots); plan unchanged until Keep; Keep applies + undo restores", async () => {
+  const { repos, engine, prompts, service } = await buildEngine();
   const itemId = await seedHealthPlanItem(repos, 25);
   await seedMemories(repos);
 
   const { message, proposedAdaptation } = await converseTurn(engine, prompts, "That feels heavy — make my plan lighter.");
-  assert.ok(proposedAdaptation, "an adjustable health target yields one intent");
+  assert.ok(proposedAdaptation, "an adjustable health target yields one proposal");
   assert.equal(proposedAdaptation?.planItemId, itemId);
   assert.equal(proposedAdaptation?.targetValue, 20, "25 − floor(25/5)");
-  assert.equal((await repos.coach.adaptations.list({})).length, 0, "C2 creates no adaptation row");
-  assert.equal(message.proposedAdaptationId, null, "the persisted coach turn links no row yet");
-  assert.equal((await repos.plans.items.byId(itemId))?.targetValue, 25, "the plan item is byte-unchanged");
+
+  // Exactly one status:"proposed" adaptation; the before/after snapshot is built SERVER-SIDE
+  // from the actual plan-item row — the LLM only supplied {planItemId, targetValue, reason}.
+  const rows = await repos.coach.adaptations.list({});
+  assert.equal(rows.length, 1, "exactly one proposal row is created");
+  const adaptation = rows[0];
+  assert.equal(adaptation.id, proposedAdaptation?.id, "the surfaced proposal carries the created row id");
+  assert.equal(adaptation.status, "proposed");
+  assert.equal(adaptation.beforeJson.entryKind, "planItem");
+  assert.equal(adaptation.beforeJson.entryId, itemId);
+  // Row-only columns the fake step NEVER supplies prove the snapshot is server-authored.
+  assert.equal(adaptation.beforeJson.columns.title, "Evening walk");
+  assert.equal(adaptation.beforeJson.columns.domain, "health");
+  assert.equal(adaptation.beforeJson.columns.targetValue, 25);
+  assert.equal(adaptation.afterJson.columns.targetValue, 20);
+  assert.equal(adaptation.afterJson.columns.title, adaptation.beforeJson.columns.title, "only the numeric target changed");
+  assert.equal(adaptation.afterJson.columns.status, adaptation.beforeJson.columns.status);
+
+  // The persisted coach turn links the created row (the UI opens Keep/Revert on this id).
+  assert.equal(message.proposedAdaptationId, adaptation.id, "the coach message links the proposal id");
+
+  // The plan item is BYTE-IDENTICAL until an explicit human Keep (invariant #1).
+  assert.equal((await repos.plans.items.byId(itemId))?.targetValue, 25, "plan untouched pre-Keep");
+
+  // Keep applies through the REUSED undoable commit envelope; undo coheres it back.
+  const kept = await engine.resolveAdaptation({ adaptationId: adaptation.id, action: "keep" });
+  assert.equal(kept.status, "kept");
+  assert.ok(kept.appliedCommitId, "Keep records the applying commit id");
+  assert.equal((await repos.plans.items.byId(itemId))?.targetValue, 20, "Keep lowers the target");
+
+  await service.undoLatest({ commitId: kept.appliedCommitId!, now: EVAL_WITHIN });
+  assert.equal((await repos.plans.items.byId(itemId))?.targetValue, 25, "undo restores the plan");
+  assert.equal((await repos.coach.adaptations.byId(adaptation.id))?.status, "reverted");
+  assert.equal((await repos.coach.adaptations.byId(adaptation.id))?.appliedCommitId, null);
+
+  await foldWrongSilentWrites(repos);
+});
+
+test("coach eval · adjust intent — a duplicate ask dedupes to the SAME proposal", async () => {
+  const { repos, engine, prompts } = await buildEngine();
+  const itemId = await seedHealthPlanItem(repos, 25);
+  await seedMemories(repos);
+
+  const first = await converseTurn(engine, prompts, "That feels heavy — make my plan lighter.");
+  const second = await converseTurn(engine, prompts, "That feels heavy — make my plan lighter.");
+  assert.ok(first.proposedAdaptation && second.proposedAdaptation);
+  assert.equal(second.proposedAdaptation?.id, first.proposedAdaptation?.id, "the duplicate dedupes to one proposal");
+  assert.ok(first.message.proposedAdaptationId, "both coach turns link a proposal");
+  assert.equal(first.message.proposedAdaptationId, second.message.proposedAdaptationId);
+  assert.equal((await repos.coach.adaptations.list({})).length, 1, "no duplicate row");
+  assert.equal((await repos.plans.items.byId(itemId))?.targetValue, 25, "plan untouched — still just a proposal");
+
+  await foldWrongSilentWrites(repos);
+});
+
+test("coach eval · adjust intent — Revert leaves the plan untouched and marks the row reverted", async () => {
+  const { repos, engine, prompts } = await buildEngine();
+  const itemId = await seedHealthPlanItem(repos, 25);
+
+  const { proposedAdaptation } = await converseTurn(engine, prompts, "That feels heavy — make my plan lighter.");
+  assert.ok(proposedAdaptation);
+  const reverted = await engine.resolveAdaptation({ adaptationId: proposedAdaptation!.id, action: "revert" });
+  assert.equal(reverted.status, "reverted");
+  assert.equal((await repos.plans.items.byId(itemId))?.targetValue, 25, "Revert never touched the plan");
+  assert.equal((await repos.coach.adaptations.list({})).length, 1, "the reverted row is retained, not deleted");
+
   await foldWrongSilentWrites(repos);
 });
 
@@ -200,7 +268,7 @@ test("coach eval · memory across turns — turn 2 sees turn 1's transcript; goa
   await foldWrongSilentWrites(repos);
 });
 
-test("COACH-2 GATE — groundedAnswerRate=1.0, ungrounded=0, pinnedGoalRetention=1.0, wrongSilentWrites=0", () => {
+test("COACH-2/3 GATE — groundedAnswerRate=1.0, ungrounded=0, pinnedGoalRetention=1.0, wrongSilentWrites=0", () => {
   assert.ok(metrics.totalTurns >= 6, `at least six coach turns ran: ${JSON.stringify(metrics)}`);
   assert.equal(metrics.ungroundedNumericClaims, 0, "no ungrounded numeric claims across every turn");
   assert.equal(metrics.groundedTurns / metrics.totalTurns, 1.0, "groundedAnswerRate === 1.0");

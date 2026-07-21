@@ -9,8 +9,11 @@
  * Framework-clean (invariant #9): imports only zod + other `core/*` modules, so the loop
  * stays extractable and provider-blind. The three read tools read the REAL repositories;
  * `propose-adaptation` is validated/guarded here — money is excluded per its `allowedTools`
- * — but its actual row creation is deferred to COACH-3 (this ticket exercises the guard and
- * the rejection path only; a valid proposal surfaces as a typed intent descriptor).
+ * — and on a valid, non-duplicate proposal it creates ONE `status:"proposed"` glass-box
+ * `AdaptationRecord` (COACH-3) via the shared `proposeAdaptationRow` helper. The LLM only
+ * ever supplies `{planItemId, targetValue, reason}`; the before/after snapshot is built
+ * SERVER-SIDE from the actual plan-item row (invariant #1), and the plan row itself stays
+ * untouched until an explicit human Keep.
  *
  * Grounding (invariant #1) is structural: the model's context per turn is ONLY the user's
  * own words, tool results read from real typed rows, and confirmed memories — plus an
@@ -29,6 +32,7 @@ import { z } from "zod";
 import type { LlmGateway, UserScopedRepositories } from "@/core/contracts";
 import { deriveGameSummary, type GameSummary } from "@/core/game";
 
+import { buildPlanItemAdaptationSnapshot, proposeAdaptationRow } from "./adaptation";
 import type { CoachToolName } from "./contract";
 import { DOMAIN_REGISTRY } from "./registry";
 
@@ -213,8 +217,13 @@ export interface CoachCitation {
   tool: CoachToolName;
   entryIds?: readonly string[];
 }
-/** A validated-but-uncreated adaptation intent; COACH-3 wires the actual glass-box write. */
+/**
+ * A CREATED glass-box proposal (COACH-3). `id` is the `status:"proposed"` `AdaptationRecord`
+ * row id — the engine threads it onto the coach message's `proposedAdaptationId`, and the
+ * UI opens the existing Keep/Revert dialog on it. The plan row stays untouched until Keep.
+ */
 export interface ProposedAdaptationIntent {
+  id: string;
   planItemId: string;
   targetValue: number;
   reason: string;
@@ -464,7 +473,9 @@ async function dispatchTool(
     return { log: { tool: step.kind, args, ok: true, resultSummary: summary, entries } };
   }
 
-  // propose-adaptation — VALIDATED/GUARDED in COACH-0; the row is created in COACH-3.
+  // propose-adaptation — VALIDATED/GUARDED, then a single glass-box `status:"proposed"`
+  // row is CREATED (COACH-3) via the shared, server-side-snapshot helper. The plan row is
+  // untouched: only an explicit human Keep applies it (invariant #1).
   const args = { planItemId: step.planItemId, targetValue: step.targetValue, reason: step.reason };
   if (proposalMade) {
     return { log: rejected(step.kind, args, "Only one plan adjustment can be proposed per conversation turn.") };
@@ -481,7 +492,10 @@ async function dispatchTool(
   if (item.targetValue === null) {
     return { log: rejected(step.kind, args, "That plan item has no numeric target to adjust.") };
   }
-  const intent: ProposedAdaptationIntent = { planItemId: item.id, targetValue: step.targetValue, reason: step.reason };
+  // Snapshot built SERVER-SIDE from the real row; the LLM never authors before/after.
+  const { before, after } = buildPlanItemAdaptationSnapshot(item, step.targetValue);
+  const created = await proposeAdaptationRow({ repos, planItemId: item.id, before, after, reason: step.reason });
+  const intent: ProposedAdaptationIntent = { id: created.id, planItemId: item.id, targetValue: step.targetValue, reason: step.reason };
   const entries: AgentEvidenceEntry[] = [
     { domain: item.domain, entryKind: "planItem", entryId: item.id, label: item.title, valueInt: step.targetValue, unit: item.targetUnit, status: item.status },
   ];

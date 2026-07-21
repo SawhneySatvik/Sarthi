@@ -2,6 +2,7 @@ import type { LlmGateway } from "@/core/contracts";
 import { deriveGameSummary, deriveReentryCandidate, type GameSummary } from "@/core/game";
 import type { CoachMemoryDomain, CoachMemoryRecord } from "@/data/schema/contract";
 
+import { proposeAdaptationRow } from "./adaptation";
 import { runCoachAgent, type CoachAgentMemory, type CoachAgentTranscriptMessage } from "./agent";
 import { coachBriefOutputSchema, toCoachEvidence, type CoachEngine, type CreateCoachEngineOptions, type DateRange, type DomainCoachContext } from "./contract";
 import { bumpMemoryUsage, selectMemories } from "./memory";
@@ -212,34 +213,19 @@ export function createCoachEngine(options: CreateCoachEngineOptions): CoachEngin
             entryIds: entry.entries.filter((row) => row.entryId !== null).map((row) => row.entryId as string),
           })),
         },
-        // COACH-2 surfaces the adaptation intent but does NOT create the row (that is COACH-3).
-        proposedAdaptationId: null,
+        // COACH-3: the agent loop created the `status:"proposed"` row inside runCoachAgent;
+        // link its id here so the persisted coach turn opens the Keep/Revert dialog on it.
+        proposedAdaptationId: result.proposedAdaptation?.id ?? null,
         modelProvider,
         modelId,
       });
 
       return { message, proposedAdaptation: result.proposedAdaptation };
     },
-    async proposeAdaptation(input) {
-      if (
-        input.before.entryKind !== "planItem" || input.after.entryKind !== "planItem" ||
-        input.before.entryId !== input.planItemId || input.after.entryId !== input.planItemId
-      ) throw new Error("adaptation must contain one matching typed plan-item patch");
-      const equivalent = (await repos.coach.adaptations.list({})).find((adaptation) =>
-        adaptation.status === "proposed" && adaptation.planItemId === input.planItemId &&
-        JSON.stringify(adaptation.beforeJson) === JSON.stringify(input.before) && JSON.stringify(adaptation.afterJson) === JSON.stringify(input.after),
-      );
-      if (equivalent) return equivalent;
-      return repos.coach.adaptations.create({
-        planItemId: input.planItemId,
-        beforeJson: input.before,
-        afterJson: input.after,
-        reason: input.reason,
-        status: "proposed",
-        keptAt: null,
-        revertedAt: null,
-        appliedCommitId: null,
-      });
+    proposeAdaptation(input) {
+      // Same dedupe + create the conversational agent uses (shared `proposeAdaptationRow`),
+      // so re-entry and conversation converge on one AdaptationRecord shape and one dedupe.
+      return proposeAdaptationRow({ repos, planItemId: input.planItemId, before: input.before, after: input.after, reason: input.reason });
     },
     async findReentryAdaptation(input) {
       const [progress, planItems] = await Promise.all([repos.plans.progress.list({}), repos.plans.items.list({})]);
