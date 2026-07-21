@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getSessionForRuntimeRequest, type Session } from "@/app/lib/session";
+import { getSessionForRuntimeRequest, isBearerAuthenticationError, type Session } from "@/app/lib/session";
 import { isRuntimeOverrideError } from "@/app/lib/runtimeOverride";
 import { scrubProviderError, withByok } from "@/app/lib/byok";
 import { parseDump } from "@/core/capture";
@@ -31,6 +31,9 @@ export async function POST(request: Request): Promise<Response> {
   try {
     session = await getSessionForRuntimeRequest(request);
   } catch (error) {
+    if (isBearerAuthenticationError(error)) {
+      return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+    }
     if (isRuntimeOverrideError(error)) {
       return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
     }

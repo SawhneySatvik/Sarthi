@@ -4,7 +4,7 @@ import { cache } from "react";
 
 import type { AdminWaitlistRepository, AuthenticatedUser, LlmGateway, MediaProvider, UserScopedRepositories, VisionProvider, VoiceProvider } from "@/core/contracts";
 import { createPostgresRepositoryFactory, createSqliteRepositoryFactory } from "@/data/repository";
-import { createAuthProvider } from "@/providers/auth";
+import { createAuthProvider, isBearerAuthenticationError, requireRequestUser } from "@/providers/auth";
 import { createLlmGateway, createMediaProvider, createVisionProvider, createVoiceProvider } from "@/providers";
 
 import { getRuntimeConfig, type RuntimeConfig } from "./runtime";
@@ -27,6 +27,9 @@ export interface Session {
   voice: VoiceProvider;
   media: MediaProvider;
 }
+
+/** Re-export the request-auth guard so API routes do not know auth adapter details. */
+export { isBearerAuthenticationError };
 
 interface SessionBase {
   user: AuthenticatedUser;
@@ -58,6 +61,19 @@ function factoryFor(config: RuntimeConfig): RepositoryFactoryHandle {
   return factory;
 }
 
+function sessionBaseForUser(config: RuntimeConfig, user: AuthenticatedUser): SessionBase {
+  const repos = factoryFor(config).forUser(user);
+  const vision = createVisionProvider(config.visionProvider);
+  const voice = createVoiceProvider(config.voiceProvider);
+  // Media/object storage is not wired for serverless yet: the `fake` provider writes
+  // to the local FS (read-only on Vercel) and `production` is an unimplemented throwing
+  // stub. The whole stack stays on the keyless `fake` media provider until object
+  // storage lands — the voice-capture demo path writes no media, so this does not
+  // block the de-risk (fake-stack) Postgres deploy.
+  const media = createMediaProvider("fake");
+  return { user, repos, vision, voice, media, config };
+}
+
 /**
  * Bind a scoped repository set to an EXPLICIT userId, WITHOUT reading the request cookie.
  * Mirrors `getSessionBase`'s `factoryFor(getRuntimeConfig()).forUser(...)` wire, but takes the
@@ -83,17 +99,21 @@ const getSessionBase = cache(async (): Promise<SessionBase> => {
   const config = getRuntimeConfig();
   const auth = createAuthProvider(config.authProvider);
   const user = await auth.requireUser();
-  const repos = factoryFor(config).forUser(user);
-  const vision = createVisionProvider(config.visionProvider);
-  const voice = createVoiceProvider(config.voiceProvider);
-  // Media/object storage is not wired for serverless yet: the `fake` provider writes
-  // to the local FS (read-only on Vercel) and `production` is an unimplemented throwing
-  // stub. The whole stack stays on the keyless `fake` media provider until object
-  // storage lands — the voice-capture demo path writes no media, so this does not
-  // block the de-risk (fake-stack) Postgres deploy.
-  const media = createMediaProvider("fake");
-  return { user, repos, vision, voice, media, config };
+  return sessionBaseForUser(config, user);
 });
+
+/**
+ * Bearer-authenticated API requests are deliberately not React-cached: their token
+ * is request-specific. Cookie/local requests retain the existing cached path exactly.
+ */
+async function getSessionBaseForRequest(request: Request): Promise<SessionBase> {
+  if (!request.headers.has("authorization")) {
+    return getSessionBase();
+  }
+  const config = getRuntimeConfig();
+  const user = await requireRequestUser(config.authProvider, request.headers.get("authorization"));
+  return sessionBaseForUser(config, user);
+}
 
 function sessionForProvider(base: SessionBase, llmProvider: RuntimeConfig["llmProvider"]): Session {
   return {
@@ -113,13 +133,23 @@ export const getSession = cache(async (): Promise<Session> => {
 });
 
 /**
+ * Request-aware auth composition without any caller-controlled runtime-provider
+ * override. Used by non-LLM API routes such as transcription and photo parsing.
+ */
+export async function getSessionForRequest(request: Request): Promise<Session> {
+  const base = await getSessionBaseForRequest(request);
+  return sessionForProvider(base, base.config.llmProvider);
+}
+
+/**
  * Request-aware composition for the small set of runtime AI routes. The base session
- * authenticates and binds the repository first; only then may a dev/judge header select
- * a matrix-supported LLM gateway. This function intentionally is not React-cached so a
- * provider selected for one request cannot bleed into another request.
+ * authenticates and binds the repository first (from either the existing cookie path or
+ * a validated native bearer token); only then may a dev/judge header select a matrix-
+ * supported LLM gateway. This function intentionally is not React-cached so a provider
+ * selected for one request cannot bleed into another request.
  */
 export async function getSessionForRuntimeRequest(request: Request): Promise<Session> {
-  const base = await getSessionBase();
+  const base = await getSessionBaseForRequest(request);
   const override = resolveRequestLlmProvider(request.headers, base.config);
   return sessionForProvider(base, override ?? base.config.llmProvider);
 }

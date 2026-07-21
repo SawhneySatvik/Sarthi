@@ -13,7 +13,11 @@ import { ProviderConfigurationError } from "../core/contracts";
 import { safeRelativeNext } from "../app/auth/callback/safe-next";
 import { createAuthProvider } from "../providers/auth";
 import { LocalPasswordAuthProvider } from "../providers/auth/local-password";
-import { SupabaseAuthProvider } from "../providers/auth/supabase";
+import {
+  BearerAuthenticationError,
+  parseBearerAccessToken,
+  SupabaseAuthProvider,
+} from "../providers/auth/supabase";
 
 import { createMemoryDb } from "./helpers/memory-db";
 
@@ -165,6 +169,22 @@ test("createAuthProvider defaults to the keyless local-password gate", async () 
     const auth = createAuthProvider("local-password");
     assert.ok(auth instanceof LocalPasswordAuthProvider);
   });
+});
+
+test("native bearer tokens are parsed strictly and never fall back to local auth", async () => {
+  assert.equal(parseBearerAccessToken("Bearer header.payload.signature"), "header.payload.signature");
+  assert.equal(parseBearerAccessToken("bearer token+/="), "token+/=");
+  for (const malformed of [null, "", "Basic token", "Bearer", "Bearer token extra", "Bearer "]) {
+    assert.throws(() => parseBearerAccessToken(malformed), BearerAuthenticationError);
+  }
+
+  // A bearer credential must not be interpreted as the local fixed identity. The
+  // request composition will only validate it through Supabase Auth in supabase mode.
+  const { requireRequestUser } = await import("../providers/auth");
+  await assert.rejects(
+    requireRequestUser("local-password", "Bearer header.payload.signature"),
+    BearerAuthenticationError,
+  );
 });
 
 test("anonymous sandbox REFUSES signIn/signUp (no phantom account on the default deploy)", async () => {

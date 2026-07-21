@@ -5,17 +5,25 @@
  * validates transport facts, and returns a retryable outcome. It has no repository,
  * commit, or framework dependency, so an STT failure cannot create persistent state.
  */
-import type { Transcription, VoiceAudio, VoiceProvider } from "@/core/contracts";
+import { ProviderConfigurationError, type Transcription, type VoiceAudio, type VoiceProvider } from "@/core/contracts";
 
 /** A behavioural transport limit, shared by the recorder and server route. */
 export const MAX_VOICE_DURATION_MS = 30_000;
 
-export const VOICE_MIME_TYPES = ["audio/webm", "audio/wav", "audio/mpeg"] as const;
+/**
+ * `audio/mp4` is emitted by iOS recorders such as Expo AV. It is a transport
+ * allowance only: providers still receive the same bounded `VoiceAudio` port.
+ */
+export const VOICE_MIME_TYPES = ["audio/webm", "audio/wav", "audio/mpeg", "audio/mp4"] as const;
 type VoiceMimeType = (typeof VOICE_MIME_TYPES)[number];
 
 export type TranscriptionOutcome =
   | { ok: true; transcription: Transcription }
-  | { ok: false; retryable: true; error: "invalid-mime" | "invalid-duration" | "provider-unavailable" };
+  | {
+      ok: false;
+      retryable: true;
+      error: "invalid-mime" | "invalid-duration" | "provider-unavailable" | "provider-not-configured";
+    };
 
 export function isVoiceMimeType(value: string): value is VoiceMimeType {
   return (VOICE_MIME_TYPES as readonly string[]).includes(value);
@@ -38,7 +46,13 @@ export async function transcribeVoice(
 
   try {
     return { ok: true, transcription: await voice.transcribe(audio) };
-  } catch {
+  } catch (error) {
+    // An intentionally deferred live adapter is a configuration/capability gap,
+    // not a fabricated transcript or a generic provider outage. The caller can
+    // surface this safely without learning any provider credential details.
+    if (error instanceof ProviderConfigurationError) {
+      return { ok: false, retryable: true, error: "provider-not-configured" };
+    }
     return { ok: false, retryable: true, error: "provider-unavailable" };
   }
 }

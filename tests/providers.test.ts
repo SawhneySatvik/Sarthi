@@ -82,12 +82,19 @@ test("the immutable matrix exposes only the signed model IDs", () => {
   assert.ok(Object.isFrozen(LLM_MODEL_MATRIX.google));
 });
 
-test("provider factories select fake and fail clearly for disabled or deferred providers", () => {
+test("provider factories select fake and preserve an explicit deferred voice capability", async () => {
   assert.ok(createLlmGateway("fake") instanceof FakeLlmGateway);
   assert.ok(createVoiceProvider("fake") instanceof FakeVoiceProvider);
   assert.ok(createVisionProvider("fake") instanceof FakeVisionProvider);
   assert.throws(() => createLlmGateway("anthropic"), /wired but disabled/);
-  assert.throws(() => createVoiceProvider("sarvam"), /not implemented in SAR-002/);
+  await assert.rejects(
+    createVoiceProvider("sarvam").transcribe({
+      bytes: new Uint8Array([1]),
+      mimeType: "audio/mp4",
+      durationMs: 1,
+    }),
+    /server transcription is not implemented/,
+  );
 });
 
 test("live LLM factories construct their adapters without a network request", () => {

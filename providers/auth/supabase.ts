@@ -2,6 +2,35 @@ import type { AuthProvider, AuthenticatedUser } from "@/core/contracts";
 import { RepositoryError } from "@/core/contracts";
 
 /**
+ * A request presented a bearer credential that cannot establish a Supabase
+ * identity. Kept separate from configuration failures so route handlers can
+ * return a safe 401 without turning a bad mobile token into a web redirect.
+ */
+export class BearerAuthenticationError extends Error {
+  constructor() {
+    super("Unauthorized bearer token.");
+    this.name = "BearerAuthenticationError";
+  }
+}
+
+/**
+ * Strict RFC 6750-style parsing. A malformed Authorization header must never
+ * silently fall back to a browser cookie, otherwise a native client could be
+ * bound to the wrong identity on a shared device.
+ */
+export function parseBearerAccessToken(authorization: string | null): string {
+  if (authorization === null) {
+    throw new BearerAuthenticationError();
+  }
+
+  const match = /^Bearer[\t ]+([A-Za-z0-9\-._~+/]+={0,})$/i.exec(authorization);
+  if (!match) {
+    throw new BearerAuthenticationError();
+  }
+  return match[1];
+}
+
+/**
  * Production auth over Supabase Auth (email/password + reset). Enabled by `AUTH_PROVIDER=supabase`.
  *
  * Construction is side-effect-free: NO import of `@supabase/*`, `next/headers`, or
@@ -31,6 +60,21 @@ export class SupabaseAuthProvider implements AuthProvider {
     // `redirect` throws `NEXT_REDIRECT` to interrupt the request, so this never executes; it
     // only gives the compiler a terminal path (the dynamic import widens redirect's `never`).
     throw new RepositoryError("redirect to /login did not interrupt the request");
+  }
+
+  /**
+   * Native clients keep their Supabase session in secure storage, not a cookie.
+   * Validate the supplied access token with Supabase Auth before using its
+   * server-owned subject for repository scoping. Do not decode JWT claims here.
+   */
+  async requireUserFromAccessToken(accessToken: string): Promise<AuthenticatedUser> {
+    const { createSupabaseAccessTokenClient } = await import("./supabase-server-client");
+    const supabase = createSupabaseAccessTokenClient();
+    const { data, error } = await supabase.auth.getUser(accessToken);
+    if (error || !data.user) {
+      throw new BearerAuthenticationError();
+    }
+    return { userId: data.user.id, email: data.user.email ?? null, mode: "supabase" };
   }
 
   async signUp(input: { email: string; password: string }): Promise<void> {

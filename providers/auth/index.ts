@@ -1,9 +1,16 @@
-import type { AuthProvider } from "@/core/contracts";
+import type { AuthProvider, AuthenticatedUser } from "@/core/contracts";
 import type { AuthProviderName } from "@/app/lib/runtime";
 
 import { AnonymousAuthProvider } from "./anonymous";
 import { LocalPasswordAuthProvider } from "./local-password";
-import { SupabaseAuthProvider } from "./supabase";
+import { BearerAuthenticationError, parseBearerAccessToken, SupabaseAuthProvider } from "./supabase";
+
+export { BearerAuthenticationError } from "./supabase";
+
+/** Type guard for route handlers; never return the underlying provider message. */
+export function isBearerAuthenticationError(error: unknown): error is BearerAuthenticationError {
+  return error instanceof BearerAuthenticationError;
+}
 
 /**
  * Selects an auth adapter from a parsed server-side selector. Three branches are live:
@@ -20,4 +27,23 @@ export function createAuthProvider(name: AuthProviderName): AuthProvider {
     return new AnonymousAuthProvider();
   }
   return new LocalPasswordAuthProvider();
+}
+
+/**
+ * Request-level auth composition for API consumers. With no Authorization header
+ * this delegates exactly to the existing cookie/local auth provider. With a bearer
+ * header it is intentionally Supabase-only: local and anonymous modes must never
+ * reinterpret an arbitrary mobile token as their fixed/sandbox identity.
+ */
+export async function requireRequestUser(
+  name: AuthProviderName,
+  authorization: string | null,
+): Promise<AuthenticatedUser> {
+  if (authorization === null) {
+    return createAuthProvider(name).requireUser();
+  }
+  if (name !== "supabase") {
+    throw new BearerAuthenticationError();
+  }
+  return new SupabaseAuthProvider().requireUserFromAccessToken(parseBearerAccessToken(authorization));
 }

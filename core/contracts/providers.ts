@@ -14,7 +14,11 @@ export interface ImageInput {
 
 export interface VoiceAudio {
   bytes: Uint8Array;
-  mimeType: "audio/webm" | "audio/wav" | "audio/mpeg";
+  /**
+   * `audio/mp4` is the iOS/Expo-friendly container form. The server still validates
+   * both the declared multipart MIME and the File MIME before a provider sees bytes.
+   */
+  mimeType: "audio/webm" | "audio/wav" | "audio/mpeg" | "audio/mp4";
   durationMs: number;
 }
 

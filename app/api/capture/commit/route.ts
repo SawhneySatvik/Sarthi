@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getSessionForRuntimeRequest, type Session } from "@/app/lib/session";
+import { getSessionForRuntimeRequest, isBearerAuthenticationError, type Session } from "@/app/lib/session";
 import { isRuntimeOverrideError } from "@/app/lib/runtimeOverride";
 import { withByok } from "@/app/lib/byok";
 import {
@@ -64,6 +64,9 @@ export async function POST(request: Request): Promise<Response> {
     // server still RE-ROUTES every proposal below (D-040) — BYOK never touches the trust seam.
     ({ repos, llm } = withByok(await getSessionForRuntimeRequest(request), request));
   } catch (error) {
+    if (isBearerAuthenticationError(error)) {
+      return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+    }
     if (isRuntimeOverrideError(error)) {
       return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
     }

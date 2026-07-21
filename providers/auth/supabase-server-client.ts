@@ -1,5 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import { ProviderConfigurationError } from "@/core/contracts";
 
@@ -50,6 +50,23 @@ export async function createSupabaseServerClient(): Promise<SupabaseClient> {
           // Render context: cookies are read-only here; middleware refreshes the session.
         }
       },
+    },
+  });
+}
+
+/**
+ * A stateless server client used only to validate a caller-supplied Supabase
+ * access token. It never reads or writes Next cookies and never receives a
+ * service-role key: `auth.getUser(accessToken)` asks Supabase Auth to validate
+ * the bearer token server-side before its subject is used for repository scope.
+ */
+export function createSupabaseAccessTokenClient(): SupabaseClient {
+  const { url, anonKey } = requireSupabaseEnv();
+  return createClient(url, anonKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false,
     },
   });
 }

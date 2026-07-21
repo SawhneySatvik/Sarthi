@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getSession } from "@/app/lib/session";
+import { getSessionForRequest, isBearerAuthenticationError } from "@/app/lib/session";
 import { isVoiceMimeType, transcribeVoice } from "@/core/voice";
 
 /** POST /api/capture/transcribe — transient, provider-blind STT (SAR-013). */
@@ -20,10 +20,20 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const duration = Number(durationMs);
-  const { voice } = await getSession();
+  let voice;
+  try {
+    ({ voice } = await getSessionForRequest(request));
+  } catch (error) {
+    if (isBearerAuthenticationError(error)) {
+      return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+    }
+    throw error;
+  }
   const outcome = await transcribeVoice(
     { bytes: new Uint8Array(await audio.arrayBuffer()), mimeType, durationMs: duration },
     voice,
   );
-  return NextResponse.json(outcome, { status: outcome.ok ? 200 : outcome.error === "provider-unavailable" ? 502 : 400 });
+  return NextResponse.json(outcome, {
+    status: outcome.ok ? 200 : outcome.error === "provider-unavailable" ? 502 : outcome.error === "provider-not-configured" ? 503 : 400,
+  });
 }

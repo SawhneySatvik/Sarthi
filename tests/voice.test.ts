@@ -20,6 +20,18 @@ test("voice transcription uses the deterministic keyless fake provider", async (
   }
 });
 
+test("audio/mp4 is accepted for iOS recorders without changing fake-stack output", async () => {
+  const outcome = await transcribeVoice(
+    { ...VALID_AUDIO, mimeType: "audio/mp4" },
+    createVoiceProvider("fake"),
+  );
+  assert.equal(outcome.ok, true);
+  if (outcome.ok) {
+    assert.equal(outcome.transcription.confidenceBps, 9800);
+    assert.match(outcome.transcription.text, /Spent 340 on lunch/);
+  }
+});
+
 test("over-limit audio is rejected before VoiceProvider invocation", async () => {
   let calls = 0;
   const provider: VoiceProvider = {
@@ -41,4 +53,9 @@ test("provider failure remains retryable and has no persistence surface", async 
   };
   const outcome = await transcribeVoice(VALID_AUDIO, provider);
   assert.deepEqual(outcome, { ok: false, retryable: true, error: "provider-unavailable" });
+});
+
+test("an unsupported live provider fails explicitly at transcription, not session composition", async () => {
+  const outcome = await transcribeVoice(VALID_AUDIO, createVoiceProvider("gemini"));
+  assert.deepEqual(outcome, { ok: false, retryable: true, error: "provider-not-configured" });
 });

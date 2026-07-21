@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getSession } from "@/app/lib/session";
+import { getSessionForRequest, isBearerAuthenticationError } from "@/app/lib/session";
 import { scrubProviderError, withByok } from "@/app/lib/byok";
 import { parsePhoto, visionPhotoTypeEnum } from "@/core/capture";
 import type { ImageInput } from "@/core/contracts";
@@ -65,7 +65,15 @@ export async function POST(request: Request): Promise<Response> {
 
   // BYOK: a per-request key routes photo parsing to the user's real vision provider;
   // absent a key the configured (fake, keyless) vision provider is used unchanged.
-  const { vision } = withByok(await getSession(), request);
+  let vision;
+  try {
+    ({ vision } = withByok(await getSessionForRequest(request), request));
+  } catch (error) {
+    if (isBearerAuthenticationError(error)) {
+      return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+    }
+    throw error;
+  }
   const result = await parsePhoto(
     { images: [image], timezone, capturedAt: new Date().toISOString(), photoType, caption },
     vision,
