@@ -15,6 +15,7 @@ import {
   FENCE_CLOSE,
   FENCE_OPEN,
   NO_DATA_LINE,
+  coachAgentStepSchema,
   fence,
   readAgentStepEnvelope,
   runCoachAgent,
@@ -189,6 +190,49 @@ test("routing: a progress question reads progress and cites the progress row", a
   assert.equal(result.citationsValid, true);
 });
 
+test("schema: real-model field-name drift is coerced to the canonical flat args", () => {
+  // read-progress: `date` → localDate
+  assert.deepEqual(coachAgentStepSchema.parse({ kind: "read-progress", date: "2026-07-21" }), {
+    kind: "read-progress",
+    localDate: "2026-07-21",
+  });
+  // read-domain-evidence: nested range → flat startDate/endDate
+  assert.deepEqual(
+    coachAgentStepSchema.parse({ kind: "read-domain-evidence", domain: "money", range: { start: "2026-07-01", end: "2026-07-07" } }),
+    { kind: "read-domain-evidence", domain: "money", startDate: "2026-07-01", endDate: "2026-07-07" },
+  );
+  // propose-adaptation: entryId → planItemId, valueInt → targetValue
+  assert.deepEqual(coachAgentStepSchema.parse({ kind: "propose-adaptation", entryId: "pi-1", valueInt: 15, reason: "lighter" }), {
+    kind: "propose-adaptation",
+    planItemId: "pi-1",
+    targetValue: 15,
+    reason: "lighter",
+  });
+  // legacy nested { kind:"tool", tool } shape
+  assert.deepEqual(coachAgentStepSchema.parse({ kind: "tool", tool: "read-plan" }), { kind: "read-plan" });
+});
+
+test("lenient defaults: a bare read-domain-evidence (no dates) grounds over the last 7 days", async () => {
+  const { repos } = await setup();
+  await seedTransactions(repos, [
+    { paise: 41000, localDate: "2026-07-18" }, // in the default window
+    { paise: 99000, localDate: "2026-06-01" }, // older than 7 days → excluded
+  ]);
+  const llm = scriptGateway((_env, i) =>
+    i === 0
+      ? { kind: "read-domain-evidence", domain: "money" } // no startDate/endDate
+      : { kind: "final", text: "Here is your week.", citations: [{ tool: "read-domain-evidence" }] },
+  );
+
+  const result = await runCoachAgent(options(repos, llm, { question: "spending?" }));
+  assert.equal(result.status, "ok");
+  if (result.status !== "ok") throw new Error("unreachable");
+  const evidence = result.toolLog.find((e) => e.tool === "read-domain-evidence");
+  assert.equal(evidence?.args.startDate, "2026-07-12"); // localDate − 6 days
+  assert.equal(evidence?.args.endDate, LOCAL_DATE);
+  assert.equal(evidence?.entries.length, 1); // only the in-window transaction
+});
+
 test("routing: a neutral question defaults to health evidence", async () => {
   const { repos, llm } = await setup();
   const result = await runCoachAgent(options(repos, llm, { question: "Give me a quick summary." }));
@@ -220,9 +264,8 @@ test("step cap: at most five tool calls, then a forced grounded final", async ()
   const { repos } = await setup();
   // A gateway that keeps asking for a fresh (non-duplicate) read each step.
   const llm = scriptGateway((_env, i) => ({
-    kind: "tool",
-    tool: "read-progress",
-    args: { localDate: `2026-07-${String(10 + i).padStart(2, "0")}` },
+    kind: "read-progress",
+    localDate: `2026-07-${String(10 + i).padStart(2, "0")}`,
   }));
 
   const result = await runCoachAgent(options(repos, llm, { question: "status check" }));
@@ -234,7 +277,7 @@ test("step cap: at most five tool calls, then a forced grounded final", async ()
 
 test("duplicate-call guard: an identical (tool,args) pair executes once and the loop still terminates", async () => {
   const { repos } = await setup();
-  const llm = scriptGateway(() => ({ kind: "tool", tool: "read-progress", args: { localDate: LOCAL_DATE } }));
+  const llm = scriptGateway(() => ({ kind: "read-progress", localDate: LOCAL_DATE }));
 
   const result = await runCoachAgent(options(repos, llm, { question: "status check" }));
   assert.equal(result.status, "ok");
@@ -261,7 +304,7 @@ test("citation validation: a dangling citation is dropped and the answer is flag
 
   const llm = scriptGateway((env, i) => {
     if (i === 0) {
-      return { kind: "tool", tool: "read-domain-evidence", args: { domain: "money", range: { start: "2026-07-12", end: LOCAL_DATE } } };
+      return { kind: "read-domain-evidence", domain: "money", startDate: "2026-07-12", endDate: LOCAL_DATE };
     }
     return {
       kind: "final",
@@ -286,7 +329,7 @@ test("money domain rejects propose-adaptation — money has no such permission",
   const item = await seedPlanItem(repos, "money", 500000, "paise");
   const llm = scriptGateway((env, i) => {
     if (i === 0) {
-      return { kind: "tool", tool: "propose-adaptation", args: { planItemId: item.id, targetValue: 400000, reason: "lighter" } };
+      return { kind: "propose-adaptation", planItemId: item.id, targetValue: 400000, reason: "lighter" };
     }
     return { kind: "final", text: "Noted.", citations: [] };
   });
@@ -306,8 +349,8 @@ test("one proposal per turn: a second propose-adaptation in the same turn is rej
   const { repos } = await setup();
   const item = await seedPlanItem(repos, "health", 30, "minutes");
   const llm = scriptGateway((env, i) => {
-    if (i === 0) return { kind: "tool", tool: "propose-adaptation", args: { planItemId: item.id, targetValue: 24, reason: "one" } };
-    if (i === 1) return { kind: "tool", tool: "propose-adaptation", args: { planItemId: item.id, targetValue: 18, reason: "two" } };
+    if (i === 0) return { kind: "propose-adaptation", planItemId: item.id, targetValue: 24, reason: "one" };
+    if (i === 1) return { kind: "propose-adaptation", planItemId: item.id, targetValue: 18, reason: "two" };
     return { kind: "final", text: "Done.", citations: [] };
   });
 
@@ -329,9 +372,10 @@ test("degrade-never-abort: a mid-loop provider throw yields an honest partial-gr
       if (call++ === 0) {
         return {
           object: request.schema.parse({
-            kind: "tool",
-            tool: "read-domain-evidence",
-            args: { domain: "money", range: { start: "2026-07-12", end: LOCAL_DATE } },
+            kind: "read-domain-evidence",
+            domain: "money",
+            startDate: "2026-07-12",
+            endDate: LOCAL_DATE,
           }) as never,
           modelId: "x",
           provider: "fake",
@@ -363,9 +407,10 @@ test("wall-timeout: a clock breach after the first tool degrades to a partial-gr
       now += 46_000; // the first (and only) provider call pushes the wall clock past 45s
       return {
         object: request.schema.parse({
-          kind: "tool",
-          tool: "read-domain-evidence",
-          args: { domain: "money", range: { start: "2026-07-12", end: LOCAL_DATE } },
+          kind: "read-domain-evidence",
+          domain: "money",
+          startDate: "2026-07-12",
+          endDate: LOCAL_DATE,
         }) as never,
         modelId: "x",
         provider: "fake",
