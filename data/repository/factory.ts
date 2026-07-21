@@ -21,6 +21,7 @@
  * repository (create/byId/list).
  */
 import type {
+  AdminWaitlistRepository,
   AuthenticatedUser,
   RepositoryFactory,
   UserScopedRepositories,
@@ -30,10 +31,21 @@ import { createSqliteDb, type SqliteDb } from "@/data/db/sqlite";
 import * as sqliteSchema from "@/data/schema/sqlite";
 import * as postgresSchema from "@/data/schema/postgres";
 
+import { createAdminWaitlistRepository } from "./admin";
 import {
   createScopedRepository as S,
   createAppendOnlyRepository as A,
 } from "./base";
+
+/**
+ * The concrete factory adds one method the core `RepositoryFactory` port intentionally omits:
+ * `adminWaitlist()` — the unscoped admin seam (PL-2). Keeping it OFF the shared port makes the
+ * tenant-scoped `forUser` the only surface business logic normally sees, and marks the admin
+ * path as a distinct, gated seam (see `data/repository/admin.ts`).
+ */
+export type SarthiRepositoryFactory = RepositoryFactory & {
+  adminWaitlist(): AdminWaitlistRepository;
+};
 import { createCommitStateTransitions } from "./commits";
 import { ScopeContext, runInTransaction } from "./scope";
 
@@ -128,17 +140,22 @@ export function assembleUserScopedRepositories(
 export function createRepositoryFactory(
   db: SqliteDb,
   tables: SchemaTables = sqliteSchema,
-): RepositoryFactory {
+): SarthiRepositoryFactory {
   return {
     forUser(user: AuthenticatedUser): UserScopedRepositories {
       const ctx = new ScopeContext(user.userId, db);
       return assembleUserScopedRepositories(db, ctx, tables);
     },
+    // Unscoped admin seam — NOT bound to any tenant. Its only production caller gates on an
+    // authenticated + allowlisted admin (app/lib/admin.ts) before ever calling this.
+    adminWaitlist(): AdminWaitlistRepository {
+      return createAdminWaitlistRepository(db, tables.waitlist);
+    },
   };
 }
 
 /** Convenience composition root: open a libSQL db at `url` and wrap it. */
-export function createSqliteRepositoryFactory(url: string, authToken?: string): RepositoryFactory {
+export function createSqliteRepositoryFactory(url: string, authToken?: string): SarthiRepositoryFactory {
   return createRepositoryFactory(createSqliteDb(url, authToken));
 }
 
@@ -148,7 +165,7 @@ export function createSqliteRepositoryFactory(url: string, authToken?: string): 
  * are the ONLY dialect casts and live exactly here at the boundary: `base.ts`
  * keeps its ORM-boundary casts, and at runtime the pg executor runs pg tables.
  */
-export function createPostgresRepositoryFactory(url: string): RepositoryFactory {
+export function createPostgresRepositoryFactory(url: string): SarthiRepositoryFactory {
   const db = createPostgresDb(url) as unknown as SqliteDb;
   return createRepositoryFactory(db, postgresSchema as unknown as SchemaTables);
 }

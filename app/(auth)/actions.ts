@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 
+import { checkSignupGate } from "@/app/lib/admin";
 import { getRuntimeConfig } from "@/app/lib/runtime";
 import { createAuthProvider } from "@/providers/auth";
 import type { AuthActionState } from "@/components/auth/types";
@@ -65,6 +66,18 @@ export async function signupAction(
   const password = field(formData, "password");
   if (!email || password.length < MIN_PASSWORD) {
     return { error: `Enter an email and a password of at least ${MIN_PASSWORD} characters.` };
+  }
+  // Selective rollout (PL-2): under supabase, only an approved/invited waitlist email (or an
+  // allowlisted admin) may create an account. Everyone else gets a quiet waitlist notice — NOT an
+  // account. Inert under local/anonymous (those providers refuse signUp regardless), so the
+  // default stays unchanged.
+  const gate = await checkSignupGate(email);
+  if (!gate.allowed) {
+    return {
+      notice: gate.onList
+        ? "You're on the waitlist — we'll email you the moment early access opens."
+        : "Sarthi is invite-only right now. Join the waitlist and we'll email you when a spot opens.",
+    };
   }
   try {
     await auth().signUp({ email, password });

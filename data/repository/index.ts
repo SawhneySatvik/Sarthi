@@ -10,3 +10,4 @@ export {
   createSqliteRepositoryFactory,
   createPostgresRepositoryFactory,
 } from "./factory";
+export type { SarthiRepositoryFactory } from "./factory";

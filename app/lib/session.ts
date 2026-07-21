@@ -2,7 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 
-import type { AuthenticatedUser, LlmGateway, MediaProvider, UserScopedRepositories, VisionProvider, VoiceProvider } from "@/core/contracts";
+import type { AdminWaitlistRepository, AuthenticatedUser, LlmGateway, MediaProvider, UserScopedRepositories, VisionProvider, VoiceProvider } from "@/core/contracts";
 import { createPostgresRepositoryFactory, createSqliteRepositoryFactory } from "@/data/repository";
 import { createAuthProvider } from "@/providers/auth";
 import { createLlmGateway, createMediaProvider, createVisionProvider, createVoiceProvider } from "@/providers";
@@ -67,6 +67,16 @@ function factoryFor(config: RuntimeConfig): RepositoryFactoryHandle {
  */
 export function reposForUserId(userId: string): UserScopedRepositories {
   return factoryFor(getRuntimeConfig()).forUser({ userId, email: null, mode: "local" });
+}
+
+/**
+ * The UNSCOPED admin waitlist repository (PL-2), sourced from the SAME memoized per-(dialect,url)
+ * factory the request session uses. Server-only, and deliberately NOT tenant-bound — the admin
+ * gate (`app/lib/admin.ts`) is responsible for authenticating + allowlisting the caller BEFORE
+ * invoking this. Never call this from a tenant/user path.
+ */
+export function adminWaitlistRepository(): AdminWaitlistRepository {
+  return factoryFor(getRuntimeConfig()).adminWaitlist();
 }
 
 const getSessionBase = cache(async (): Promise<SessionBase> => {

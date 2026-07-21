@@ -137,6 +137,7 @@ import type {
   WaitlistRecord,
   WaitlistCreate,
   WaitlistQuery,
+  WaitlistStatus,
 } from "@/data/schema/contract";
 
 /** The verified identity a request runs as. No repository method accepts a caller-supplied `userId`. */
@@ -249,6 +250,25 @@ export interface BillingRepository {
   checkoutSessions: ScopedEntityRepository<CheckoutSessionRecord, CheckoutSessionCreate, CheckoutSessionUpdate, CheckoutSessionQuery>;
   events: AppendOnlyRepository<BillingEventRecord, BillingEventCreate, BillingEventQuery>;
   waitlist: AppendOnlyRepository<WaitlistRecord, WaitlistCreate, WaitlistQuery>;
+}
+
+/**
+ * Admin-only, DELIBERATELY UNSCOPED waitlist access (PL-2). The waitlist is a global
+ * email list — `userId` is metadata, never a tenant key — so approving/inviting emails
+ * requires enumerating ALL rows, which the per-tenant `AppendOnlyRepository` above cannot
+ * do. This port is the explicit seam for that: it is NOT reachable through
+ * `RepositoryFactory.forUser`, and its only production caller (`app/lib/admin.ts`) hands
+ * it out ONLY after an authenticated + allowlisted admin gate. Business logic still goes
+ * through this repository (typed methods, no raw SQL in routes — invariant #5); the seam is
+ * the absence of tenant scoping, not the absence of the repository layer.
+ */
+export interface AdminWaitlistRepository {
+  /** Every waitlist row, most-recent first. Unscoped by design (admin enumeration). */
+  listAll(): Promise<readonly WaitlistRecord[]>;
+  /** The lifecycle status of one email (normalized lower/trim), or null if not on the list. */
+  statusForEmail(email: string): Promise<WaitlistStatus | null>;
+  /** Move one row (by id) to a new lifecycle status. Throws if the id is unknown. */
+  updateStatus(id: string, status: WaitlistStatus): Promise<WaitlistRecord>;
 }
 
 /** The full per-user repository surface, obtained via `RepositoryFactory.forUser`. */

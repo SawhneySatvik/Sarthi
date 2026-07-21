@@ -709,6 +709,8 @@ export const waitlist = pgTable(
     ...immutableBase,
     email: text('email').notNull(),
     source: text('source').notNull().default('pricing'),
+    // Selective-rollout lifecycle (PL-2): pending | approved | invited | rejected.
+    status: text('status').notNull().default('pending'),
   },
   (t) => [uniqueIndex('waitlist_email_uq').on(t.email)],
 );
