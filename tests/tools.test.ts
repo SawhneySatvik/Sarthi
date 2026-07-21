@@ -17,6 +17,7 @@ import {
 import { createRepositoryFactory } from "../data/repository";
 import { createMemoryDb } from "./helpers/memory-db";
 import { createLlmGateway } from "../providers";
+import { type ActiveToolRun, formatCountdown, isToolRunReady, remainingSeconds } from "../components/tools/ToolsProvider";
 
 const LOCAL = { userId: "local-dev", email: null, mode: "local" as const };
 const OTHER = { userId: "other-user", email: null, mode: "local" as const };
@@ -387,4 +388,39 @@ test("Tools clock exposes a cached external-store snapshot instead of reading th
   assert.match(source, /let clockSnapshot = 0;/);
   assert.match(source, /clockSnapshot = Date\.now\(\);\s*clockTimer = window\.setInterval/);
   assert.match(source, /clockSnapshot = Date\.now\(\);\s*for \(const notify of clockListeners\) notify\(\);/);
+});
+
+const FOCUS_RUN: ActiveToolRun = {
+  kind: "focus",
+  startedAt: 1_000_000,
+  durationMinutes: 25,
+  idempotencyKey: "1f7c9d80-0000-4000-8000-000000000010",
+};
+
+test("remainingSeconds counts down per second and clamps both boundaries", () => {
+  // Full duration at the exact start.
+  assert.equal(remainingSeconds(FOCUS_RUN, FOCUS_RUN.startedAt), 25 * 60);
+  // 5 seconds into a 25-minute run.
+  assert.equal(remainingSeconds(FOCUS_RUN, FOCUS_RUN.startedAt + 5000), 1495);
+  // Exactly at duration → zero.
+  assert.equal(remainingSeconds(FOCUS_RUN, FOCUS_RUN.startedAt + 25 * 60000), 0);
+  // Past duration → clamped low, never negative.
+  assert.equal(remainingSeconds(FOCUS_RUN, FOCUS_RUN.startedAt + 26 * 60000), 0);
+  // Stale/pre-hydration clock (now < startedAt, e.g. now = 0) → clamped high, full duration, no huge value.
+  assert.equal(remainingSeconds(FOCUS_RUN, 0), 25 * 60);
+});
+
+test("remainingSeconds zero boundary aligns with isToolRunReady", () => {
+  const readyAt = FOCUS_RUN.startedAt + FOCUS_RUN.durationMinutes * 60000;
+  assert.equal(remainingSeconds(FOCUS_RUN, readyAt), 0);
+  assert.equal(isToolRunReady(FOCUS_RUN, readyAt), true);
+});
+
+test("formatCountdown renders MM:SS with clamped, padded seconds", () => {
+  assert.equal(formatCountdown(1495), "24:55");
+  assert.equal(formatCountdown(60), "1:00");
+  assert.equal(formatCountdown(5), "0:05");
+  assert.equal(formatCountdown(0), "0:00");
+  assert.equal(formatCountdown(5400), "90:00");
+  assert.equal(formatCountdown(-5), "0:00");
 });

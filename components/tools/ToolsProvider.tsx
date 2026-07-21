@@ -22,6 +22,19 @@ export function isToolRunReady(run: ActiveToolRun, now = Date.now()): boolean {
   return now - run.startedAt >= run.durationMinutes * 60000;
 }
 
+export function remainingSeconds(run: ActiveToolRun, now = Date.now()): number {
+  const total = run.durationMinutes * 60;
+  const elapsed = Math.floor((now - run.startedAt) / 1000);
+  return Math.min(total, Math.max(0, total - elapsed));
+}
+
+export function formatCountdown(totalSeconds: number): string {
+  const safe = Math.max(0, Math.floor(totalSeconds));
+  const minutes = Math.floor(safe / 60);
+  const seconds = safe % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
 interface ToolsContextValue {
   run: ActiveToolRun | null;
   startRun: (run: ActiveToolRun) => void;
