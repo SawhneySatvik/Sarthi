@@ -35,7 +35,7 @@ export function NextUpCard({ item }: { item: TodayItem }) {
   };
 
   const content = <NextUpContent item={item} pending={pending} onAct={act} imageBacked={Boolean(artKey)} />;
-  const framed = artKey ? <ArtFrame artKey={artKey} eager className="min-h-52 shadow-[var(--elev-card)]"><div className="flex h-full flex-col justify-end gap-4 p-4">{content}</div></ArtFrame> : content;
+  const framed = artKey ? <ArtFrame artKey={artKey} eager className="min-h-52 shadow-[var(--elev-card)] lg:min-h-40"><div className="flex h-full flex-col justify-end gap-4 p-4 lg:gap-2 lg:p-3">{content}</div></ArtFrame> : content;
 
   return <motion.div tabIndex={0} {...swipeProps} drag="x" dragConstraints={{ left: 0, right: 0 }} dragElastic={0.16} whileDrag={{ scale: 0.98 }} transition={{ type: "spring", stiffness: 360, damping: 26 }} onDragStart={() => setDragging(true)} onDragEnd={(_, info) => { setDragging(false); if (!pending && Math.abs(info.offset.x) >= 72) act(info.offset.x > 0 ? "done" : "skipped"); }} className="relative touch-pan-y focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
     <AnimatePresence>{dragging && <>
@@ -48,7 +48,7 @@ export function NextUpCard({ item }: { item: TodayItem }) {
 
 function NextUpContent({ item, pending, onAct, imageBacked = false }: { item: TodayItem; pending: boolean; onAct: (status: "done" | "skipped") => void; imageBacked?: boolean }) {
   return (
-    <div className={imageBacked ? "flex flex-col gap-4" : "flex flex-col gap-4 rounded-card border border-line bg-card p-4 shadow-[var(--elev-card)]"}>
+    <div className={imageBacked ? "flex flex-col gap-4 lg:gap-2" : "flex flex-col gap-4 rounded-card border border-line bg-card p-4 shadow-[var(--elev-card)] lg:gap-2 lg:p-3"}>
       <div className="flex items-start gap-3">
         <span className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-chip ${DOMAIN_DOT[item.domain]}`} aria-hidden />
         <div>

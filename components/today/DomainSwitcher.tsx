@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 
 import { HabitsLens } from "@/components/lenses/HabitsLens";
 import { HealthLens } from "@/components/lenses/HealthLens";
@@ -33,20 +33,23 @@ export function DomainSwitcher({
   skillsView,
   children,
   initialDomain,
+  desktopContext,
 }: {
   domains: readonly TodayDomain[];
   healthView: HealthView;
   moneyView: MoneyView;
   habitsView: HabitsView;
   skillsView: SkillsView;
-  children: React.ReactNode;
+  children: ReactNode;
   initialDomain?: string;
+  desktopContext?: ReactNode;
 }) {
   const safeInitial = initialDomain && domains.includes(initialDomain as TodayDomain) ? initialDomain as TodayDomain : "all";
   const [selected, setSelected] = useState<"all" | TodayDomain>(safeInitial);
   return (
-    <div>
-      <div className="flex gap-2 overflow-x-auto px-4 py-3">
+    <div className="lg:grid lg:grid-cols-3">
+      {desktopContext && <aside className="lg:col-start-3 lg:row-span-2 lg:row-start-1">{desktopContext}</aside>}
+      <div className="flex gap-2 overflow-x-auto px-4 py-3 lg:col-span-2 lg:row-start-1">
         <Chip active={selected === "all"} onClick={() => setSelected("all")}>
           All
         </Chip>
@@ -56,17 +59,19 @@ export function DomainSwitcher({
           </Chip>
         ))}
       </div>
-      {selected === "all" ? (
-        children
-      ) : selected === "health" ? (
-        <HealthLens view={healthView} />
-      ) : selected === "money" ? (
-        <MoneyLens view={moneyView} />
-      ) : selected === "habits" ? (
-        <HabitsLens view={habitsView} />
-      ) : (
-        <SkillsLens view={skillsView} />
-      )}
+      <div className="lg:col-span-2 lg:row-start-2">
+        {selected === "all" ? (
+          children
+        ) : selected === "health" ? (
+          <HealthLens view={healthView} />
+        ) : selected === "money" ? (
+          <MoneyLens view={moneyView} />
+        ) : selected === "habits" ? (
+          <HabitsLens view={habitsView} />
+        ) : (
+          <SkillsLens view={skillsView} />
+        )}
+      </div>
     </div>
   );
 }

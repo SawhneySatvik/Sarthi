@@ -55,7 +55,7 @@ function EmptyNote({ title, body }: { title: string; body: string }) {
 function AllDone() {
   return (
     <div className="px-4 pt-8">
-      <ArtFrame artKey="today.done_evening" eager className="min-h-56">
+      <ArtFrame artKey="today.done_evening" eager className="min-h-56 lg:min-h-40">
       <Card className="flex h-full flex-col items-center justify-end gap-2 bg-transparent text-center shadow-none">
         <Check size={26} strokeWidth={1.5} aria-hidden className="text-ok" />
         <p className="font-display text-title on-art">All done for today</p>
@@ -88,13 +88,13 @@ function SpineBody({ view }: { view: TodayView }) {
     return <EmptyNote title="No arcs yet" body="Your plan appears here once your first arc begins." />;
   }
   if (view.state === "nothing-planned") {
-    return <div className="px-4 pt-8"><ArtFrame artKey="today.rest" eager className="min-h-56"><div className="flex h-full flex-col justify-end p-5"><p className="font-display text-title on-art">Nothing planned today</p><p className="mt-2 font-ui text-body on-art-dim">Enjoy the open day - or capture something to begin.</p></div></ArtFrame></div>;
+    return <div className="px-4 pt-8"><ArtFrame artKey="today.rest" eager className="min-h-56 lg:min-h-40"><div className="flex h-full flex-col justify-end p-5 lg:p-3"><p className="font-display text-title on-art">Nothing planned today</p><p className="mt-2 font-ui text-body on-art-dim">Enjoy the open day - or capture something to begin.</p></div></ArtFrame></div>;
   }
   if (view.state === "all-done") {
     return <AllDone />;
   }
   return (
-    <div className="flex flex-col gap-6 px-4 pt-2">
+    <div className="flex flex-col gap-6 px-4 pt-2 lg:gap-4">
       {view.nextUp && (
         <Reveal as="section">
           <SectionLabel>Next up</SectionLabel>
@@ -105,7 +105,7 @@ function SpineBody({ view }: { view: TodayView }) {
         // The section itself stays static; only its rows stagger in (no nested reveals).
         <section>
           <SectionLabel>Remaining today</SectionLabel>
-          <ul className="flex flex-col gap-2">
+          <ul className="flex flex-col gap-2 lg:gap-1">
             {view.laterToday.map((item, index) => (
               <LaterRow key={item.id} item={item} index={index} />
             ))}
