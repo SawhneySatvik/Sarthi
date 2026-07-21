@@ -1,0 +1,5 @@
+export type LensEntry = { id: string; title: string; detail: string; valueLabel: string; estimated?: boolean; source?: string };
+export type MoneyLensModel = { balanceLabel: string; safeToSpendLabel: string; coachRead: string; budgets: { id: string; label: string; valueLabel: string }[]; recurring: string[]; leak?: string; entries: LensEntry[] };
+export type HealthLensModel = { headline: string; coachRead: string; metrics: { id: string; label: string; valueLabel: string }[]; meals: LensEntry[]; workout?: LensEntry; weight?: LensEntry };
+export type HabitLensModel = { headline: string; coachRead: string; habits: { id: string; title: string; streakLabel: string; status: 'done' | 'pending' | 'satisfied'; detail?: string }[]; month: { id: string; label: string; complete: boolean; grace?: boolean }[]; stackSuggestion?: string };
+export type SkillLensModel = { tracks: { id: string; title: string; hoursLabel: string; levelLabel: string; next: string; dormant?: boolean; milestones: { id: string; title: string; done: boolean; suggested?: boolean }[]; sessions: LensEntry[] }[] };
