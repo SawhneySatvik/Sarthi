@@ -1,5 +1,6 @@
 import type { LlmGateway, ObjectRequest, ObjectResult, TextRequest } from "@/core/contracts";
 import { coreAnswersSchema, deriveSpine, readFillEnvelope, readSpineEnvelope } from "@/core/onboarding";
+import { deriveAffordVerdict, readAffordEnvelope } from "@/core/tools";
 import type { z } from "zod";
 import {
   CANNED_ONBOARDING_FILLS,
@@ -16,6 +17,13 @@ const FAKE_USAGE = Object.freeze({ inputTokens: 42, outputTokens: 18 });
 function fixtureForObject(operation: ObjectRequest<z.ZodType>["telemetry"]["operation"], prompt: string): unknown {
   if (operation === "capture-parse") {
     return CANONICAL_CAPTURE_DRAFT_FIXTURE;
+  }
+  // T4 (D-017) — the keyless afford-it verdict is DERIVED from the ledger envelope in the
+  // prompt, so it genuinely varies with price vs safe-to-spend (never a fixed string).
+  if (operation === "afford-check") {
+    const context = readAffordEnvelope(prompt);
+    if (!context) throw new Error("afford-check prompt is missing its ledger envelope");
+    return deriveAffordVerdict(context);
   }
   return /"scope":"weekly"/.test(prompt) ? DETERMINISTIC_WEEKLY_BRIEF_FIXTURE : DETERMINISTIC_BRIEF_FIXTURE;
 }

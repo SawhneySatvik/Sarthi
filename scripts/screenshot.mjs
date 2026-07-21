@@ -806,6 +806,50 @@ async function toolsMeditationFinal(browser, themes, widths) {
   });
 }
 
+// T4 (D-017): the two newly-live tools — Afford-it (→ Money verdict, no timer) and Workout
+// Counter (→ Health rep/set log). The deep-tier verdict + both writes are intercepted, so the
+// harness stays keyless and never files a row. afford-* + workout-* × Bone dark/light × 390/1280.
+async function toolsT4Screens(browser, themes, widths) {
+  for (const [theme, mode] of themes) for (const width of widths) await withPage(browser, { theme, mode, width }, async (page) => {
+    await page.route("**/api/tools/afford/check", (route) => route.fulfill({ contentType: "application/json", body: JSON.stringify({
+      ok: true,
+      verdict: { rating: "comfortable", reason: "Yes — ₹3,000 sits comfortably within your ₹42,000 safe-to-spend." },
+      context: { item: "Running shoes", pricePaise: 300000, safeToSpendPaise: 4200000, balancePaise: 5800000, remainingBudgetedPaise: 1200000, upcomingRecurringPaise: 400000, dataDays: 24 },
+      categories: [{ id: "c-shopping", name: "Shopping" }, { id: "c-fitness", name: "Fitness" }],
+    }) }));
+    await page.route("**/api/capture/commit", (route) => route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, result: { commitId: "44444444-4444-4444-8444-444444444444" }, unresolved: [] }) }));
+    await page.route("**/api/tools/workout/complete", (route) => route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, commitId: "55555555-5555-4555-8555-555555555555" }) }));
+
+    // Afford-it — input → verdict (glass-box three numbers) → logged.
+    await page.goto(`${BASE}/tools`, { waitUntil: "networkidle" });
+    await page.waitForTimeout(SETTLE_MS);
+    await page.getByRole("button", { name: /Afford it/ }).click();
+    await page.locator("#afford-item").waitFor({ timeout: 4000 });
+    await page.locator("#afford-item").fill("Running shoes");
+    await page.locator("#afford-price").fill("3000");
+    await page.waitForTimeout(SETTLE_MS);
+    await shot(page, `afford-input-${width}-${theme}-${mode}`);
+    await page.getByRole("button", { name: /Check if I can afford it/ }).click();
+    await page.getByText("Safe to spend").waitFor({ timeout: 4000 });
+    await page.waitForTimeout(SETTLE_MS);
+    await shot(page, `afford-verdict-${width}-${theme}-${mode}`);
+    await page.getByRole("button", { name: /Bought it/ }).click();
+    await page.getByRole("button", { name: "Undo" }).waitFor({ timeout: 4000 });
+    await shot(page, `afford-logged-${width}-${theme}-${mode}`);
+
+    // Workout Counter — rep/set build → filed.
+    await page.goto(`${BASE}/tools`, { waitUntil: "networkidle" });
+    await page.getByRole("button", { name: /Workout counter/ }).click();
+    await page.locator("#workout-duration").waitFor({ timeout: 4000 });
+    await page.locator('input[aria-label="Exercise 1 name"]').fill("Back squat");
+    await page.waitForTimeout(SETTLE_MS);
+    await shot(page, `workout-build-${width}-${theme}-${mode}`);
+    await page.getByRole("button", { name: /Finish/ }).click();
+    await page.getByRole("button", { name: "Undo" }).waitFor({ timeout: 4000 });
+    await shot(page, `workout-complete-${width}-${theme}-${mode}`);
+  });
+}
+
 // SAR-017: Settings is rendered through the real avatar sheet. The six-mode loop
 // relies on withPage's pre-paint localStorage setup; no profile/theme write occurs.
 async function settingsScreens(browser, themes, widths) {
@@ -994,6 +1038,8 @@ try {
     await toolsScreens(browser, EMBER, [MOBILE, DESKTOP]);
   } else if (SHOTS === "tools-meditation-final") {
     await toolsMeditationFinal(browser, EMBER, [MOBILE, DESKTOP]);
+  } else if (SHOTS === "tools-t4") {
+    await toolsT4Screens(browser, THEME_OVERRIDE ?? [["bone", "dark"], ["bone", "light"]], [MOBILE, DESKTOP]);
   } else if (SHOTS === "settings") {
     await settingsScreens(browser, [...EMBER, ...NON_EMBER], [MOBILE]);
     // Desktop: Ember + Bone (both modes) so the T2 controls are verified at 1280 in the

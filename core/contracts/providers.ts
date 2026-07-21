@@ -31,7 +31,14 @@ export interface ObjectRequest<TSchema extends z.ZodType> {
   prompt: string;
   images?: readonly ImageInput[];
   telemetry: {
-    operation: "capture-parse" | "coach-brief" | "coach-ask" | "vision" | "onboarding-spine" | "onboarding-fill";
+    operation:
+      | "capture-parse"
+      | "coach-brief"
+      | "coach-ask"
+      | "vision"
+      | "onboarding-spine"
+      | "onboarding-fill"
+      | "afford-check";
   };
 }
 

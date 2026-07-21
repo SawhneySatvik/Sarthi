@@ -9,9 +9,11 @@ import type { SkillRecord } from "@/data/schema/contract";
 import {
   completeFocusInputSchema,
   completeMeditationInputSchema,
+  completeWorkoutInputSchema,
   createToolSkillInputSchema,
   type CompleteFocusInput,
   type CompleteMeditationInput,
+  type CompleteWorkoutInput,
   type CreateToolSkillInput,
 } from "./contract";
 
@@ -26,6 +28,7 @@ export interface ToolsService {
   createSkill(input: CreateToolSkillInput): Promise<SkillRecord>;
   completeFocus(input: CompleteFocusInput): Promise<CommitResult>;
   completeMeditation(input: CompleteMeditationInput): Promise<{ status: "declined" } | CommitResult>;
+  completeWorkout(input: CompleteWorkoutInput): Promise<CommitResult>;
 }
 
 function localDateAt(iso: string, timeZone: string): string {
@@ -115,6 +118,24 @@ export function createToolsService(options: {
         minutes: input.minutes,
         occurredAt,
         localDate,
+        timezone: timeZone,
+      });
+    },
+
+    async completeWorkout(rawInput) {
+      const input = completeWorkoutInputSchema.parse(rawInput);
+      const occurredAt = now();
+      // Explicit user-entered values only: duration + exercises are typed by the user, and
+      // burnKcal stays null unless they provided one — nothing estimated auto-writes here.
+      return commits.commit({
+        kind: "tool",
+        tool: "workout",
+        idempotencyKey: input.idempotencyKey,
+        durationMinutes: input.durationMinutes,
+        burnKcal: input.burnKcal,
+        exercises: input.exercises,
+        occurredAt,
+        localDate: localDateAt(occurredAt, timeZone),
         timezone: timeZone,
       });
     },
