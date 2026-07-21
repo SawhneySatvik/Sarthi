@@ -6,6 +6,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { ArtFrame } from "@/components/art/ArtFrame";
+import { Reveal } from "@/components/ui/Reveal";
 import { milestoneArt, selectJourneyArt } from "@/components/art/registry";
 import { relativeDay } from "@/app/lib/relativeDay";
 import type { DailyReflectionRecord, ReflectionMediaRecord } from "@/data/schema/contract";
@@ -64,7 +65,7 @@ export function JourneyRail({ view, reflections = [], media = [] }: { view: Jour
     {days.length === 0
       ? <FirstProof />
       : <div className="relative border-l-2 border-line pl-6 lg:grid lg:grid-cols-2 lg:gap-5 lg:border-l-0 lg:pl-0">
-          {days.map((day) => <DayCard key={day.localDate} day={day} open={day.localDate === openDate} isToday={day.localDate === todayStr} animate={interacted && !reduce} onToggle={() => toggle(day.localDate)} onOpenMedia={openMedia} />)}
+          {days.map((day, i) => <DayCard key={day.localDate} day={day} index={i} open={day.localDate === openDate} isToday={day.localDate === todayStr} animate={interacted && !reduce} onToggle={() => toggle(day.localDate)} onOpenMedia={openMedia} />)}
         </div>}
     <ReflectionMemory reflections={reflections} media={media} />
     {openIndex !== null && gallery[openIndex] && <GalleryViewer items={gallery} index={openIndex} onClose={() => setOpenIndex(null)} onIndex={setOpenIndex} />}
@@ -73,7 +74,7 @@ export function JourneyRail({ view, reflections = [], media = [] }: { view: Jour
 
 function FirstProof() { return <section className="overflow-hidden rounded-card border border-line bg-card shadow-[var(--elev-card)]"><ArtFrame artKey="empty.stillness" className="min-h-56 rounded-none border-0"><div className="flex h-full flex-col justify-end p-5"><p className="font-display text-title on-art">Your first day is waiting.</p><p className="mt-2 font-coach text-body leading-[var(--leading-coach)] on-art-dim">Save a reflection or capture a real moment when you are ready.</p></div></ArtFrame></section>; }
 
-function DayCard({ day, open, isToday, animate, onToggle, onOpenMedia }: { day: MergedDay; open: boolean; isToday: boolean; animate: boolean; onToggle: () => void; onOpenMedia: (item: ReflectionMediaRecord) => void }) {
+function DayCard({ day, index, open, isToday, animate, onToggle, onOpenMedia }: { day: MergedDay; index: number; open: boolean; isToday: boolean; animate: boolean; onToggle: () => void; onOpenMedia: (item: ReflectionMediaRecord) => void }) {
   const facts = day.source?.evidence.length ?? 0;
   const evidence = day.source?.evidence[0] ?? null;
   const milestones = day.source?.milestones ?? [];
@@ -81,7 +82,11 @@ function DayCard({ day, open, isToday, animate, onToggle, onOpenMedia }: { day: 
   const preview = collapsedLine(day);
   const panelId = `journey-panel-${day.localDate}`;
 
-  return <section className={`relative pb-7 lg:pb-0 ${open ? "lg:col-span-2" : ""}`}>
+  // Calm staggered entrance on the timeline (Reveal carries the grid col-span className and
+  // collapses to a static <section> under reduced motion). `once` + the stable localDate key
+  // mean an accordion toggle re-render never replays it; the accordion panel below keeps its
+  // own first-paint suppression (`animate`) untouched.
+  return <Reveal as="section" delay={Math.min(index, 8) * 0.04} className={`relative pb-7 lg:pb-0 ${open ? "lg:col-span-2" : ""}`}>
     {/* Mobile spine node; hidden on the desktop multi-column grid. Milestone days earn an amber diamond. */}
     <span aria-hidden className={`absolute -left-[1.86rem] top-5 lg:hidden ${milestones.length ? "h-3 w-3 rotate-45 rounded-none bg-energy" : "h-3 w-3 rounded-chip bg-ink-3"} border-2 border-canvas`} />
     <article className="overflow-hidden rounded-card border border-line bg-card shadow-[var(--elev-card)]">
@@ -115,7 +120,7 @@ function DayCard({ day, open, isToday, animate, onToggle, onOpenMedia }: { day: 
         </div>}
       </motion.div>}
     </article>
-  </section>;
+  </Reveal>;
 }
 
 function Tile({ label, value }: { label: string; value: string }) { return <div className="min-h-28 bg-card p-3"><p className="font-ui text-caption uppercase tracking-wide text-ink-3">{label}</p><p className="mt-2 line-clamp-3 font-ui text-caption text-ink-1">{value}</p></div>; }

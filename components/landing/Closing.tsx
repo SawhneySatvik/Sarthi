@@ -17,7 +17,7 @@ export function Closing() {
       </div>
       <div className="mx-auto flex w-full max-w-3xl flex-col items-center px-6 py-28 text-center sm:px-8 sm:py-36">
         <Reveal>
-          <h2 className="font-coach text-display-xl md:text-hero on-art">Your whole life. One sentence away.</h2>
+          <h2 className="font-coach text-display-xl md:text-hero tracking-tight on-art">Your whole life. One sentence away.</h2>
           <div className="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <TryDemoCTA />
             <Link

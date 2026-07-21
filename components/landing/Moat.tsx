@@ -60,7 +60,7 @@ export function Moat() {
     <section className="mx-auto w-full max-w-6xl px-6 py-24 sm:px-8 sm:py-32">
       <Reveal className="max-w-2xl">
         <p className="font-ui text-caption font-medium uppercase tracking-[0.14em] text-ink-3">The moat</p>
-        <h2 className="mt-3 font-coach text-display-xl text-ink-1">One sentence becomes four.</h2>
+        <h2 className="mt-3 font-coach text-display-xl tracking-tight text-ink-1">One sentence becomes four.</h2>
         <p className="mt-4 font-ui text-body leading-relaxed text-ink-2">
           One capture pipeline routes a single utterance into four typed stores at once. Explicit values
           file silently; anything estimated surfaces as a swipe card — you confirm before it is written.
