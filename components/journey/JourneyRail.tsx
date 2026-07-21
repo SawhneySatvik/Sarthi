@@ -62,12 +62,12 @@ export function JourneyRail({ view, reflections = [], media = [] }: { view: Jour
   const openMedia = (item: ReflectionMediaRecord) => setOpenIndex(gallery.findIndex((mediaItem) => mediaItem.id === item.id));
 
   return <div className="mx-auto max-w-[45rem] px-4 pb-8 lg:max-w-[64rem]">
+    <ReflectionMemory reflections={reflections} media={media} />
     {days.length === 0
       ? <FirstProof />
       : <div className="relative border-l-2 border-line pl-6 lg:grid lg:grid-cols-2 lg:gap-5 lg:border-l-0 lg:pl-0">
           {days.map((day, i) => <DayCard key={day.localDate} day={day} index={i} open={day.localDate === openDate} isToday={day.localDate === todayStr} animate={interacted && !reduce} onToggle={() => toggle(day.localDate)} onOpenMedia={openMedia} />)}
         </div>}
-    <ReflectionMemory reflections={reflections} media={media} />
     {openIndex !== null && gallery[openIndex] && <GalleryViewer items={gallery} index={openIndex} onClose={() => setOpenIndex(null)} onIndex={setOpenIndex} />}
   </div>;
 }
@@ -113,7 +113,7 @@ function DayCard({ day, index, open, isToday, animate, onToggle, onOpenMedia }: 
           <Tile label="Your words" value={day.reflection?.journal.trim() ? day.reflection.journal : "No note saved"} />
         </div>
         {/* AI reflection is attributed and kept clearly separate from the user's own words above.
-            Today's summary is owned by the editor below (ReflectionMemory), so skip it here to avoid the echo. */}
+            Today's summary is owned by the ReflectionMemory editor above, so skip it here to avoid the echo. */}
         {!isToday && day.reflection?.summary && <div className="border-t border-line px-4 py-3">
           <p className="flex items-center gap-1 font-ui text-caption uppercase tracking-wide text-ink-3"><Sparkles size={13} strokeWidth={1.5} aria-hidden />Sarthi&apos;s reflection</p>
           <p className="mt-1 font-coach text-body leading-[var(--leading-coach)] text-ink-1">{day.reflection.summary}</p>
