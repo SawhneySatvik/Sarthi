@@ -9,6 +9,7 @@ import {
   View,
   type GestureResponderEvent,
 } from "react-native";
+import * as ImagePicker from "expo-image-picker";
 
 import { blockedProposalIds, isAcceptAllEligible } from "@core/capture/route";
 import type { Proposal } from "@core/capture/contract";
@@ -137,6 +138,26 @@ function VoiceOrb({ controller, reducedMotion }: { readonly controller: CaptureC
 function InputPane({ controller, reducedMotion }: { readonly controller: CaptureController; readonly reducedMotion: boolean }) {
   const { theme } = useSarthiTheme();
   const seeds = ["log a meal", "add expense", "did a session", "skipped something", "weigh-in", "receipt"];
+  const [photoMessage, setPhotoMessage] = useState<string | null>(null);
+  const pickPhoto = async (photoType: "meal" | "receipt") => {
+    setPhotoMessage(null);
+    const picked = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], base64: true, quality: 1 });
+    if (picked.canceled) return;
+    const asset = picked.assets[0];
+    const mimeType = asset?.mimeType;
+    if (!asset?.base64 || (mimeType !== "image/jpeg" && mimeType !== "image/png" && mimeType !== "image/webp")) {
+      setPhotoMessage("Choose a JPEG, PNG, or WebP image so it can stay reviewable.");
+      return;
+    }
+    try {
+      const binary = globalThis.atob(asset.base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+      await controller.submitPhoto({ bytes, mimeType, filename: asset.fileName ?? undefined }, photoType, controller.state.rawText || null);
+    } catch {
+      setPhotoMessage("Couldn’t prepare that photo. Nothing was saved.");
+    }
+  };
   return (
     <View style={{ gap: theme.spacing.lg }}>
       <Text style={[theme.typography.title, { color: theme.colors.ink1 }]}>What happened?</Text>
@@ -163,6 +184,11 @@ function InputPane({ controller, reducedMotion }: { readonly controller: Capture
         />
         <ActionButton label="Send" onPress={() => { void controller.submitText(); }} tone="strong" />
       </View>
+      <View style={{ flexDirection: "row", gap: theme.spacing.xs }}>
+        <View style={{ flex: 1 }}><ActionButton label="Meal photo" onPress={() => { void pickPhoto("meal"); }} /></View>
+        <View style={{ flex: 1 }}><ActionButton label="Receipt photo" onPress={() => { void pickPhoto("receipt"); }} /></View>
+      </View>
+      {photoMessage ? <Text style={[theme.typography.caption, { color: theme.colors.warn }]}>{photoMessage}</Text> : null}
       <ScrollView horizontal contentContainerStyle={{ gap: theme.spacing.xs }} showsHorizontalScrollIndicator={false}>
         {seeds.map((seed) => (
           <Pressable

@@ -1,6 +1,6 @@
 import { createCommitService } from "@core/capture/commit";
 import type { CommitService } from "@core/capture/commit";
-import type { LlmGateway, UserScopedRepositories, VoiceProvider } from "@contracts";
+import type { LlmGateway, UserScopedRepositories, VisionProvider, VoiceProvider } from "@contracts";
 
 import type { CaptureRuntime } from "./types";
 
@@ -8,6 +8,8 @@ export interface CreateCaptureRuntimeInput {
   readonly repos: UserScopedRepositories;
   readonly llm: LlmGateway;
   readonly voice: VoiceProvider;
+  readonly vision?: VisionProvider;
+  readonly parse?: CaptureRuntime["parse"];
   readonly now: () => string;
   readonly timezone: () => string;
   readonly makeIdempotencyKey: CaptureRuntime["makeIdempotencyKey"];
@@ -28,6 +30,8 @@ export function createCaptureRuntime(input: CreateCaptureRuntimeInput): CaptureR
     repos: input.repos,
     llm: input.llm,
     voice: input.voice,
+    ...(input.vision ? { vision: input.vision } : {}),
+    ...(input.parse ? { parse: input.parse } : {}),
     commits: input.commits ?? createCommitService({ repos: input.repos, llm: input.llm, now: input.now }),
     now: input.now,
     timezone: input.timezone,

@@ -1,4 +1,3 @@
-const fs = require("node:fs");
 const path = require("node:path");
 
 const projectRoot = __dirname;
@@ -12,16 +11,7 @@ function relativeImport(fromFile, absoluteTarget) {
 }
 
 function sharedImport(relativePath) {
-  const candidates = [
-    `${relativePath}.ios.ts`,
-    `${relativePath}.native.ts`,
-    `${relativePath}.ts`,
-    `${relativePath}.tsx`,
-    `${relativePath}/index.ts`,
-    `${relativePath}/index.tsx`,
-  ];
-  const resolved = candidates.find((candidate) => fs.existsSync(path.join(workspaceRoot, candidate)));
-  return `sarthi-shared/${resolved ?? relativePath}`;
+  return `sarthi/${relativePath}`;
 }
 
 function resolveSarthiAlias(moduleName, fromFile) {
@@ -82,9 +72,8 @@ function sarthiAliasPlugin() {
 }
 
 /**
- * Rewrites shared and native aliases to relative imports before Metro resolves
- * them. Unlike an absolute module-resolver target, this keeps workspace files in
- * Metro's dependency graph and its cold-start SHA cache.
+ * Rewrites `@core` and adjacent shared aliases to a linked local package before
+ * Metro resolves them. The source remains read-only at ../core and ../data.
  */
 module.exports = function babelConfig(api) {
   api.cache(true);

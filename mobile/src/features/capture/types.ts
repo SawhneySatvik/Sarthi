@@ -1,6 +1,7 @@
 import type { CommitResult, CommitService, UndoResult } from "@core/capture/commit";
 import type { CaptureDraft, ClarificationQuestion, Proposal, ProposalDomain } from "@core/capture/contract";
-import type { LlmGateway, UserScopedRepositories, VoiceProvider } from "@contracts";
+import type { ParseDumpInput, ParseResult } from "@core/capture/parse";
+import type { LlmGateway, UserScopedRepositories, VisionProvider, VoiceProvider } from "@contracts";
 
 /**
  * The only dependency the feature has on app composition. The local SQLite/store
@@ -10,6 +11,9 @@ import type { LlmGateway, UserScopedRepositories, VoiceProvider } from "@contrac
 export interface CaptureRuntime {
   readonly llm: LlmGateway;
   readonly voice: VoiceProvider;
+  readonly vision?: VisionProvider;
+  /** Production may send parsing to the bearer-authenticated server; fake stays on-device. */
+  readonly parse?: (input: ParseDumpInput) => Promise<ParseResult>;
   readonly repos: UserScopedRepositories;
   readonly commits: Pick<CommitService, "commit" | "undoLatest">;
   readonly timezone: () => string;
@@ -64,7 +68,7 @@ export interface CaptureCommitRecord {
 export interface CaptureState {
   readonly phase: CapturePhase;
   readonly rawText: string;
-  readonly source: "text" | "voice";
+  readonly source: "text" | "voice" | "photo";
   readonly transcript: string;
   readonly transcriptConfidenceBps: number | null;
   readonly draft: CaptureDraft | null;

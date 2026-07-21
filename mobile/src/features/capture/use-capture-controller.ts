@@ -1,11 +1,12 @@
 import { useCallback, useMemo, useReducer } from "react";
 
 import { applyUserEdit, blockedProposalIds, isAcceptAllEligible, routeDraft } from "@core/capture/route";
-import { parseDump } from "@core/capture/parse";
+import { parseDump, type ParseResult } from "@core/capture/parse";
+import { parsePhoto, type VisionPhotoType } from "@core/capture/vision";
 import { prepareDraft, resolveProposal } from "@core/capture/resolve";
 import { transcribeVoice } from "@core/voice";
 import type { Proposal, ProposalDomain } from "@core/capture/contract";
-import type { VoiceAudio } from "@contracts";
+import type { ImageInput, VoiceAudio } from "@contracts";
 
 import { captureReducer, hasOnlyExplicitAutoCandidates } from "./state";
 import { createInitialCaptureState, type CaptureCard, type CaptureCommitRecord, type CaptureError, type CaptureRuntime } from "./types";
@@ -40,15 +41,7 @@ export function useCaptureController(runtime: CaptureRuntime, initialText = "") 
     }
   }, [runtime]);
 
-  const parse = useCallback(async (rawText: string, source: "text" | "voice", transcriptConfidenceBps: number | null = null) => {
-    const trimmed = rawText.trim();
-    if (!trimmed) {
-      dispatch({ type: "error", error: captureError("empty-input", "Add what happened before sending it.", false) });
-      return;
-    }
-
-    dispatch({ type: "begin-parse", rawText: trimmed, source });
-    const parsed = await parseDump({ rawText: trimmed, capturedAt: runtime.now(), timezone: runtime.timezone(), source, transcriptConfidenceBps }, runtime.llm);
+  const routeParsed = useCallback(async (parsed: ParseResult) => {
     if (!parsed.ok) {
       dispatch({ type: "error", error: captureError("parse", "Couldn't parse that. Retry, or file it as a note.") });
       return;
@@ -99,6 +92,27 @@ export function useCaptureController(runtime: CaptureRuntime, initialText = "") 
       dispatch({ type: "auto-file-failed", error: captureError("commit", "Couldn't file the explicit entries. Review them before trying again.") });
     }
   }, [notify, runtime]);
+
+  const parse = useCallback(async (rawText: string, source: "text" | "voice", transcriptConfidenceBps: number | null = null) => {
+    const trimmed = rawText.trim();
+    if (!trimmed) {
+      dispatch({ type: "error", error: captureError("empty-input", "Add what happened before sending it.", false) });
+      return;
+    }
+    dispatch({ type: "begin-parse", rawText: trimmed, source });
+    const parseInput = { rawText: trimmed, capturedAt: runtime.now(), timezone: runtime.timezone(), source, transcriptConfidenceBps };
+    await routeParsed(runtime.parse ? await runtime.parse(parseInput) : await parseDump(parseInput, runtime.llm));
+  }, [routeParsed, runtime]);
+
+  const submitPhoto = useCallback(async (image: ImageInput, photoType: VisionPhotoType, caption: string | null = null) => {
+    if (!runtime.vision) {
+      dispatch({ type: "error", error: captureError("parse", "Photo capture is unavailable right now. Nothing was saved.") });
+      return;
+    }
+    const rawText = caption?.trim() || (photoType === "meal" ? "Meal photo" : "Receipt photo");
+    dispatch({ type: "begin-parse", rawText, source: "photo" });
+    await routeParsed(await parsePhoto({ images: [image], photoType, capturedAt: runtime.now(), timezone: runtime.timezone(), caption }, runtime.vision));
+  }, [routeParsed, runtime]);
 
   const submitText = useCallback(async () => parse(state.rawText, "text"), [parse, state.rawText]);
 
@@ -191,6 +205,7 @@ export function useCaptureController(runtime: CaptureRuntime, initialText = "") 
     transcribe,
     setTranscript: (text: string) => dispatch({ type: "set-transcript", text }),
     submitText,
+    submitPhoto,
     confirmTranscript,
     accept,
     acceptAll,
@@ -204,7 +219,7 @@ export function useCaptureController(runtime: CaptureRuntime, initialText = "") 
     saveAsNote,
     copyText: () => runtime.copyText?.(state.rawText),
     reset: (rawText?: string) => dispatch({ type: "reset", rawText }),
-  }), [accept, acceptAll, acceptEdited, confirmTranscript, retry, runtime, saveAsNote, state, submitText, transcribe, undoLatest]);
+  }), [accept, acceptAll, acceptEdited, confirmTranscript, retry, runtime, saveAsNote, state, submitPhoto, submitText, transcribe, undoLatest]);
 }
 
 export type CaptureController = ReturnType<typeof useCaptureController>;

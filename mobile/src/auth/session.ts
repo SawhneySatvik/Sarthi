@@ -49,6 +49,12 @@ export class NativeAuthController {
     return this.snapshot;
   }
 
+  /** Deep-link exchange has already been verified by Supabase; keep controller state in sync. */
+  async acceptExternalSession(session: NativeSession): Promise<void> {
+    await this.store.set(session);
+    this.publish({ status: 'signed-in', session });
+  }
+
   async signIn(input: { email: string; password: string }): Promise<NativeSession> {
     const session = await this.gateway.signIn(input);
     await this.store.set(session);

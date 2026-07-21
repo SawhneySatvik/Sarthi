@@ -10,7 +10,12 @@ const config = getDefaultConfig(projectRoot);
 // Root watch coverage is required because the shared framework-clean core lives
 // beside—not inside—the Expo project. Babel rewrites aliases to relative imports;
 // this Metro map is a matching resolver contract for tools that retain an alias.
-config.watchFolders = [workspaceRoot];
+config.watchFolders = [
+  workspaceRoot,
+  path.join(workspaceRoot, "core"),
+  path.join(workspaceRoot, "data"),
+  path.join(workspaceRoot, "providers"),
+];
 config.resolver.nodeModulesPaths = [
   path.join(projectRoot, "node_modules"),
   path.join(workspaceRoot, "node_modules"),
@@ -21,11 +26,12 @@ config.resolver.unstable_enablePackageExports = false;
 config.resolver.extraNodeModules = {
   ...(config.resolver.extraNodeModules ?? {}),
   "@mobile": path.join(projectRoot, "src"),
+  "@": workspaceRoot,
   "@core": path.join(workspaceRoot, "core"),
   "@schema": path.join(workspaceRoot, "data", "schema"),
   "@contracts": path.join(workspaceRoot, "core", "contracts"),
   "@providers": path.join(workspaceRoot, "providers"),
-  "sarthi-shared": workspaceRoot,
+  sarthi: path.join(projectRoot, "node_modules", "sarthi"),
   "node:crypto": path.join(projectRoot, "src", "shims", "node-crypto.ts"),
 };
 

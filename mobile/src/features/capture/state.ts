@@ -55,7 +55,7 @@ export type CaptureAction =
   | { type: "begin-transcription" }
   | { type: "transcript-ready"; text: string; confidenceBps: number | null }
   | { type: "set-transcript"; text: string }
-  | { type: "begin-parse"; rawText: string; source: "text" | "voice" }
+  | { type: "begin-parse"; rawText: string; source: "text" | "voice" | "photo" }
   | { type: "draft-prepared"; draft: CaptureDraft; autoCandidates: readonly Proposal[]; deck: readonly CaptureCard[]; questions: readonly ClarificationQuestion[] }
   | { type: "auto-filed"; commit: CaptureCommitRecord }
   | { type: "auto-file-failed"; error: CaptureError }

@@ -1,10 +1,37 @@
 import { AppState } from 'react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { SQLiteStorage } from 'expo-sqlite/kv-store';
 
 export type TimerRecord = { id: string; kind: 'focus' | 'meditation'; startedAtMs: number; durationSeconds: number; contextId?: string };
 export type TimerStore = { load(kind: TimerRecord['kind']): Promise<TimerRecord | null>; save(record: TimerRecord): Promise<void>; clear(kind: TimerRecord['kind']): Promise<void> };
 export type Clock = { now(): number; createId(): string };
 export const wallClock: Clock = { now: () => Date.now(), createId: () => `timer_${Date.now()}_${Math.random().toString(36).slice(2)}` };
+
+/** Local wall-clock records survive backgrounding and process restart. */
+export class SqliteTimerStore implements TimerStore {
+  constructor(private readonly storage = new SQLiteStorage('sarthi-native-timers.db')) {}
+
+  async load(kind: TimerRecord['kind']): Promise<TimerRecord | null> {
+    const raw = await this.storage.getItem(`timer:${kind}`);
+    if (!raw) return null;
+    try {
+      const record = JSON.parse(raw) as TimerRecord;
+      return record.kind === kind && Number.isSafeInteger(record.startedAtMs) && Number.isSafeInteger(record.durationSeconds)
+        ? record
+        : null;
+    } catch {
+      return null;
+    }
+  }
+
+  async save(record: TimerRecord): Promise<void> {
+    await this.storage.setItem(`timer:${record.kind}`, JSON.stringify(record));
+  }
+
+  async clear(kind: TimerRecord['kind']): Promise<void> {
+    await this.storage.removeItem(`timer:${kind}`);
+  }
+}
 
 export function remainingSeconds(record: TimerRecord, nowMs: number): number { return Math.max(0, Math.ceil((record.startedAtMs + record.durationSeconds * 1000 - nowMs) / 1000)); }
 export function elapsedMinutes(record: TimerRecord, nowMs: number): number { return Math.max(0, Math.floor((record.durationSeconds - remainingSeconds(record, nowMs)) / 60)); }
