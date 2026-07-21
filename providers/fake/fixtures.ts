@@ -187,12 +187,6 @@ export const DETERMINISTIC_WEEKLY_BRIEF_FIXTURE = {
   text: "This week has grounded evidence across your life. Keep the next adjustment visible and reversible.",
 } as const;
 
-export const DETERMINISTIC_COACH_ASK_FIXTURE = {
-  fixtureId: "deterministic-coach-ask",
-  fixtureVersion: FAKE_FIXTURE_VERSION,
-  text: "I can only reflect what is recorded here. Choose one small next action and keep any plan change visible before it takes effect.",
-} as const;
-
 export const DETERMINISTIC_ADAPTATION_FIXTURE = {
   fixtureId: "deterministic-reentry-adaptation",
   fixtureVersion: FAKE_FIXTURE_VERSION,

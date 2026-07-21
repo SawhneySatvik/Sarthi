@@ -1,4 +1,4 @@
-import type { AdaptationRecord, CoachNoteRecord, Domain, EvidenceRecord, ProfileGapRecord } from "@/data/schema/contract";
+import type { AdaptationRecord, CoachMessageRecord, CoachMessageRole, CoachNoteRecord, Domain, EvidenceRecord, ProfileGapRecord } from "@/data/schema/contract";
 
 export interface CoachAdaptationView {
   id: string;
@@ -17,6 +17,47 @@ export interface CoachReadingView {
   adaptations: readonly CoachAdaptationView[];
   evidenceCount: number;
   weeklyDomainLines: readonly { domain: Exclude<Domain, "overall">; count: number; text: string }[];
+}
+
+/**
+ * COACH-2 — a page-safe projection of one persisted conversation turn. The raw
+ * `coach_messages` row also carries the grounded `toolLogJson` + provider/model that
+ * authored it; those stay server-side. The thread the client renders needs only the
+ * turn text, its role, when it landed, and the (nullable) proposed-adaptation id the
+ * inline chip resolves against (COACH-3/COACH-4). No provider/model/tool internals leak.
+ */
+export interface CoachThreadMessage {
+  id: string;
+  role: CoachMessageRole;
+  text: string;
+  localDate: string;
+  createdAt: string;
+  proposedAdaptationId: string | null;
+}
+
+function toThreadMessage(message: CoachMessageRecord): CoachThreadMessage {
+  return {
+    id: message.id,
+    role: message.role,
+    text: message.text,
+    localDate: message.localDate,
+    createdAt: message.createdAt,
+    proposedAdaptationId: message.proposedAdaptationId,
+  };
+}
+
+/** The single most-recent turn, page-safe (used for the ask-box response `message`). */
+export function projectCoachMessage(message: CoachMessageRecord): CoachThreadMessage {
+  return toThreadMessage(message);
+}
+
+/** The last `limit` turns in chronological order, page-safe (the `/coach` thread). */
+export function projectCoachThread(messages: readonly CoachMessageRecord[], limit = 30): CoachThreadMessage[] {
+  return messages
+    .slice()
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id))
+    .slice(-limit)
+    .map(toThreadMessage);
 }
 
 export function formatAdaptationSnapshot(snapshot: AdaptationRecord["beforeJson"]): string {

@@ -7,7 +7,6 @@ import {
   CANNED_ONBOARDING_FILLS,
   CANONICAL_CAPTURE_DRAFT_FIXTURE,
   CANNED_COACH_LINE_FIXTURE,
-  DETERMINISTIC_COACH_ASK_FIXTURE,
   DETERMINISTIC_BRIEF_FIXTURE,
   DETERMINISTIC_WEEKLY_BRIEF_FIXTURE,
 } from "./fixtures";
@@ -61,10 +60,6 @@ function spineFromPrompt(prompt: string): unknown {
   return deriveSpine(envelope.domain, answers);
 }
 
-function fixtureForText(operation: TextRequest["telemetry"]["operation"]): string {
-  return operation === "capture-line" ? CANNED_COACH_LINE_FIXTURE.text : DETERMINISTIC_COACH_ASK_FIXTURE.text;
-}
-
 function reflectionText(prompt: string): string {
   const parsed = JSON.parse(prompt) as { reflection?: { mood?: string; energyLevel?: number; sleepMinutes?: number | null; journal?: string }; facts?: unknown[] };
   const reflection = parsed.reflection;
@@ -100,7 +95,7 @@ export class FakeLlmGateway implements LlmGateway {
 
   async generateText(request: TextRequest) {
     return {
-      text: request.telemetry.operation === "reflection-summary" ? reflectionText(request.prompt) : fixtureForText(request.telemetry.operation),
+      text: request.telemetry.operation === "reflection-summary" ? reflectionText(request.prompt) : CANNED_COACH_LINE_FIXTURE.text,
       modelId: `fake-${request.tier}-v1`,
       provider: "fake" as const,
       latencyMs: FAKE_LATENCY_MS,

@@ -26,7 +26,7 @@
     "test:onboarding": "tsx --test tests/onboarding-contract.test.ts tests/onboarding-spine.test.ts tests/onboarding-accept.test.ts tests/onboarding-detail.test.ts",
     "test:ui": "tsx --test tests/tokens.test.ts tests/capture-deck.test.ts",
     "test:offline": "tsx --test tests/offline-queue.test.ts",
-    "test:eval": "tsx --test tests/eval/f3-gate.eval.test.ts tests/eval/f5-receipt.eval.test.ts tests/eval/timer-session.eval.test.ts",
+    "test:eval": "tsx --test tests/eval/f3-gate.eval.test.ts tests/eval/f5-receipt.eval.test.ts tests/eval/timer-session.eval.test.ts tests/eval/coach-agent.eval.test.ts",
     "test": "pnpm test:core-boundary && pnpm test:providers && pnpm test:data && pnpm test:migrations && pnpm test:capture && pnpm test:domains && pnpm test:tools && pnpm test:views && pnpm test:art && pnpm test:coach && pnpm test:onboarding && pnpm test:ui && pnpm test:offline && pnpm test:eval",
     "check": "pnpm typecheck && pnpm lint && pnpm check:core-boundary && pnpm test",
     "db:generate": "drizzle-kit generate",

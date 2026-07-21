@@ -34,7 +34,6 @@ export interface ObjectRequest<TSchema extends z.ZodType> {
     operation:
       | "capture-parse"
       | "coach-brief"
-      | "coach-ask"
       | "coach-agent-step"
       | "coach-memory-distill"
       | "vision"
@@ -56,7 +55,7 @@ export interface TextRequest {
   tier: Tier;
   system: string;
   prompt: string;
-  telemetry: { operation: "capture-line" | "coach-ask" | "reflection-summary" };
+  telemetry: { operation: "capture-line" | "reflection-summary" };
 }
 
 export interface LlmGateway {

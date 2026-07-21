@@ -232,8 +232,11 @@ export function CoachReadingRoom({ initial, reentryEligible, reentry }: { initia
         method: "POST", headers: { "content-type": "application/json", ...runtimeProviderHeaders(), ...byokHeaders() }, body: JSON.stringify({ text, timezone: zone() }),
       });
       const body = await jsonBody(response);
-      if (!body?.ok || !body.answer || typeof body.answer !== "object" || typeof (body.answer as { text?: unknown }).text !== "string") throw new Error("ask unavailable");
-      setAnswer((body.answer as { text: string }).text);
+      // COACH-2 shim: the response is now `{ message, proposedAdaptation, thread }`; render the
+      // coach message text in the existing single-answer slot. The persisted-thread rendering +
+      // the inline proposal chip are COACH-4 — this keeps `/coach` fully working meanwhile.
+      if (!body?.ok || !body.message || typeof body.message !== "object" || typeof (body.message as { text?: unknown }).text !== "string") throw new Error("ask unavailable");
+      setAnswer((body.message as { text: string }).text);
       setQuestion("");
     } catch {
       setActionError("Your question was not sent; nothing was saved.");
