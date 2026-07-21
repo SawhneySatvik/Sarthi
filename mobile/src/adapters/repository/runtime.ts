@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import type { UserScopedRepositories } from "@contracts";
-import { applyNativeMigrations, createExpoRepositoryDatabase } from "@mobile/db";
+import { applyNativeMigrations, createExpoRepositoryDatabase, type LocalRepositoryStorage } from "@mobile/db";
 import { LocalDevAuthProvider } from "@mobile/adapters/local-auth";
 
 import { RepositoryVersionStore } from "@mobile/store";
@@ -18,6 +18,8 @@ export interface MobileRepositoryRuntime {
   readonly auth: LocalDevAuthProvider;
   readonly repositories: MobileRepositoryFactory;
   readonly versions: RepositoryVersionStore;
+  /** Composition-only seam for M4; screens still receive only scoped repositories. */
+  readonly storage: LocalRepositoryStorage;
   forLocalDev(): Promise<UserScopedRepositories>;
 }
 
@@ -34,6 +36,7 @@ export function createMobileRepositoryRuntime(databaseName = "sarthi-mobile.db")
     auth,
     repositories,
     versions,
+    storage: database.storage,
     async forLocalDev(): Promise<UserScopedRepositories> {
       await ready;
       return repositories.forUser(await auth.requireUser());

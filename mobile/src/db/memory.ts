@@ -52,6 +52,13 @@ export class InMemoryLocalRepositoryStorage implements LocalRepositoryStorage {
     return changed;
   }
 
+  async delete(table: string, conditions: readonly SqliteCondition[]): Promise<number> {
+    const rows = this.#tables.get(table) ?? [];
+    const retained = rows.filter((row) => !matches(row, conditions));
+    this.#tables.set(table, retained);
+    return rows.length - retained.length;
+  }
+
   async transaction<T>(work: () => Promise<T>): Promise<T> {
     const tablesBefore = new Map(
       [...this.#tables.entries()].map(([table, rows]) => [table, rows.map(cloneRow)]),
@@ -91,5 +98,10 @@ export class InMemoryLocalRepositoryStorage implements LocalRepositoryStorage {
 
   async listConfirmedOutbox(userId: string): Promise<readonly LocalOutboxRow[]> {
     return this.#outbox.filter((row) => row.userId === userId).map((row) => ({ ...row }));
+  }
+
+  async markConfirmedOutboxQueued(userId: string, id: string): Promise<void> {
+    const row = this.#outbox.find((entry) => entry.userId === userId && entry.id === id);
+    if (row) row.state = "acked";
   }
 }

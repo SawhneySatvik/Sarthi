@@ -36,6 +36,8 @@ export interface LocalRepositoryStorage {
     conditions: readonly SqliteCondition[],
     patch: SqliteRow,
   ): Promise<number>;
+  /** Only native adapters call this with a user-bound predicate. */
+  delete(table: string, conditions: readonly SqliteCondition[]): Promise<number>;
   transaction<T>(work: () => Promise<T>): Promise<T>;
 
   /** Execute trusted, bundled migration SQL. Never accept application input. */
@@ -45,4 +47,5 @@ export interface LocalRepositoryStorage {
   bumpMetaCounter(key: string, updatedAt: string): Promise<number>;
   insertConfirmedOutbox(row: LocalOutboxRow): Promise<void>;
   listConfirmedOutbox(userId: string): Promise<readonly LocalOutboxRow[]>;
+  markConfirmedOutboxQueued(userId: string, id: string): Promise<void>;
 }

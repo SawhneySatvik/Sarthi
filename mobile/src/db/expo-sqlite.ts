@@ -80,6 +80,15 @@ class ExpoSqliteRepositoryStorage implements LocalRepositoryStorage {
     return result.changes;
   }
 
+  async delete(table: string, conditions: readonly SqliteCondition[]): Promise<number> {
+    const predicate = where(conditions);
+    const result = await this.#executor.runAsync(
+      `DELETE FROM ${quote(table)}${predicate.clause}`,
+      predicate.values,
+    );
+    return result.changes;
+  }
+
   async transaction<T>(work: () => Promise<T>): Promise<T> {
     if (this.#transactionDepth > 0) return work();
     let result: T;
@@ -129,6 +138,13 @@ class ExpoSqliteRepositoryStorage implements LocalRepositoryStorage {
       [userId],
     );
     return rows;
+  }
+
+  async markConfirmedOutboxQueued(userId: string, id: string): Promise<void> {
+    await this.#executor.runAsync(
+      `UPDATE "sarthi_native_outbox" SET "state" = 'acked' WHERE "userId" = ? AND "id" = ?`,
+      [userId, id],
+    );
   }
 }
 

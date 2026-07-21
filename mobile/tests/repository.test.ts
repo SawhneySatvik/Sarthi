@@ -130,6 +130,6 @@ test("native migration ledger applies the shared contract and local state once",
   await applyNativeMigrations(storage);
   const second = await storage.select("sarthi_native_migrations", []);
 
-  assert.equal(first.length, 2);
-  assert.equal(second.length, 2);
+  assert.equal(first.length, 3);
+  assert.equal(second.length, 3);
 });

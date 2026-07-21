@@ -12,10 +12,9 @@ export interface ConfirmedOutboxEntry {
 }
 
 /**
- * Local sync preparation only. It is intentionally NOT a general offline queue:
- * an entry is created only after the transaction that wrote a `committed`
- * envelope has returned successfully. M4 owns replay, idempotency and remote
- * acknowledgement.
+ * Local sync preparation only. An entry is created only after its local
+ * transaction has committed. Pending capture cards never reach a repository,
+ * so they cannot appear here; M4 owns replay and remote acknowledgement.
  */
 export class ConfirmedCommitOutbox {
   constructor(
@@ -30,14 +29,14 @@ export class ConfirmedCommitOutbox {
     const envelope = mutations.find(
       (mutation) => mutation.table === "commits" && mutation.operation === "create" && mutation.commitStatus === "committed",
     );
-    if (!envelope) return;
+    const commitId = envelope?.id ?? this.createId();
 
     const createdAt = new Date().toISOString();
     await this.storage.insertConfirmedOutbox({
       id: this.createId(),
       userId,
-      commitId: envelope.id,
-      payloadJson: JSON.stringify({ version: 1, commitId: envelope.id, mutations }),
+      commitId,
+      payloadJson: JSON.stringify({ version: 1, commitId, mutations }),
       createdAt,
       state: "pending",
     });
@@ -46,6 +45,10 @@ export class ConfirmedCommitOutbox {
   async list(userId: string): Promise<readonly ConfirmedOutboxEntry[]> {
     const rows = await this.storage.listConfirmedOutbox(userId);
     return rows.map((row) => this.decode(row));
+  }
+
+  async markQueued(userId: string, id: string): Promise<void> {
+    await this.storage.markConfirmedOutboxQueued(userId, id);
   }
 
   private decode(row: LocalOutboxRow): ConfirmedOutboxEntry {

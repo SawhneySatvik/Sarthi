@@ -91,4 +91,32 @@ const nativeRepositoryV1: NativeMigration = {
   ],
 };
 
-export const nativeMigrations: readonly NativeMigration[] = [sharedContractV1, nativeRepositoryV1];
+/** Durable M4 replication state. The source of truth remains the typed rows above. */
+const nativeSyncV1: NativeMigration = {
+  version: 3,
+  name: "0003_native_sync_queue",
+  statements: [
+    `CREATE TABLE IF NOT EXISTS "sarthi_native_sync_mutations" (
+      "id" TEXT PRIMARY KEY NOT NULL,
+      "userId" TEXT NOT NULL,
+      "idempotencyKey" TEXT NOT NULL,
+      "tableName" TEXT NOT NULL,
+      "operation" TEXT NOT NULL,
+      "payloadJson" TEXT NOT NULL,
+      "createdAtMs" INTEGER NOT NULL,
+      "attempts" INTEGER NOT NULL,
+      "state" TEXT NOT NULL,
+      UNIQUE ("userId", "idempotencyKey")
+    )`,
+    `CREATE INDEX IF NOT EXISTS "sarthi_native_sync_mutations_user_state_created_idx"
+      ON "sarthi_native_sync_mutations" ("userId", "state", "createdAtMs")`,
+    `CREATE TABLE IF NOT EXISTS "sarthi_native_sync_watermarks" (
+      "userId" TEXT NOT NULL,
+      "tableName" TEXT NOT NULL,
+      "watermark" TEXT NOT NULL,
+      PRIMARY KEY ("userId", "tableName")
+    )`,
+  ],
+};
+
+export const nativeMigrations: readonly NativeMigration[] = [sharedContractV1, nativeRepositoryV1, nativeSyncV1];
