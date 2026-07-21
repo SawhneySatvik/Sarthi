@@ -58,6 +58,17 @@ function factoryFor(config: RuntimeConfig): RepositoryFactoryHandle {
   return factory;
 }
 
+/**
+ * Bind a scoped repository set to an EXPLICIT userId, WITHOUT reading the request cookie.
+ * Mirrors `getSessionBase`'s `factoryFor(getRuntimeConfig()).forUser(...)` wire, but takes the
+ * id from the caller — used by `/api/try-demo` to seed a freshly-minted per-visitor sandbox
+ * before that id is written to the cookie. `mode: "local"` matches the anonymous provider's
+ * own `AuthenticatedUser` shape (providers/auth/anonymous.ts). Server-only.
+ */
+export function reposForUserId(userId: string): UserScopedRepositories {
+  return factoryFor(getRuntimeConfig()).forUser({ userId, email: null, mode: "local" });
+}
+
 const getSessionBase = cache(async (): Promise<SessionBase> => {
   const config = getRuntimeConfig();
   const auth = createAuthProvider(config.authProvider);

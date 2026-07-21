@@ -69,8 +69,22 @@ export default function WaitlistPage() {
         </div>
       </aside>
 
-      {/* Right — the form. */}
-      <div className="flex min-h-dvh items-center justify-center px-6 py-16 sm:px-10">
+      {/* Mobile art band (hidden on lg, where the side panel shows instead) — gives the
+          phone view the same painterly atmosphere + wordmark instead of a bare void. */}
+      <div className="relative isolate h-52 overflow-hidden lg:hidden">
+        <div className="absolute inset-0 -z-10">
+          <ArtFrame artKey="today.header.dusk" eager ratio="h-full w-full rounded-none border-0" />
+        </div>
+        <div className="flex h-full flex-col justify-between p-6">
+          <Link href="/" className="w-fit rounded-chip focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <Wordmark className="on-art" />
+          </Link>
+          <p className="max-w-xs font-coach text-title on-art">One sentence. Your whole life, sorted.</p>
+        </div>
+      </div>
+
+      {/* The form — natural flow on mobile (no forced full-height void), centered on lg. */}
+      <div className="flex flex-col items-center justify-center px-6 py-12 sm:px-10 lg:min-h-dvh">
         <div className="w-full max-w-md">
           <p className="font-ui text-caption font-medium uppercase tracking-[0.14em] text-ink-3">Sarthi Pro</p>
           <h1 className="mt-3 font-coach text-display-xl text-ink-1">Join the waitlist</h1>

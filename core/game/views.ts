@@ -47,7 +47,7 @@ export function buildJourneyView(input: { evidence: readonly EvidenceRecord[]; n
   }
   const milestones: JourneyMilestone[] = [];
   for (const row of input.progress ?? []) { if (row.level > 1 && row.lastActiveDate) milestones.push({ id: `level:${row.domain}:${row.level}`, localDate: row.lastActiveDate, kind: "level", label: `Level ${row.level} · ${row.domain}` }); for (const threshold of [7, 30]) if (row.bestStreak >= threshold && row.lastActiveDate) milestones.push({ id: `streak:${row.domain}:${threshold}`, localDate: row.lastActiveDate, kind: "streak", label: `${threshold}-day streak · ${row.domain}` }); }
-  for (const arc of input.arcs ?? []) if (arc.status === "completed" && arc.endDate) milestones.push({ id: `arc:${arc.id}`, localDate: arc.endDate, kind: "arc", label: `${arc.title} complete` });
+  for (const arc of input.arcs ?? []) if (arc.status === "complete" && arc.endDate) milestones.push({ id: `arc:${arc.id}`, localDate: arc.endDate, kind: "arc", label: `${arc.title} complete` });
   const minutes = skillMinutes(input.skills ?? [], input.sessions ?? []); for (const skill of input.skills ?? []) for (const threshold of [600, 6000, 30000]) if ((minutes.get(skill.id) ?? 0) >= threshold) milestones.push({ id: `mastery:${skill.id}:${threshold}`, localDate: (input.sessions ?? []).filter((session) => session.skillId === skill.id).sort((a, b) => b.localDate.localeCompare(a.localDate))[0]?.localDate ?? "", kind: "mastery", label: `${threshold / 60}h · ${skill.name}` });
   const milestoneIds = new Set<string>();
   const unique = milestones.filter((row) => row.localDate.length > 0).sort((a, b) => a.id.localeCompare(b.id) || b.localDate.localeCompare(a.localDate) || a.label.localeCompare(b.label)).filter((row) => {

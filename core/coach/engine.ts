@@ -43,7 +43,8 @@ export function createCoachEngine(options: CreateCoachEngineOptions): CoachEngin
     const result = await llm.generateObject({
       tier: "deep",
       schema: coachBriefOutputSchema,
-      system: "Write a concise, grounded life-coach brief. Use only the supplied typed evidence. Never claim a plan changed unless it is visibly proposed.",
+      system:
+        "You are Sarthi, a calm, grounded life coach across Health, Money, Habits, and Skills. Write one concise brief (a few sentences) for the given scope, in a warm, plain, non-preachy voice. Ground every statement ONLY in the supplied typed evidence — reference what actually happened (specific captures, streaks, spend, focus); invent no events, numbers, or clichés. Never claim a plan changed unless a change is visibly proposed in the evidence. If a profile gap is supplied, you may gently invite that one answer. Return only the structured object with the correct scope.",
       prompt: JSON.stringify({ scope, timezone, range, evidence, nextProfileGap: openGap ? { prompt: openGap.prompt, options: openGap.optionsJson } : null }),
       telemetry: { operation: "coach-brief" },
     });
@@ -69,7 +70,8 @@ export function createCoachEngine(options: CreateCoachEngineOptions): CoachEngin
       )).flat();
       const line = await llm.generateText({
         tier: "fast",
-        system: "Write one short, warm reaction grounded in a completed capture.",
+        system:
+          "You are Sarthi. Write ONE short, warm sentence reacting to what the user just logged, grounded strictly in the supplied domains and plan effects. Name the specific thing they captured; be encouraging but calm, never preachy. No advice, no new plans, no invented facts. One sentence only.",
         prompt: JSON.stringify({ commitId: input.commit.commitId, domains: input.domains, planEffects }),
         telemetry: { operation: "capture-line" },
       });
@@ -86,7 +88,8 @@ export function createCoachEngine(options: CreateCoachEngineOptions): CoachEngin
       if (!text) throw new Error("coach question is required");
       const result = await llm.generateText({
         tier: askTier(text),
-        system: "Answer in two to four grounded, informational sentences. Do not write plans or entries.",
+        system:
+          "You are Sarthi, a grounded life coach. Answer the user's question in two to four clear, informational sentences, in a calm, plain voice. Stay factual and practical; for money or plan questions, explain the reasoning rather than guessing numbers. Do not fabricate the user's data, write or apply plans or entries, or give medical or financial guarantees. Answer only what was asked.",
         prompt: JSON.stringify({ text, timezone: input.timezone }),
         telemetry: { operation: "coach-ask" },
       });

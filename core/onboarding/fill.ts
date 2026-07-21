@@ -20,10 +20,7 @@ export interface FillInput {
   text: string;
 }
 
-const SYSTEM_PROMPT =
-  "Extract just the requested onboarding field(s) from the user's spoken answer. " +
-  "Use integer units (centimetres, grams, minutes). When a value is genuinely unspoken, " +
-  "leave it null — never invent one.";
+const SYSTEM_PROMPT = `Extract ONLY the requested onboarding field(s) from the user's spoken answer — nothing more. Use integer units (centimetres, grams, minutes) and compute exact integers for any value the user states. When a requested value is genuinely not spoken, leave it null — never invent it, infer beyond what was said, or fill unrelated fields. Return only the structured object for the requested field(s).`;
 
 export async function fillAnswer(input: FillInput, llm: LlmGateway): Promise<FillResult> {
   if (input.text.trim().length === 0) {

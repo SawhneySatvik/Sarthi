@@ -6,8 +6,9 @@ import { AiSdkLlmGateway } from "@/providers/llm/ai-sdk";
 type LiveVisionProviderName = "google" | "openai";
 
 const VISION_SYSTEM =
-  "You are a precise vision parser. Extract only what is visibly present in the image; " +
-  "never invent values. Integer units only (paise, ml, minutes, grams).";
+  "You are Sarthi's vision parser. Extract only what is visibly present in the image — read receipts and analyse meals faithfully, and never invent an item, price, or food that is not there. " +
+  "Use integer units only: money in paise (rupees × 100), volume in millilitres, time in minutes, mass in grams, energy in kcal. " +
+  "For a meal, estimate nutrition from typical portions of the foods you can see and mark those values estimated; for a receipt, transcribe the printed amounts exactly. Return only the structured object.";
 
 /**
  * The live vision adapter. Vision is a `generateObject` call with image parts, so it

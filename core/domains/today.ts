@@ -21,7 +21,16 @@ export type TodayDomain = "health" | "money" | "habits" | "skills";
 export const TODAY_DOMAINS: readonly TodayDomain[] = ["health", "money", "habits", "skills"];
 
 /** Day-state of the Today spine (drives which SCREEN-TODAY layout renders). */
-export type TodayState = "new-user" | "nothing-planned" | "fresh" | "mid-arc" | "all-done";
+export type TodayState = "new-user" | "arc-complete" | "nothing-planned" | "fresh" | "mid-arc" | "all-done";
+
+/**
+ * UIE-0e (D-053(c)) — the read-only windows that gate the arc-complete surfaces. Both are
+ * integer day-counts (invariant #2), measured from a `complete` arc's `endDate` to the local
+ * day via `toDayNumber`. A month-old "congrats" is stale, not calm, so the full state expires
+ * after a week; the settled banner (mixed case) fades faster since a live arc holds the stage.
+ */
+export const ARC_COMPLETE_WINDOW_DAYS = 7;
+export const ARC_SETTLED_WINDOW_DAYS = 3;
 
 export interface TodayStat {
   /** Current day within the active arc ("Day N"), or null when there is no arc. */
@@ -48,6 +57,28 @@ export interface TodayItem {
   viaCapture: boolean;
 }
 
+/**
+ * UIE-0e — a pure, integer-only summary of one *completed* arc, computed from the arc's own
+ * history rows (not `domain_progress`, which is a cumulative rollup with no per-arc snapshot).
+ * Everything here is a true, derivable number: no fabricated per-arc XP delta (invariant #1
+ * ask-don't-invent) — current standing is carried separately by `TodayView.stat`.
+ */
+export interface ArcCompleteSummary {
+  title: string;
+  domain: PlanArcRecord["domain"];
+  startDate: string;
+  endDate: string;
+  /** Inclusive arc length in days ("Day M of M"). */
+  lengthDays: number;
+  /** Distinct local days with at least one `done` item — "showed up N days". */
+  daysEngaged: number;
+  tasksDone: number;
+  tasksMissed: number;
+  tasksTotal: number;
+  /** Done-count per real domain (excludes `overall`); zero-filled. */
+  perDomainDone: Record<TodayDomain, number>;
+}
+
 export interface TodayView {
   localDate: string;
   stat: TodayStat;
@@ -57,6 +88,10 @@ export interface TodayView {
   laterToday: TodayItem[];
   completed: TodayItem[];
   state: TodayState;
+  /** UIE-0e S1: the celebration payload when `state === 'arc-complete'`, else null. */
+  arcComplete: ArcCompleteSummary | null;
+  /** UIE-0e S2: a compact "arc settled" banner rides atop the spine while a live arc runs. */
+  settledArc: ArcCompleteSummary | null;
   domains: readonly TodayDomain[];
 }
 
@@ -66,6 +101,9 @@ export interface TodayInput {
   progress: readonly DomainProgressRecord[];
   arcs: readonly PlanArcRecord[];
   coachNote: CoachNoteRecord | null;
+  /** UIE-0e: all plan items for any in-window `complete` arc (one bounded extra read per arc,
+   *  fetched only when a completed arc exists). Absent → no arc-complete surface can build. */
+  arcHistoryItems?: readonly PlanItemRecord[];
 }
 
 const ACTIONABLE_STATUS = new Set<PlanItemRecord["status"]>(["pending", "active"]);
@@ -121,6 +159,66 @@ function arcLength(arc: PlanArcRecord): number | null {
   return toDayNumber(arc.endDate) - toDayNumber(arc.startDate) + 1;
 }
 
+/** Whole days from a `complete` arc's `endDate` up to `localDate` (integer, non-negative). */
+function daysSinceEnd(endDate: string, localDate: string): number {
+  return toDayNumber(localDate) - toDayNumber(endDate);
+}
+
+/**
+ * The latest `complete` arc within `windowDays` of today, or null. Open-ended arcs never
+ * complete via rollover, so an in-window completion always has an `endDate`. Latest wins;
+ * older completions belong to Journey.
+ */
+function latestCompletedArc(
+  arcs: readonly PlanArcRecord[],
+  localDate: string,
+  windowDays: number,
+): PlanArcRecord | null {
+  let best: PlanArcRecord | null = null;
+  for (const arc of arcs) {
+    if (arc.status !== "complete" || arc.endDate === null) continue;
+    const since = daysSinceEnd(arc.endDate, localDate);
+    if (since < 0 || since > windowDays) continue;
+    if (best === null || arc.endDate > best.endDate!) best = arc;
+  }
+  return best;
+}
+
+/** Pure per-arc summary from the arc's own history rows. Zero-item arcs return all-zero counts. */
+function buildArcCompleteSummary(
+  arc: PlanArcRecord,
+  historyItems: readonly PlanItemRecord[],
+): ArcCompleteSummary {
+  const items = historyItems.filter((item) => item.arcId === arc.id);
+  const engagedDates = new Set<string>();
+  const perDomainDone: Record<TodayDomain, number> = { health: 0, money: 0, habits: 0, skills: 0 };
+  let tasksDone = 0;
+  let tasksMissed = 0;
+  for (const item of items) {
+    if (item.status === "done") {
+      tasksDone += 1;
+      engagedDates.add(item.localDate);
+      if (item.domain !== "overall") perDomainDone[item.domain] += 1;
+    } else if (item.status === "missed") {
+      tasksMissed += 1;
+    }
+  }
+  // `endDate` is non-null for a completed arc; fall back to `startDate` only defensively.
+  const endDate = arc.endDate ?? arc.startDate;
+  return {
+    title: arc.title,
+    domain: arc.domain,
+    startDate: arc.startDate,
+    endDate,
+    lengthDays: toDayNumber(endDate) - toDayNumber(arc.startDate) + 1,
+    daysEngaged: engagedDates.size,
+    tasksDone,
+    tasksMissed,
+    tasksTotal: items.length,
+    perDomainDone,
+  };
+}
+
 export function buildTodayView(input: TodayInput): TodayView {
   const todays = input.items.filter((item) => item.localDate === input.localDate);
   const actionable = todays.filter((item) => ACTIONABLE_STATUS.has(item.status)).slice().sort(actionableOrder);
@@ -137,8 +235,22 @@ export function buildTodayView(input: TodayInput): TodayView {
     xp: overall ? overall.xp : 0,
   };
 
+  // UIE-0e (§11.2). S1 full celebration: no active arc + nothing planned today + a fresh
+  // completion within the 7-day window. S2 settled banner: a live arc still holds the spine,
+  // but a recent completion (3-day window) is acknowledged above it. The two are mutually
+  // exclusive (S1 requires no active arc; S2 requires one), computed from the same history.
+  const history = input.arcHistoryItems ?? [];
+  const hasActiveArc = input.arcs.some((a) => a.status === "active");
+  const fullArc = latestCompletedArc(input.arcs, input.localDate, ARC_COMPLETE_WINDOW_DAYS);
+  const bannerArc = latestCompletedArc(input.arcs, input.localDate, ARC_SETTLED_WINDOW_DAYS);
+
+  const isArcComplete = !hasActiveArc && todays.length === 0 && fullArc !== null;
+  const arcComplete = isArcComplete ? buildArcCompleteSummary(fullArc!, history) : null;
+  const settledArc = hasActiveArc && bannerArc !== null ? buildArcCompleteSummary(bannerArc, history) : null;
+
   let state: TodayState;
   if (input.arcs.length === 0) state = "new-user";
+  else if (isArcComplete) state = "arc-complete";
   else if (todays.length === 0) state = "nothing-planned";
   else if (actionable.length === 0) state = "all-done";
   else if (completed.length === 0) state = "fresh";
@@ -152,6 +264,8 @@ export function buildTodayView(input: TodayInput): TodayView {
     laterToday: actionable.slice(1).map(toItem),
     completed: completed.map(toItem),
     state,
+    arcComplete,
+    settledArc,
     domains: TODAY_DOMAINS,
   };
 }

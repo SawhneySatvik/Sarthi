@@ -60,9 +60,9 @@ function isExplicitAutoWriteValue(proposal: { estimated: boolean; confidenceBps:
 
 test("the immutable matrix exposes only the signed model IDs", () => {
   assert.deepEqual(LLM_MODEL_MATRIX.google, {
-    deep: "gemini-2.5-pro",
-    balanced: "gemini-2.5-flash",
-    fast: "gemini-2.5-flash-lite",
+    deep: "gemini-2.5-flash",
+    balanced: "gemini-flash-lite-latest",
+    fast: "gemini-flash-lite-latest",
   });
   assert.deepEqual(LLM_MODEL_MATRIX.openai, {
     deep: "gpt-5.6-sol",
