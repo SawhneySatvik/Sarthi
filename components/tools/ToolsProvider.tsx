@@ -4,6 +4,8 @@ import { Pause, Play } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useMemo, useSyncExternalStore } from "react";
 
+import { mirrorDurableState } from "@/app/lib/offline/durable-state";
+
 type ToolKind = "focus" | "meditation";
 
 export interface ActiveToolRun {
@@ -86,11 +88,14 @@ export function ToolsProvider({ children }: { children: React.ReactNode }) {
   const startRun = useCallback((next: ActiveToolRun) => {
     storedRun = next;
     try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch { /* session state remains in memory */ }
+    // Additive durable mirror (T10, flag-gated): sessionStorage stays the source of truth.
+    void mirrorDurableState(STORAGE_KEY, next);
     notifyRun();
   }, []);
   const clearRun = useCallback(() => {
     storedRun = null;
     try { sessionStorage.removeItem(STORAGE_KEY); } catch { /* no-op */ }
+    void mirrorDurableState(STORAGE_KEY, null);
     notifyRun();
   }, []);
   const value = useMemo(() => ({ run, startRun, clearRun }), [run, startRun, clearRun]);

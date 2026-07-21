@@ -11,6 +11,7 @@ import { signOutAction } from "@/app/(auth)/actions";
 import { LLM_MODEL_MATRIX } from "@/providers/llm";
 import { DetailFlow } from "@/components/onboarding/detail/DetailFlow";
 import { NotificationToggle } from "@/components/pwa/NotificationToggle";
+import { mirrorDurableState } from "@/app/lib/offline/durable-state";
 
 import {
   getRuntimeProviderOverride,
@@ -72,6 +73,9 @@ function applyTheme(theme: Theme, mode: Mode): void {
   try {
     localStorage.setItem("sarthi-theme", JSON.stringify({ theme, mode }));
   } catch {}
+  // Additive durable mirror (T10, flag-gated). localStorage + the pre-paint script stay
+  // the source of truth; this only lets the choice survive a storage-cleared restart.
+  void mirrorDurableState("sarthi-theme", { theme, mode });
 }
 
 function readPreference(key: PreferenceKey, fallback: string): string {

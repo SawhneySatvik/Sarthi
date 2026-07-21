@@ -3,6 +3,7 @@ import "./globals.css";
 import { fontVariables } from "./lib/fonts";
 import { CANVAS_DARK, CANVAS_LIGHT } from "./lib/brand-canvas";
 import { ServiceWorkerRegister } from "@/components/pwa/ServiceWorkerRegister";
+import { OfflineQueueReplay } from "@/components/pwa/OfflineQueueReplay";
 
 export const metadata: Metadata = {
   title: "Sarthi",
@@ -40,6 +41,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body>
         {children}
         <ServiceWorkerRegister />
+        <OfflineQueueReplay />
       </body>
     </html>
   );

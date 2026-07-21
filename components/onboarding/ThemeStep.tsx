@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { cn } from "@/app/lib/utils";
+import { mirrorDurableState } from "@/app/lib/offline/durable-state";
 import { Button } from "@/components/ui/Button";
 
 import { SelectChip } from "./SelectChip";
@@ -40,6 +41,8 @@ function applyTheme(theme: ThemeId, mode: ModeId): void {
   } catch {
     /* private-mode storage — the live switch still applies for this session */
   }
+  // Additive durable mirror (T10, flag-gated); localStorage stays the source of truth.
+  void mirrorDurableState("sarthi-theme", { theme, mode });
 }
 
 function persistThemeToProfile(theme: ThemeId, mode: ModeId): void {
