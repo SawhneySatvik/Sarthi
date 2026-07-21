@@ -17,6 +17,23 @@ export interface CoachReadingView {
   adaptations: readonly CoachAdaptationView[];
   evidenceCount: number;
   weeklyDomainLines: readonly { domain: Exclude<Domain, "overall">; count: number; text: string }[];
+  /** COACH-4 — the server-loaded conversation thread (last-30, chronological, page-safe). */
+  thread: readonly CoachThreadMessage[];
+}
+
+/**
+ * COACH-4 — a page-safe projection of ONE pending inferred-memory proposal (§2.4). The
+ * coach's confidence-gated distillation (COACH-7) emits `estimated:true` memory items that
+ * must NOT persist silently (invariant #1); they surface as accept/discard cards reusing the
+ * capture estimate-card grammar. The live card DATA lands with COACH-7 — the C4 surface just
+ * renders it (and renders nothing when the list is empty). No provider/audit internals leak.
+ */
+export interface CoachMemoryProposalView {
+  id: string;
+  domain: Exclude<Domain, "overall"> | "global";
+  kind: string;
+  text: string;
+  confidencePct: number;
 }
 
 /**
@@ -91,6 +108,8 @@ export function buildCoachReadingView(input: {
   gaps: readonly ProfileGapRecord[];
   adaptations: readonly AdaptationRecord[];
   evidence: readonly EvidenceRecord[];
+  /** COACH-4 — the raw `coach_messages` rows; projected to the last-30 page-safe thread. */
+  messages?: readonly CoachMessageRecord[];
 }): CoachReadingView {
   const ordered = input.notes.slice().sort((a, b) => b.localDate.localeCompare(a.localDate) || b.createdAt.localeCompare(a.createdAt) || a.id.localeCompare(b.id));
   const daily = ordered.find((note) => note.scope === "daily" && note.localDate === input.localDate) ?? null;
@@ -108,6 +127,7 @@ export function buildCoachReadingView(input: {
       label: `${formatAdaptationSnapshot(row.beforeJson)} → ${formatAdaptationSnapshot(row.afterJson)}`,
       before: formatAdaptationSnapshot(row.beforeJson), after: formatAdaptationSnapshot(row.afterJson), reason: row.reason, status: row.status,
     })),
+    thread: projectCoachThread(input.messages ?? []),
     ...weeklyEvidence,
   };
 }
