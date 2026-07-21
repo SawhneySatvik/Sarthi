@@ -46,11 +46,12 @@ export function DomainSwitcher({
 }) {
   const safeInitial = initialDomain && domains.includes(initialDomain as TodayDomain) ? initialDomain as TodayDomain : "all";
   const [selected, setSelected] = useState<"all" | TodayDomain>(safeInitial);
+  const isAll = selected === "all";
   return (
     <div className="lg:grid lg:grid-cols-3">
-      {desktopContext && <aside className="lg:col-start-3 lg:row-span-2 lg:row-start-1">{desktopContext}</aside>}
-      <div className="flex gap-2 overflow-x-auto px-4 py-3 lg:col-span-2 lg:row-start-1">
-        <Chip active={selected === "all"} onClick={() => setSelected("all")}>
+      {desktopContext && <aside className={`lg:col-start-3 lg:row-span-2 lg:row-start-1 ${isAll ? "" : "lg:hidden"}`}>{desktopContext}</aside>}
+      <div className={`flex gap-2 overflow-x-auto px-4 py-3 lg:row-start-1 ${isAll ? "lg:col-span-2" : "lg:col-span-3"}`}>
+        <Chip active={isAll} onClick={() => setSelected("all")}>
           All
         </Chip>
         {domains.map((domain) => (
@@ -59,8 +60,8 @@ export function DomainSwitcher({
           </Chip>
         ))}
       </div>
-      <div className="lg:col-span-2 lg:row-start-2">
-        {selected === "all" ? (
+      <div className={`lg:row-start-2 ${isAll ? "lg:col-span-2" : "lg:col-span-3"}`}>
+        {isAll ? (
           children
         ) : selected === "health" ? (
           <HealthLens view={healthView} />

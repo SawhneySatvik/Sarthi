@@ -126,7 +126,7 @@ async function healthLens(browser, themes, widths) {
 async function moneyLens(browser, themes, widths) {
   for (const [theme, mode] of themes) {
     for (const width of widths) {
-      await withPage(browser, { theme, mode, width }, async (page) => {
+      await withPage(browser, { theme, mode, width, strict: true }, async (page) => {
         await page.goto(`${BASE}/today`, { waitUntil: "networkidle" });
         await page.getByRole("button", { name: "Money" }).click();
         // Gate the shot on the lens actually being mounted (not the placeholder).
@@ -148,8 +148,15 @@ async function moneyLens(browser, themes, widths) {
         await shot(page, `money-math-${width}-${theme}-${mode}`);
 
         // Category drill (tap a budget bar → push) — gate on the Back affordance.
-        await page.getByRole("button", { name: /Food/ }).first().click().catch(() => {});
-        await page.getByText("Back").first().waitFor({ timeout: 3000 }).catch(() => {});
+        await page.getByRole("button", { name: /Food/ }).first().click();
+        await page.getByRole("button", { name: /Back/ }).waitFor({ state: "visible", timeout: 3000 });
+        if (width < DESKTOP) {
+          await page.getByText("Safe to spend").first().waitFor({ state: "hidden", timeout: 3000 });
+        }
+        if (width >= DESKTOP) {
+          await page.getByText("Safe to spend").first().waitFor({ state: "visible", timeout: 3000 });
+          await page.getByRole("complementary").getByRole("heading", { name: "Food" }).waitFor({ state: "visible", timeout: 3000 });
+        }
         await page.waitForTimeout(200);
         await shot(page, `money-drill-${width}-${theme}-${mode}`);
       });
@@ -180,7 +187,7 @@ async function habitsLens(browser, themes, widths) {
 async function skillsLens(browser, themes, widths) {
   for (const [theme, mode] of themes) {
     for (const width of widths) {
-      await withPage(browser, { theme, mode, width }, async (page) => {
+      await withPage(browser, { theme, mode, width, strict: true }, async (page) => {
         await page.goto(`${BASE}/today`, { waitUntil: "networkidle" });
         await page.getByRole("button", { name: "Skills" }).click();
         await page.getByText("tap a track for its mastery").first().waitFor({ timeout: 4000 }).catch(() => {});
@@ -188,8 +195,17 @@ async function skillsLens(browser, themes, widths) {
         await shot(page, `skills-lens-${width}-${theme}-${mode}`);
 
         // Push a track drill → the hero mastery counter.
-        await page.getByRole("button", { name: /System design/ }).first().click().catch(() => {});
-        await page.getByText("hours practiced").first().waitFor({ timeout: 3000 }).catch(() => {});
+        await page.getByRole("button", { name: /System design/ }).first().click();
+        // The mobile push preserves its existing \"← Skills\" return control.
+        await page.getByRole("button", { name: "Skills", exact: true }).last().waitFor({ state: "visible", timeout: 3000 });
+        await page.getByText("hours practiced").first().waitFor({ state: "visible", timeout: 3000 });
+        if (width < DESKTOP) {
+          await page.getByText("tap a track for its mastery").first().waitFor({ state: "hidden", timeout: 3000 });
+        }
+        if (width >= DESKTOP) {
+          await page.getByText("tap a track for its mastery").first().waitFor({ state: "visible", timeout: 3000 });
+          await page.getByRole("complementary").getByRole("heading", { name: "System design" }).waitFor({ state: "visible", timeout: 3000 });
+        }
         await page.waitForTimeout(250);
         await shot(page, `skills-drill-${width}-${theme}-${mode}`);
 

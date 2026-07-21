@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { cn } from "@/app/lib/utils";
 import { ArtFrame } from "@/components/art/ArtFrame";
@@ -19,6 +19,19 @@ import { formatPaise } from "@/core/domains/money";
  * No amber (`--energy`) anywhere: that hue is XP/streak/level only.
  */
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** Matches Tailwind's lg breakpoint. Start mobile-safe for hydration, then follow resizes. */
+function useLgViewport() {
+  const [isLg, setIsLg] = useState(false);
+  useEffect(() => {
+    const query = window.matchMedia("(min-width: 1024px)");
+    const update = () => setIsLg(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+  return isLg;
+}
 
 function shortDate(iso: string): string {
   const [, month, day] = iso.split("-").map(Number);
@@ -120,9 +133,9 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
   return <h3 className="px-1 font-ui text-caption uppercase tracking-wide text-ink-3">{children}</h3>;
 }
 
-function DrillView({ drill, onBack }: { drill: MoneyCategoryDrill; onBack: () => void }) {
+function DrillView({ drill, onBack, className }: { drill: MoneyCategoryDrill; onBack: () => void; className?: string }) {
   return (
-    <div className="px-4 pb-2">
+    <div className={cn("px-4 pb-2", className)}>
       <button type="button" onClick={onBack} className="mt-2 flex items-center gap-1 font-ui text-caption text-ink-2">
         <span aria-hidden>‹</span> Back
       </button>
@@ -142,16 +155,9 @@ function DrillView({ drill, onBack }: { drill: MoneyCategoryDrill; onBack: () =>
   );
 }
 
-export function MoneyLens({ view }: { view: MoneyView }) {
-  const [drillKey, setDrillKey] = useState<string | null>(null);
-  const drill = drillKey ? view.drills.find((d) => d.key === drillKey) ?? null : null;
-  const openDrill = (key: string) => {
-    if (view.drills.some((d) => d.key === key)) setDrillKey(key);
-  };
-  if (drill) return <DrillView drill={drill} onBack={() => setDrillKey(null)} />;
-
+function MoneyOverview({ view, onDrill }: { view: MoneyView; onDrill: (key: string) => void }) {
   return (
-    <div className="px-4 pb-2">
+    <div className="px-4 pb-2 lg:col-span-2">
       <ArtFrame artKey="money.ledger" ratio="h-20" className="mb-3"><p className="flex h-full items-end p-3 font-display text-title on-art">Money</p></ArtFrame>
       <header className="pt-1">
         <p className="font-ui text-caption uppercase tracking-wide text-money-strong">Money</p>
@@ -169,7 +175,7 @@ export function MoneyLens({ view }: { view: MoneyView }) {
               <button
                 key={bar.budgetId}
                 type="button"
-                onClick={() => openDrill(bar.categoryId)}
+                onClick={() => onDrill(bar.categoryId)}
                 className="w-full rounded-card border border-line bg-card px-3 py-2.5 text-left"
               >
                 <BudgetBarBody bar={bar} />
@@ -223,7 +229,7 @@ export function MoneyLens({ view }: { view: MoneyView }) {
               </div>
               <ul className="mt-1.5 flex flex-col gap-1">
                 {day.rows.map((row) => (
-                  <EntryRow key={row.id} row={row} onDrill={openDrill} />
+                  <EntryRow key={row.id} row={row} onDrill={onDrill} />
                 ))}
               </ul>
             </div>
@@ -232,6 +238,39 @@ export function MoneyLens({ view }: { view: MoneyView }) {
           <p className="mt-6 text-center font-ui text-body text-ink-3">Say a spend out loud — I&rsquo;ll file it.</p>
         )}
       </section>
+    </div>
+  );
+}
+
+export function MoneyLens({ view }: { view: MoneyView }) {
+  const [drillKey, setDrillKey] = useState<string | null>(null);
+  const isLg = useLgViewport();
+  const drill = drillKey ? view.drills.find((d) => d.key === drillKey) ?? null : null;
+  const openDrill = (key: string) => {
+    if (view.drills.some((d) => d.key === key)) setDrillKey(key);
+  };
+
+  if (drill) {
+    if (!isLg) return <DrillView drill={drill} onBack={() => setDrillKey(null)} />;
+    return (
+      <div className="lg:grid lg:grid-cols-3 lg:gap-4">
+        <MoneyOverview view={view} onDrill={openDrill} />
+        <aside className="lg:col-start-3 lg:row-start-1">
+          <DrillView drill={drill} onBack={() => setDrillKey(null)} />
+        </aside>
+      </div>
+    );
+  }
+
+  return (
+    <div className="lg:grid lg:grid-cols-3 lg:gap-4">
+      <MoneyOverview view={view} onDrill={openDrill} />
+      <aside className="hidden lg:col-start-3 lg:row-start-1 lg:block">
+        <div className="px-4 py-4">
+          <h2 className="font-display text-title text-ink-1">Category detail</h2>
+          <p className="mt-1 font-ui text-body text-ink-3">Select a category to review its entries.</p>
+        </div>
+      </aside>
     </div>
   );
 }

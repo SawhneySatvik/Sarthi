@@ -272,19 +272,24 @@ export function HabitsLens({ view }: { view: HabitsView }) {
         <p className="font-ui text-caption text-ink-3">done today</p>
       </header>
 
-      {view.rows.length > 0 ? (
-        <ul className="mt-4 flex flex-col gap-1">
-          {view.rows.map((row) => (
-            <Fragment key={row.habitId}>
-              {row.satisfiedBy ? <RefuseRow row={row} /> : <TickRow row={row} />}
-            </Fragment>
-          ))}
-        </ul>
-      ) : (
-        <p className="mt-6 text-center font-ui text-body text-ink-3">No habits yet — add one to start a streak.</p>
-      )}
-
-      <Heatmap view={view} />
+      <div className="lg:grid lg:grid-cols-3 lg:gap-4">
+        <div className="lg:col-span-2">
+          {view.rows.length > 0 ? (
+            <ul className="mt-4 flex flex-col gap-1">
+              {view.rows.map((row) => (
+                <Fragment key={row.habitId}>
+                  {row.satisfiedBy ? <RefuseRow row={row} /> : <TickRow row={row} />}
+                </Fragment>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-6 text-center font-ui text-body text-ink-3">No habits yet — add one to start a streak.</p>
+          )}
+        </div>
+        <div className="lg:col-start-3 lg:row-start-1">
+          <Heatmap view={view} />
+        </div>
+      </div>
     </div>
   );
 }

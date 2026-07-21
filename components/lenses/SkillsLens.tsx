@@ -2,7 +2,7 @@
 
 import { Check, ChevronLeft, Circle, CircleDot } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { cn } from "@/app/lib/utils";
 import { ArtFrame } from "@/components/art/ArtFrame";
@@ -30,6 +30,19 @@ function formatDuration(minutes: number): string {
   const mm = minutes % 60;
   const hh = (minutes - mm) / 60;
   return mm > 0 ? `${hh}h ${mm}m` : `${hh}h`;
+}
+
+/** Matches Tailwind's lg breakpoint. Start mobile-safe for hydration, then follow resizes. */
+function useLgViewport() {
+  const [isLg, setIsLg] = useState(false);
+  useEffect(() => {
+    const query = window.matchMedia("(min-width: 1024px)");
+    const update = () => setIsLg(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+  return isLg;
 }
 
 /** Target minutes → whole-hour label for the meter (e.g. 30000 → "500h"). */
@@ -125,11 +138,11 @@ function TrackCard({ track, onOpen }: { track: SkillTrack; onOpen: () => void })
 }
 
 /** The drill: hero counter · meter · curriculum · session log — all read-only (D-D). */
-function DrillView({ track, onBack }: { track: SkillTrack; onBack: () => void }) {
+function DrillView({ track, onBack, className }: { track: SkillTrack; onBack: () => void; className?: string }) {
   const percent = track.fraction !== null ? Math.floor(track.fraction * 100) : null;
   const tier = tierCaption(track);
   return (
-    <div className="px-4 pb-2">
+    <div className={cn("px-4 pb-2", className)}>
       <button
         type="button"
         onClick={onBack}
@@ -183,13 +196,9 @@ function DrillView({ track, onBack }: { track: SkillTrack; onBack: () => void })
   );
 }
 
-export function SkillsLens({ view }: { view: SkillsView }) {
-  const [drillSkillId, setDrillSkillId] = useState<string | null>(null);
-  const drill = drillSkillId ? view.skills.find((s) => s.id === drillSkillId) ?? null : null;
-  if (drill) return <DrillView track={drill} onBack={() => setDrillSkillId(null)} />;
-
+function SkillsOverview({ view, onOpen }: { view: SkillsView; onOpen: (id: string) => void }) {
   return (
-    <div className="px-4 pb-2">
+    <div className="px-4 pb-2 lg:col-span-2">
       <ArtFrame artKey="skills.desk_code" ratio="h-20" className="mb-3"><p className="flex h-full items-end p-3 font-display text-title on-art">Skills</p></ArtFrame>
       <header className="pt-1">
         <p className="font-ui text-caption uppercase tracking-wide text-skills">Skills</p>
@@ -203,7 +212,7 @@ export function SkillsLens({ view }: { view: SkillsView }) {
       {view.skills.length > 0 ? (
         <div className="mt-4 flex flex-col gap-2">
           {view.skills.map((track) => (
-            <TrackCard key={track.id} track={track} onOpen={() => setDrillSkillId(track.id)} />
+            <TrackCard key={track.id} track={track} onOpen={() => onOpen(track.id)} />
           ))}
         </div>
       ) : (
@@ -212,6 +221,36 @@ export function SkillsLens({ view }: { view: SkillsView }) {
           <p className="mt-1 font-ui text-caption text-ink-3">Say a skill out loud to start tracking mastery.</p>
         </div>
       )}
+    </div>
+  );
+}
+
+export function SkillsLens({ view }: { view: SkillsView }) {
+  const [drillSkillId, setDrillSkillId] = useState<string | null>(null);
+  const isLg = useLgViewport();
+  const drill = drillSkillId ? view.skills.find((s) => s.id === drillSkillId) ?? null : null;
+
+  if (drill) {
+    if (!isLg) return <DrillView track={drill} onBack={() => setDrillSkillId(null)} />;
+    return (
+      <div className="lg:grid lg:grid-cols-3 lg:gap-4">
+        <SkillsOverview view={view} onOpen={setDrillSkillId} />
+        <aside className="lg:col-start-3 lg:row-start-1">
+          <DrillView track={drill} onBack={() => setDrillSkillId(null)} />
+        </aside>
+      </div>
+    );
+  }
+
+  return (
+    <div className="lg:grid lg:grid-cols-3 lg:gap-4">
+      <SkillsOverview view={view} onOpen={setDrillSkillId} />
+      <aside className="hidden lg:col-start-3 lg:row-start-1 lg:block">
+        <div className="px-4 py-4">
+          <h2 className="font-display text-title text-ink-1">Skill detail</h2>
+          <p className="mt-1 font-ui text-body text-ink-3">Select a skill to review its curriculum and recent sessions.</p>
+        </div>
+      </aside>
     </div>
   );
 }
