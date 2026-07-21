@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight, Download, UserRound, X } from "lucide-react";
+import { Check, ChevronRight, Download, Share, UserRound, X } from "lucide-react";
 import { useEffect, useRef, useSyncExternalStore, useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -11,6 +11,8 @@ import { signOutAction } from "@/app/(auth)/actions";
 import { LLM_MODEL_MATRIX } from "@/providers/llm";
 import { DetailFlow } from "@/components/onboarding/detail/DetailFlow";
 import { NotificationToggle } from "@/components/pwa/NotificationToggle";
+import { InstallGuide } from "@/components/pwa/InstallGuide";
+import { usePwaInstall } from "@/components/pwa/usePwaInstall";
 import { mirrorDurableState } from "@/app/lib/offline/durable-state";
 
 import {
@@ -425,6 +427,38 @@ function ByokPanel() {
   );
 }
 
+/**
+ * The Settings entry point for adding Sarthi to the home screen. Unlike the Today prompt this
+ * ALWAYS shows (it ignores the Today dismissal flag) and, when already installed, shows a done
+ * state instead of hiding. Tapping opens the shared InstallGuide, whose content adapts to the
+ * platform via the same usePwaInstall hook that captured `beforeinstallprompt` at module load.
+ */
+function InstallRow() {
+  const { state } = usePwaInstall();
+  const [open, setOpen] = useState(false);
+  const installed = state === "installed";
+  return (
+    <Section title="APP">
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-haspopup="dialog"
+        className="flex min-h-12 w-full items-center gap-3 px-4 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <span aria-hidden className="text-ink-2">
+          {installed ? <Check size={16} strokeWidth={1.5} /> : <Share size={16} strokeWidth={1.5} />}
+        </span>
+        <span className="font-ui text-body text-ink-1">Add to Home Screen</span>
+        <span className="ml-auto flex items-center gap-2 font-ui text-caption text-ink-2">
+          {installed ? "Added" : "How to"}
+          <ChevronRight size={16} strokeWidth={1.5} aria-hidden />
+        </span>
+      </button>
+      <InstallGuide open={open} onClose={() => setOpen(false)} />
+    </Section>
+  );
+}
+
 export function SettingsSheet({
   profile,
   gaps,
@@ -510,6 +544,7 @@ export function SettingsSheet({
               {panel === "about" ? <div className="pt-6"><p className="font-coach text-body text-ink-2">Sarthi is a quiet, typed life coach for Health, Money, Habits, and Skills.</p><p className="mt-4 font-ui text-caption text-ink-3">Built with an intentional house style.</p><div className="mt-6 overflow-hidden rounded-card border border-line bg-card"><a href="/privacy" className="flex min-h-12 items-center border-b border-line px-4 focus-visible:ring-2 focus-visible:ring-ring"><span className="font-ui text-body text-ink-1">Privacy</span><ChevronRight size={16} strokeWidth={1.5} className="ml-auto text-ink-2" aria-hidden /></a><a href="/terms" className="flex min-h-12 items-center px-4 focus-visible:ring-2 focus-visible:ring-ring"><span className="font-ui text-body text-ink-1">Terms</span><ChevronRight size={16} strokeWidth={1.5} className="ml-auto text-ink-2" aria-hidden /></a></div></div> : null}
               {panel === "main" ? <>
                 <Section title="APPEARANCE"><Row label="Theme" value={profile.theme[0].toUpperCase() + profile.theme.slice(1)} onClick={() => setPanel("appearance")} /><Row label="Mode" value={profile.themeMode[0].toUpperCase() + profile.themeMode.slice(1)} onClick={() => setPanel("appearance")} /></Section>
+                <InstallRow />
                 <Section title="PROFILE">
                   <Row label="Your details" onClick={() => setPanel("details")} />
                   <Row label="Coach's open questions" value={openGaps.length ? String(openGaps.length) : "None"} onClick={() => setPanel("gaps")} />
