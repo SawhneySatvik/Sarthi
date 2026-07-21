@@ -27,7 +27,7 @@ function Stepper({ label, value, onDelta }: { label: string; value: string; onDe
           type="button"
           aria-label={`Decrease ${label}`}
           onClick={() => onDelta(-1)}
-          className="flex min-h-11 min-w-11 items-center justify-center rounded-chip border border-line text-ink-2"
+          className="flex min-h-11 min-w-11 items-center justify-center rounded-chip border border-line text-ink-2 outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <Minus size={16} strokeWidth={1.5} aria-hidden />
         </button>
@@ -36,7 +36,7 @@ function Stepper({ label, value, onDelta }: { label: string; value: string; onDe
           type="button"
           aria-label={`Increase ${label}`}
           onClick={() => onDelta(1)}
-          className="flex min-h-11 min-w-11 items-center justify-center rounded-chip border border-line text-ink-2"
+          className="flex min-h-11 min-w-11 items-center justify-center rounded-chip border border-line text-ink-2 outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <Plus size={16} strokeWidth={1.5} aria-hidden />
         </button>

@@ -38,9 +38,11 @@ export function StepFrame({
   return (
     <div className="flex flex-1 flex-col pb-28">
       <div className="flex-1">
-        <h1 className="font-display text-display-xl text-ink-1">{title}</h1>
+        {/* On the full-bleed painterly backdrop (UIE-5): LIGHT on-art inks over `--scrim-art`
+            pass AA in every theme-mode, including Bone light. */}
+        <h1 className="font-display text-display-xl on-art">{title}</h1>
         {subline && (
-          <p className="mt-3 font-coach text-body leading-[var(--leading-coach)] text-ink-2">{subline}</p>
+          <p className="mt-3 font-coach text-body leading-[var(--leading-coach)] on-art-dim">{subline}</p>
         )}
         <div className="mt-8">{children}</div>
       </div>
