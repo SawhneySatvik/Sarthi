@@ -9,6 +9,7 @@ import type { TodayIdentity } from "@/core/domains/today";
 import type { ProfileGapRecord, ProfileRecord } from "@/data/schema/contract";
 import { LLM_MODEL_MATRIX } from "@/providers/llm";
 import { DetailFlow } from "@/components/onboarding/detail/DetailFlow";
+import { NotificationToggle } from "@/components/pwa/NotificationToggle";
 
 import {
   getRuntimeProviderOverride,
@@ -509,6 +510,7 @@ export function SettingsSheet({
                 <Section title="COACH">
                   <CoachBrief />
                   <Toggle label="On-open briefs" value={brief} onChange={(value) => changePreference("brief", value, setBrief)} />
+                  <NotificationToggle />
                   <p className="px-4 py-3 font-ui text-caption text-ink-3">These times will drive local reminders once notifications are turned on.</p>
                 </Section>
                 <Section title="DATA"><a href="/api/settings/export" className="flex min-h-12 items-center px-4"><span className="font-ui text-body text-ink-1">Export my data</span><Download size={16} strokeWidth={1.5} className="ml-auto text-ink-2" aria-hidden /></a><Row label="Danger zone" onClick={() => setPanel("danger")} /></Section>

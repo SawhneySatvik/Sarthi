@@ -9,6 +9,8 @@ import { SettingsSheet } from "@/components/settings/SettingsSheet";
 import type { ProfileGapRecord, ProfileRecord } from "@/data/schema/contract";
 import type { LlmProviderName } from "@/core/contracts";
 
+import { InstallPrompt } from "@/components/pwa/InstallPrompt";
+
 import { CoachLine } from "./CoachLine";
 import { DomainSwitcher } from "./DomainSwitcher";
 import { PlanSpine } from "./PlanSpine";
@@ -52,6 +54,9 @@ export function TodayBody({
       <CoachLine text={view.coachLine} />
       {/* Day-1 only: the one-time mic hint (SAR-012 Phase G), dismissible + persisted. */}
       <TodayHintRow dayOne={view.stat.dayOfArc === 1} />
+      {/* Dismissible PWA install affordance (FLOWS G) — inline flow, never overlays the header
+          gear or the capture bar; self-hides unless installable / iOS Safari, and persists dismissal. */}
+      <InstallPrompt />
       <DomainSwitcher
         domains={view.domains}
         healthView={healthView}

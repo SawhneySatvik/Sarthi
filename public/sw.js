@@ -10,8 +10,15 @@
  * This SW is registered ONLY when NEXT_PUBLIC_ENABLE_SW === "1" (see the registration
  * component), which is left UNSET on the production demo — so prod stays SW-free until
  * a deliberate go.
+ *
+ * PUSH SCAFFOLD (T3): the `push` + `notificationclick` listeners below are wired and
+ * production-shaped, but the SERVER SENDER is deliberately deferred — there is no VAPID
+ * subscription store and no /api/push endpoint yet (see components/pwa/notifications.ts
+ * for the clearly-commented seam). Until that lands, notifications are fired LOCALLY from
+ * the page via `registration.showNotification(...)` while a tab is open; the `push` path
+ * only comes alive once a backend sender exists.
  */
-const VERSION = "sarthi-sw-v1";
+const VERSION = "sarthi-sw-v2";
 const STATIC_CACHE = `${VERSION}-static`;
 const OFFLINE_URL = "/offline";
 
@@ -61,4 +68,49 @@ self.addEventListener("fetch", (event) => {
       ),
     );
   }
+});
+
+/*
+ * PUSH (scaffold). Fires when a server pushes a message to a subscribed client. The
+ * SERVER SENDER + VAPID subscription store are DEFERRED (see the module header), so in
+ * the current build this only runs if a push is delivered by a future backend — it never
+ * errors in its absence. Payload is best-effort JSON: { title, body, url, tag }.
+ */
+self.addEventListener("push", (event) => {
+  let payload = {};
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch {
+    payload = { body: event.data ? event.data.text() : "" };
+  }
+  const title = payload.title || "Sarthi";
+  const options = {
+    body: payload.body || "",
+    icon: "/icon-192",
+    badge: "/icon-192",
+    tag: payload.tag || "sarthi-reminder",
+    renotify: false,
+    data: { url: payload.url || "/today" },
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+/*
+ * NOTIFICATION CLICK — focus an existing Sarthi tab (navigating it to the target) or open
+ * a new one. Works for both server pushes and locally-scheduled notifications.
+ */
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const target = (event.notification.data && event.notification.data.url) || "/today";
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
+        if ("focus" in client) {
+          if (client.url !== target && "navigate" in client) client.navigate(target).catch(() => {});
+          return client.focus();
+        }
+      }
+      return self.clients.openWindow ? self.clients.openWindow(target) : undefined;
+    }),
+  );
 });
