@@ -71,7 +71,7 @@ export function JourneyRail({ view, reflections = [], media = [] }: { view: Jour
   </div>;
 }
 
-function FirstProof() { return <section className="rounded-card border border-line bg-card p-5"><p className="font-display text-title text-ink-1">Your first day is waiting.</p><p className="mt-2 font-coach text-body leading-[var(--leading-coach)] text-ink-2">Save a reflection or capture a real moment when you are ready.</p></section>; }
+function FirstProof() { return <section className="overflow-hidden rounded-card border border-line bg-card shadow-[var(--elev-card)]"><ArtFrame artKey="empty.stillness" className="min-h-56 rounded-none border-0"><div className="flex h-full flex-col justify-end p-5"><p className="font-display text-title on-art">Your first day is waiting.</p><p className="mt-2 font-coach text-body leading-[var(--leading-coach)] on-art-dim">Save a reflection or capture a real moment when you are ready.</p></div></ArtFrame></section>; }
 
 function DayCard({ day, open, isToday, animate, onToggle, onOpenMedia }: { day: MergedDay; open: boolean; isToday: boolean; animate: boolean; onToggle: () => void; onOpenMedia: (item: ReflectionMediaRecord) => void }) {
   const facts = day.source?.evidence.length ?? 0;

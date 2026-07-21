@@ -44,7 +44,7 @@ function Ring({ ring }: { ring: HealthRing }) {
 export function HealthLens({ view }: { view: HealthView }) {
   return (
     <div className="px-4">
-      <ArtFrame artKey="health.water" ratio="h-20" className="mb-3"><p className="flex h-full items-end p-3 font-display text-title text-ink-1">Health</p></ArtFrame>
+      <ArtFrame artKey="health.water" ratio="h-20" className="mb-3"><p className="flex h-full items-end p-3 font-display text-title on-art">Health</p></ArtFrame>
       <div className="flex items-center justify-around rounded-card border border-line bg-card py-5">
         {view.rings.map((ring) => (
           <Ring key={ring.key} ring={ring} />

@@ -55,6 +55,16 @@ const EXPECTED_PUBLIC_ART = {
   "today.arc_complete": "/art/today/done_evening.webp",
 } as const;
 
+// UIE-1 (D-052) — new calm placements (Stats header, empty Journey). Their WebPs are
+// authored externally per docs/experience/ASSETS-02.md and dropped in later; until then
+// the ArtFrame plate+grain fallback renders by design, so these keys are intentionally
+// NOT yet on disk and are exempt from the shipped-file check. They still must be a real
+// /art/*.webp path with no raw-source leak, and carry no ART_MANIFEST row (art:check green).
+const PENDING_PUBLIC_ART = {
+  "stats.overview": "/art/stats/overview.webp",
+  "empty.stillness": "/art/empty/stillness.webp",
+} as const;
+
 function listPublicArt(directory: string, prefix = ""): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const relativePath = `${prefix}${entry.name}`;
@@ -63,8 +73,8 @@ function listPublicArt(directory: string, prefix = ""): string[] {
 }
 
 test("art registry owns all supplied scenes and deterministic title/domain fallbacks", () => {
-  assert.equal(Object.keys(ART).length, 42);
-  assert.deepEqual(Object.fromEntries(Object.entries(ART).map(([key, asset]) => [key, asset.src])), EXPECTED_PUBLIC_ART);
+  assert.equal(Object.keys(ART).length, 44);
+  assert.deepEqual(Object.fromEntries(Object.entries(ART).map(([key, asset]) => [key, asset.src])), { ...EXPECTED_PUBLIC_ART, ...PENDING_PUBLIC_ART });
   assert.equal(selectPlanArt("health", "Morning water"), "health.water");
   assert.equal(selectPlanArt("money", "A new plan"), "money.ledger");
   assert.equal(selectPlanArt("skills", "Practice violin"), "skills.desk_night");
@@ -78,10 +88,13 @@ test("art registry owns all supplied scenes and deterministic title/domain fallb
 
 test("committed public art validates without raw sources, stays inside the signed payload, and has no raw source path", () => {
   execFileSync(process.execPath, ["scripts/build-art.mjs", "--check"], { cwd: ROOT, stdio: "pipe" });
+  const pendingSrcs = new Set<string>(Object.values(PENDING_PUBLIC_ART));
   let total = 0;
   for (const asset of Object.values(ART)) {
     assert.match(asset.src, /^\/art\/.+\.webp$/);
     assert.equal(asset.src.includes("assets/images"), false);
+    // Pending placements render the ArtFrame plate fallback until their WebP lands — exempt from disk check.
+    if (pendingSrcs.has(asset.src)) continue;
     const path = join(ROOT, "public", asset.src);
     assert.equal(existsSync(path), true, `${asset.src} is shipped`);
     total += statSync(path).size;
