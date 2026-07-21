@@ -111,7 +111,8 @@ Signature motions (the only choreographed ones — everything else is `--t-base`
 
 ## 6. Layout & navigation
 
-- **Design width:** mobile-first at 390px; content column caps at 720px on desktop.
+- **Design width:** mobile-first at 390px. The shared desktop shell uses a tokenized 45rem reading measure through `md`, then a 72rem canvas at `lg`; individual screen specs may retain narrower reading content within that canvas.
+- **Desktop navigation:** `< md` keeps the mobile bottom navigation unchanged. At `md` the primary rail is a compact 4rem icon rail; at `lg` it expands to a labelled 15rem sidebar. `xl` may add screen-specific columns, but never introduces a third shell-width system.
 - **Capture:** one white elevated pencil FAB floats bottom-right above the mobile nav / desktop rail. It morphs into the global capture sheet; text, photo, and PTT stay reachable inside that sheet from every tab.
 - **Verification:** 390px mobile is the visual-fidelity gate; every changed screen/state also receives a desktop responsive smoke screenshot (D-034).
 - **Settings/Profile:** avatar top-right on every tab → sheet/route. Not a sixth tab.

@@ -11,7 +11,7 @@ function Bar({ className = "" }: { className?: string }) {
 
 export default function AppLoading() {
   return (
-    <div className="mx-auto w-full max-w-[45rem] px-4 pt-6" role="status" aria-label="Loading">
+    <div className="mx-auto w-full max-w-[45rem] px-4 pt-6 md:max-w-[var(--w-reading)] lg:max-w-[var(--w-canvas)]" role="status" aria-label="Loading">
       <span className="sr-only">Loading…</span>
       {/* header band */}
       <div className="animate-shimmer h-40 w-full rounded-card bg-raised" aria-hidden />

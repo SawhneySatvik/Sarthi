@@ -13,7 +13,8 @@ import { ToolsProvider, ToolsResumeRibbon } from "@/components/tools/ToolsProvid
 export const dynamic = "force-dynamic";
 
 /** The app shell: nav (bottom bar mobile / left rail desktop), the global capture
- *  bar, and a 720px content column. Per-screen headers live inside each page.
+ *  bar, and a reading-width shell that expands to the desktop canvas at lg. Per-screen
+ *  headers live inside each page.
  *
  *  SAR-012 (D-A) — this shell is the single onboarding gate for every app screen.
  *  A missing profile row (fresh DB) or any `onboardingStatus !== 'complete'` redirects
@@ -29,9 +30,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <ToolsProvider>
-      <div className="min-h-screen bg-canvas text-ink-1 md:pl-16">
+      <div className="min-h-screen bg-canvas text-ink-1 md:pl-[var(--w-rail-compact)] lg:pl-[var(--w-rail-expanded)]">
         <LeftRail />
-        <div className="mx-auto flex min-h-screen max-w-[45rem] flex-col">
+        <div className="mx-auto flex min-h-screen max-w-[45rem] flex-col md:max-w-[var(--w-reading)] lg:max-w-[var(--w-canvas)]">
           <main className="flex-1 pb-44 md:pb-32">{children}</main>
         </div>
         <ToolsResumeRibbon />

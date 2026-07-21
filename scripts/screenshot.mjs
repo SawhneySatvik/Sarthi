@@ -41,7 +41,7 @@ async function shot(page, name) {
   console.log("  shot", `${NAME_PREFIX}${name}`);
 }
 
-async function withPage(browser, { theme, mode, width }, fn) {
+async function withPage(browser, { theme, mode, width, strict = false }, fn) {
   const context = await browser.newContext({
     viewport: { width, height: width < 500 ? 844 : 900 },
     deviceScaleFactor: 2,
@@ -67,6 +67,7 @@ async function withPage(browser, { theme, mode, width }, fn) {
     await fn(page);
   } catch (error) {
     console.log(`  ! ${theme}/${mode}/${width}:`, error.message);
+    if (strict) throw error;
   }
   await context.close();
 }
@@ -79,6 +80,32 @@ async function today(browser, label, themes, widths) {
         await page.waitForTimeout(350);
         await shot(page, `today-${label}-${width}-${theme}-${mode}`);
       });
+    }
+  }
+}
+
+// Shared-shell smoke: every primary route must retain its active navigation affordance
+// at mobile and desktop. This deliberately asserts the rendered accessibility state,
+// rather than inferring it from a screenshot alone.
+async function shell(browser, themes, widths) {
+  const routes = [
+    ["today", "Today"],
+    ["journey", "Journey"],
+    ["coach", "Coach"],
+    ["stats", "Stats"],
+    ["tools", "Tools"],
+  ];
+  for (const [theme, mode] of themes) {
+    for (const width of widths) {
+      for (const [route, label] of routes) {
+        await withPage(browser, { theme, mode, width, strict: true }, async (page) => {
+          await page.goto(`${BASE}/${route}`, { waitUntil: "networkidle" });
+          const primary = page.getByRole("navigation", { name: "Primary" });
+          await primary.getByRole("link", { name: label, current: "page" }).waitFor({ state: "visible", timeout: 4000 });
+          await page.waitForTimeout(SETTLE_MS);
+          await shot(page, `shell-${route}-${width}-${theme}-${mode}`);
+        });
+      }
     }
   }
 }
@@ -1016,7 +1043,7 @@ try {
     await habitsLens(browser, EMBER, [MOBILE, DESKTOP]);
     await skillsLens(browser, EMBER, [MOBILE, DESKTOP]);
     await captureFlow(browser, EMBER, [MOBILE]);
-    await captureFlow(browser, [["ember", "dark"]], [DESKTOP]);
+    await captureFlow(browser, THEME_OVERRIDE ?? [["ember", "dark"]], [DESKTOP]);
     await photoFlow(browser, EMBER, [MOBILE]);
   } else if (SHOTS === "money") {
     await moneyLens(browser, EMBER, [MOBILE, DESKTOP]);
@@ -1033,7 +1060,9 @@ try {
     await photoFlow(browser, EMBER, [MOBILE, DESKTOP]);
   } else if (SHOTS === "voice") {
     await voiceFlow(browser, EMBER, [MOBILE]);
-    await voiceFlow(browser, [["ember", "dark"]], [DESKTOP]);
+    await voiceFlow(browser, THEME_OVERRIDE ?? [["ember", "dark"]], [DESKTOP]);
+  } else if (SHOTS === "shell") {
+    await shell(browser, EMBER, [MOBILE, DESKTOP]);
   } else if (SHOTS === "tools") {
     await toolsScreens(browser, EMBER, [MOBILE, DESKTOP]);
   } else if (SHOTS === "tools-meditation-final") {

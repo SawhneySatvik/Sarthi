@@ -92,6 +92,13 @@
   --space-6: 24px;
   --space-shell: 24px;
 
+  /* Desktop shell geometry. The app has two deliberate content measures: a
+   * quiet reading column and a wider canvas for its desktop-only arrangements. */
+  --w-reading: 45rem;
+  --w-canvas: 72rem;
+  --w-rail-compact: 4rem;
+  --w-rail-expanded: 15rem;
+
   /* Ember Dark defaults (mirrored by the [ember][dark] block below). */
   --bg-canvas: #0c0b0a;
   --bg-card: #17130e;
