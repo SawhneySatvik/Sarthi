@@ -281,8 +281,21 @@ async function coachScreens(browser, themes, widths) {
   for (const [theme, mode] of themes) for (const width of widths) await withPage(browser, { theme, mode, width }, async (page) => {
     await page.goto(`${BASE}/coach`, { waitUntil: "networkidle" }); await page.waitForTimeout(SETTLE_MS);
     await shot(page, `coach-reading-${width}-${theme}-${mode}`);
-    await page.getByText(/Deep work|lighter restart/).first().click().catch(() => {}); await page.waitForTimeout(150); await shot(page, `coach-adaptation-${width}-${theme}-${mode}`);
-    await page.getByLabel("Close adaptation").click().catch(() => {});
+    if (width >= DESKTOP) {
+      const context = page.getByRole("complementary", { name: "Coach context" });
+      await context.getByText("Save ₹5,000 every month", { exact: true }).waitFor({ state: "visible", timeout: 4000 });
+      console.log("  coach context verified", `${width}-${theme}-${mode}`);
+      await shot(page, `coach-context-${width}-${theme}-${mode}`);
+    }
+    const pendingAdaptation = width >= DESKTOP
+      ? page.getByRole("complementary", { name: "Coach context" }).getByRole("button", { name: /pending/ })
+      : page.getByRole("button", { name: /pending/ }).first();
+    await pendingAdaptation.click();
+    const adaptationDialog = page.getByRole("dialog", { name: "Adaptation" });
+    await adaptationDialog.waitFor({ state: "visible", timeout: 4000 });
+    await shot(page, `coach-adaptation-${width}-${theme}-${mode}`);
+    await page.getByLabel("Close adaptation").click();
+    await adaptationDialog.waitFor({ state: "hidden", timeout: 4000 });
     await page.getByLabel("Ask your coach").fill("How should I restart?"); await page.getByLabel("Send question").click(); await page.waitForTimeout(250); await shot(page, `coach-ask-${width}-${theme}-${mode}`);
     await page.goto(`${BASE}/stats`, { waitUntil: "networkidle" }); await shot(page, `stats-current-${width}-${theme}-${mode}`);
     await page.getByRole("tab", { name: "Day-1" }).click(); await shot(page, `stats-day-one-${width}-${theme}-${mode}`);
