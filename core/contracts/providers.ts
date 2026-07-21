@@ -35,6 +35,8 @@ export interface ObjectRequest<TSchema extends z.ZodType> {
       | "capture-parse"
       | "coach-brief"
       | "coach-ask"
+      | "coach-agent-step"
+      | "coach-memory-distill"
       | "vision"
       | "onboarding-spine"
       | "onboarding-fill"

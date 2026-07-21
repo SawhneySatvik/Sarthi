@@ -25,7 +25,7 @@ export interface DomainCoachContext {
   evidence: readonly CoachEvidenceItem[];
 }
 
-export type CoachToolName = "read-progress" | "read-plan" | "propose-adaptation";
+export type CoachToolName = "read-domain-evidence" | "read-progress" | "read-plan" | "propose-adaptation";
 
 export interface DomainEvent {
   domain: Exclude<Domain, "overall">;
@@ -88,3 +88,20 @@ export function toCoachEvidence(localDate: string, items: readonly CoachEvidence
     items: items.map((item) => ({ ...item })),
   };
 }
+
+/** COACH-0 — the agentic loop's public types live in `./agent`; re-exported here so the
+ *  coach barrel surfaces them (type-only, erased at runtime — no module cycle). */
+export type {
+  CoachAgentStep,
+  CoachAgentEnvelope,
+  CoachAgentMemory,
+  CoachAgentMemories,
+  CoachMemoryDomain,
+  CoachAgentTranscriptMessage,
+  AgentEvidenceEntry,
+  AgentToolLogEntry,
+  CoachCitation,
+  ProposedAdaptationIntent,
+  RunCoachAgentOptions,
+  CoachAgentResult,
+} from "./agent";

@@ -1,4 +1,5 @@
 import type { LlmGateway, ObjectRequest, ObjectResult, TextRequest } from "@/core/contracts";
+import { deriveAgentStep, readAgentStepEnvelope } from "@/core/coach/agent";
 import { coreAnswersSchema, deriveSpine, readFillEnvelope, readSpineEnvelope } from "@/core/onboarding";
 import { deriveAffordVerdict, readAffordEnvelope } from "@/core/tools";
 import type { z } from "zod";
@@ -26,6 +27,15 @@ function fixtureForObject(operation: ObjectRequest<z.ZodType>["telemetry"]["oper
     return deriveAffordVerdict(context);
   }
   return /"scope":"weekly"/.test(prompt) ? DETERMINISTIC_WEEKLY_BRIEF_FIXTURE : DETERMINISTIC_BRIEF_FIXTURE;
+}
+
+/** COACH-0 (COACH-LIFT §2.5) — the keyless agentic-coach step is DERIVED from the envelope
+ *  in the prompt (keyword routing + integer-grounded answer), so it genuinely varies with
+ *  the question and the accumulated toolLog — never a fixed canned string. */
+function agentStepFromPrompt(prompt: string): unknown {
+  const envelope = readAgentStepEnvelope(prompt);
+  if (!envelope) throw new Error("coach-agent-step prompt is missing its envelope");
+  return deriveAgentStep(envelope);
 }
 
 /** SAR-012 (D-D) — the deterministic voice-fill dispatch: read the question key out of
@@ -71,11 +81,13 @@ export class FakeLlmGateway implements LlmGateway {
   ): Promise<ObjectResult<z.infer<TSchema>>> {
     const { operation } = request.telemetry;
     const raw =
-      operation === "onboarding-spine"
-        ? spineFromPrompt(request.prompt)
-        : operation === "onboarding-fill"
-          ? fixtureForFill(request.prompt)
-          : fixtureForObject(operation, request.prompt);
+      operation === "coach-agent-step"
+        ? agentStepFromPrompt(request.prompt)
+        : operation === "onboarding-spine"
+          ? spineFromPrompt(request.prompt)
+          : operation === "onboarding-fill"
+            ? fixtureForFill(request.prompt)
+            : fixtureForObject(operation, request.prompt);
     const object = request.schema.parse(raw);
     return {
       object,
