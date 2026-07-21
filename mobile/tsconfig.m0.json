@@ -1,0 +1,58 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "paths": {
+      "@/*": [
+        "./src/*",
+        "../*"
+      ],
+      "@/assets/*": [
+        "./assets/*"
+      ],
+      "@mobile/*": [
+        "./src/*"
+      ],
+      "@core": [
+        "../core/index.ts"
+      ],
+      "@core/*": [
+        "../core/*"
+      ],
+      "@schema": [
+        "../data/schema/contract.ts"
+      ],
+      "@schema/*": [
+        "../data/schema/*"
+      ],
+      "@contracts": [
+        "../core/contracts/index.ts"
+      ],
+      "@contracts/*": [
+        "../core/contracts/*"
+      ],
+      "@providers/*": [
+        "../providers/*"
+      ],
+      "node:crypto": [
+        "./src/shims/node-crypto.ts"
+      ]
+    }
+  },
+  "files": [
+    "./src/app/_layout.tsx",
+    "./src/app/index.tsx",
+    "./src/shims/fake-llm.ts",
+    "./src/shims/node-crypto.ts",
+    "./src/shims/parse-dump.ts",
+    "./src/theme/index.ts",
+    "./src/theme/provider.tsx",
+    "./src/theme/tokens.ts",
+    "./src/components/primitives/index.ts",
+    "./src/components/primitives/button.tsx",
+    "./src/components/primitives/card.tsx",
+    "./src/components/primitives/screen.tsx",
+    "./src/components/primitives/text.tsx"
+  ],
+  "include": []
+}

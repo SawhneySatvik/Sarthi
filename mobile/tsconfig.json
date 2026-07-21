@@ -1,0 +1,66 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "baseUrl": ".",
+    "ignoreDeprecations": "6.0",
+    "paths": {
+      "@/*": [
+        "./src/*",
+        "../*"
+      ],
+      "@/assets/*": [
+        "./assets/*"
+      ],
+      "@mobile/*": [
+        "./src/*"
+      ],
+      "@core": [
+        "../core/index.ts"
+      ],
+      "@core/*": [
+        "../core/*"
+      ],
+      "@schema": [
+        "../data/schema/contract.ts"
+      ],
+      "@schema/*": [
+        "../data/schema/*"
+      ],
+      "@contracts": [
+        "../core/contracts/index.ts"
+      ],
+      "@contracts/*": [
+        "../core/contracts/*"
+      ],
+      "@providers/*": [
+        "../providers/*"
+      ],
+      "node:crypto": [
+        "./src/shims/node-crypto.ts"
+      ]
+    }
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "src/app/explore.tsx",
+    "src/components/animated-icon.tsx",
+    "src/components/animated-icon.web.tsx",
+    "src/components/app-tabs.tsx",
+    "src/components/app-tabs.web.tsx",
+    "src/components/external-link.tsx",
+    "src/components/hint-row.tsx",
+    "src/components/themed-text.tsx",
+    "src/components/themed-view.tsx",
+    "src/components/ui/collapsible.tsx",
+    "src/components/web-badge.tsx",
+    "src/constants/theme.ts",
+    "src/hooks/**"
+  ]
+}
