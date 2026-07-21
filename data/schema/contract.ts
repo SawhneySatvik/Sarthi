@@ -279,6 +279,10 @@ const profilesBusinessShape = {
   wakeTimeMinutes: z.number().int().nullable(),
   sleepTimeMinutes: z.number().int().nullable(),
   timeBudgetMinutes: z.number().int().nullable(),
+  // The IANA zone captured at onboarding (D-053) — the single authority for this user's
+  // local day at every read boundary (Today read, coach daily brief, plan rollover). Fixed
+  // at onboarding for v1; per-capture zones already ride each domain row (travel re-sync deferred).
+  timezone: z.string(),
   foodPattern: z.string().nullable(),
   screenTimeMinutes: z.number().int().nullable(),
   focusPreference: z.string().nullable(),
@@ -326,6 +330,7 @@ const profilesTable: TableDescriptor = {
     { name: 'wakeTimeMinutes', type: 'integer', notNull: false },
     { name: 'sleepTimeMinutes', type: 'integer', notNull: false },
     { name: 'timeBudgetMinutes', type: 'integer', notNull: false },
+    { name: 'timezone', type: 'text', notNull: true },
     { name: 'foodPattern', type: 'text', notNull: false },
     { name: 'screenTimeMinutes', type: 'integer', notNull: false },
     { name: 'focusPreference', type: 'text', notNull: false },
@@ -2009,40 +2014,47 @@ const billingEventsTable: TableDescriptor = {
   indexes: [['userId', 'createdAt']],
 };
 
-/* ── waitlist_requests (immutable) ────────────────────────────────────────
- * One pricing-page waitlist request per authenticated user.
+/* ── waitlist (immutable) ──────────────────────────────────────────────────
+ * A public, anonymous email waitlist — the point is a contactable email. `email`
+ * is the identity/dedupe key (unique, global); `userId` is NOT NULL per invariant
+ * D-2 but is only metadata injected from whatever session (anonymous sandbox or
+ * keyless dev) submitted the form — it is NEVER the dedupe key.
  */
-const waitlistRequestsBusinessShape = {
+const waitlistBusinessShape = {
+  email: z.string(),
   source: waitlistSourceEnum,
-  requestedAt: z.string(),
 };
 
-export const waitlistRequestsRecord = z.object({
+export const waitlistRecord = z.object({
   ...immutableBaseShape,
-  ...waitlistRequestsBusinessShape,
+  ...waitlistBusinessShape,
 });
-export const waitlistRequestsCreate = z.object({
+export const waitlistCreate = z.object({
   ...immutableCreateBaseShape,
-  ...waitlistRequestsBusinessShape,
+  email: z.string(),
+  source: waitlistSourceEnum.default('pricing'),
 });
-export const waitlistRequestsQuery = z.object({
+export const waitlistQuery = z.object({
   userId: z.string(),
+  email: z.string().optional(),
   source: waitlistSourceEnum.optional(),
 });
 
-export type WaitlistRequestRecord = z.infer<typeof waitlistRequestsRecord>;
-export type WaitlistRequestCreate = z.infer<typeof waitlistRequestsCreate>;
-export type WaitlistRequestQuery = z.infer<typeof waitlistRequestsQuery>;
+export type WaitlistRecord = z.infer<typeof waitlistRecord>;
+export type WaitlistCreate = z.infer<typeof waitlistCreate>;
+export type WaitlistQuery = z.infer<typeof waitlistQuery>;
 
-const waitlistRequestsTable: TableDescriptor = {
-  name: 'waitlist_requests',
+const waitlistTable: TableDescriptor = {
+  name: 'waitlist',
   columns: [
     ...immutableBaseColumns,
+    { name: 'email', type: 'text', notNull: true },
     { name: 'source', type: 'text', notNull: true, enum: 'waitlistSource' },
-    { name: 'requestedAt', type: 'timestamp', notNull: true },
   ],
   primaryKey: ['id'],
-  unique: [['userId', 'source']],
+  // Dedupe by EMAIL alone (global) — a waitlist collects unique contactable
+  // emails, not per-user rows.
+  unique: [['email']],
   indexes: [],
 };
 
@@ -2282,11 +2294,11 @@ export const schemaContract = {
     create: billingEventsCreate,
     query: billingEventsQuery,
   },
-  waitlist_requests: {
-    descriptor: waitlistRequestsTable,
-    record: waitlistRequestsRecord,
-    create: waitlistRequestsCreate,
-    query: waitlistRequestsQuery,
+  waitlist: {
+    descriptor: waitlistTable,
+    record: waitlistRecord,
+    create: waitlistCreate,
+    query: waitlistQuery,
   },
 } satisfies Record<string, TableContract>;
 

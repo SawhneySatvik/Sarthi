@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getSession } from "@/app/lib/session";
+import { scrubProviderError, withByok } from "@/app/lib/byok";
 import { parsePhoto, visionPhotoTypeEnum } from "@/core/capture";
 import type { ImageInput } from "@/core/contracts";
 
@@ -62,14 +63,19 @@ export async function POST(request: Request): Promise<Response> {
     filename: photo.name || undefined,
   };
 
-  const { vision } = await getSession();
+  // BYOK: a per-request key routes photo parsing to the user's real vision provider;
+  // absent a key the configured (fake, keyless) vision provider is used unchanged.
+  const { vision } = withByok(await getSession(), request);
   const result = await parsePhoto(
     { images: [image], timezone, capturedAt: new Date().toISOString(), photoType, caption },
     vision,
   );
 
   if (!result.ok) {
-    return NextResponse.json({ ok: false, retryable: result.retryable, error: result.error }, { status: 502 });
+    return NextResponse.json(
+      { ok: false, retryable: result.retryable, error: scrubProviderError(result.error, request.headers) },
+      { status: 502 },
+    );
   }
   return NextResponse.json({ ok: true, draft: result.draft });
 }

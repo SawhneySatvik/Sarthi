@@ -1,11 +1,19 @@
 import type { VisionProvider, VisionProviderName } from "@/core/contracts";
 import { FakeVisionProvider } from "@/providers/fake";
-import { ProviderConfigurationError } from "@/providers/llm";
+import { AiSdkVisionProvider } from "./ai-sdk";
 
-/** Only fake vision is callable in SAR-002; live adapters retain the same port for later tickets. */
-export function createVisionProvider(provider: VisionProviderName): VisionProvider {
+/**
+ * Selects a vision adapter. `options.apiKey` carries a transient per-request BYOK key so
+ * strangers on the live deploy can parse photos with their own Gemini/OpenAI key; when
+ * omitted the live adapter falls back to the server env key. The keyless `fake` path is
+ * unchanged and needs no key.
+ */
+export function createVisionProvider(
+  provider: VisionProviderName,
+  options?: { apiKey?: string },
+): VisionProvider {
   if (provider === "fake") {
     return new FakeVisionProvider();
   }
-  throw new ProviderConfigurationError(`Vision provider \"${provider}\" is not implemented in SAR-002.`);
+  return new AiSdkVisionProvider(provider, options?.apiKey);
 }

@@ -3,7 +3,7 @@ import "server-only";
 import { cache } from "react";
 
 import type { AuthenticatedUser, LlmGateway, MediaProvider, UserScopedRepositories, VisionProvider, VoiceProvider } from "@/core/contracts";
-import { createSqliteRepositoryFactory } from "@/data/repository";
+import { createPostgresRepositoryFactory, createSqliteRepositoryFactory } from "@/data/repository";
 import { createAuthProvider } from "@/providers/auth";
 import { createLlmGateway, createMediaProvider, createVisionProvider, createVoiceProvider } from "@/providers";
 
@@ -38,33 +38,50 @@ interface SessionBase {
 }
 
 // The factory owns a single shared db connection (data/repository/factory.ts), so it
-// is memoised per url at MODULE level — one connection per server instance, reused
-// across requests. `forUser` still mints a fresh per-request scope from it.
-const factories = new Map<string, ReturnType<typeof createSqliteRepositoryFactory>>();
+// is memoised at MODULE level, keyed by provider:url — one connection per server
+// instance per (dialect, url), reused across requests. `forUser` still mints a fresh
+// per-request scope from it. On Postgres this holds the pooled postgres-js client
+// (data/db/postgres.ts, max:1) open across a warm serverless instance.
+type RepositoryFactoryHandle = ReturnType<typeof createSqliteRepositoryFactory>;
+const factories = new Map<string, RepositoryFactoryHandle>();
 
-function factoryFor(url: string): ReturnType<typeof createSqliteRepositoryFactory> {
-  let factory = factories.get(url);
+function factoryFor(config: RuntimeConfig): RepositoryFactoryHandle {
+  const key = `${config.databaseProvider}:${config.databaseUrl}`;
+  let factory = factories.get(key);
   if (!factory) {
-    factory = createSqliteRepositoryFactory(url);
-    factories.set(url, factory);
+    factory =
+      config.databaseProvider === "postgres"
+        ? createPostgresRepositoryFactory(config.databaseUrl)
+        : createSqliteRepositoryFactory(config.databaseUrl, config.databaseAuthToken);
+    factories.set(key, factory);
   }
   return factory;
 }
 
+/**
+ * Bind a scoped repository set to an EXPLICIT userId, WITHOUT reading the request cookie.
+ * Mirrors `getSessionBase`'s `factoryFor(getRuntimeConfig()).forUser(...)` wire, but takes the
+ * id from the caller — used by `/api/try-demo` to seed a freshly-minted per-visitor sandbox
+ * before that id is written to the cookie. `mode: "local"` matches the anonymous provider's
+ * own `AuthenticatedUser` shape (providers/auth/anonymous.ts). Server-only.
+ */
+export function reposForUserId(userId: string): UserScopedRepositories {
+  return factoryFor(getRuntimeConfig()).forUser({ userId, email: null, mode: "local" });
+}
+
 const getSessionBase = cache(async (): Promise<SessionBase> => {
   const config = getRuntimeConfig();
-  if (config.databaseProvider !== "sqlite") {
-    // Postgres UI reads are wired in SAR-021; dev/CI runs keyless on SQLite.
-    throw new Error(
-      `database provider '${config.databaseProvider}' is not wired for UI reads yet (SAR-021 owns Postgres).`,
-    );
-  }
   const auth = createAuthProvider(config.authProvider);
   const user = await auth.requireUser();
-  const repos = factoryFor(config.databaseUrl).forUser(user);
+  const repos = factoryFor(config).forUser(user);
   const vision = createVisionProvider(config.visionProvider);
   const voice = createVoiceProvider(config.voiceProvider);
-  const media = createMediaProvider(config.databaseProvider === "sqlite" ? "fake" : "production");
+  // Media/object storage is not wired for serverless yet: the `fake` provider writes
+  // to the local FS (read-only on Vercel) and `production` is an unimplemented throwing
+  // stub. The whole stack stays on the keyless `fake` media provider until object
+  // storage lands — the voice-capture demo path writes no media, so this does not
+  // block the de-risk (fake-stack) Postgres deploy.
+  const media = createMediaProvider("fake");
   return { user, repos, vision, voice, media, config };
 });
 

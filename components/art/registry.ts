@@ -8,6 +8,9 @@ export const ART = {
   "today.header.night": { src: "/art/today/night.webp", alt: "A lamplit room at night", accent: "overall" },
   "today.rest": { src: "/art/today/rest.webp", alt: "A quiet moment of rest", accent: "overall" },
   "today.done_evening": { src: "/art/today/done_evening.webp", alt: "A calm evening after a full day", accent: "overall" },
+  // UIE-0e — interim `src` points at the calm-evening plate until UIE-1's ASSETS-02 batch ships
+  // the real summit/threshold scene (protagonist from behind/afar, warm dusk, no visible faces).
+  "today.arc_complete": { src: "/art/today/done_evening.webp", alt: "A summit reached at golden hour, seen from behind", accent: "overall" },
   "habit.wake_dawn": { src: "/art/habits/wake_dawn.webp", alt: "Waking in the first light", accent: "habits" },
   "habit.make_bed": { src: "/art/habits/make_bed.webp", alt: "Making the bed in the morning", accent: "habits" },
   "habit.cold_morning": { src: "/art/habits/cold_morning.webp", alt: "A quiet blue-hour bathroom", accent: "habits" },

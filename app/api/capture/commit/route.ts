@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getSessionForRuntimeRequest, type Session } from "@/app/lib/session";
 import { isRuntimeOverrideError } from "@/app/lib/runtimeOverride";
+import { withByok } from "@/app/lib/byok";
 import {
   createCommitService,
   proposalSchema,
@@ -59,7 +60,9 @@ export async function POST(request: Request): Promise<Response> {
   let repos: Session["repos"];
   let llm: Session["llm"];
   try {
-    ({ repos, llm } = await getSessionForRuntimeRequest(request));
+    // BYOK: the coach-line generation on commit uses the user's key when present. The
+    // server still RE-ROUTES every proposal below (D-040) — BYOK never touches the trust seam.
+    ({ repos, llm } = withByok(await getSessionForRuntimeRequest(request), request));
   } catch (error) {
     if (isRuntimeOverrideError(error)) {
       return NextResponse.json({ ok: false, error: error.message }, { status: 400 });

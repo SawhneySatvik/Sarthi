@@ -30,6 +30,7 @@ import type { Domain } from "@/data/schema/contract";
 import { z } from "zod";
 
 import type { UserScopedRepositories } from "@/core/contracts";
+import { localDateInZone } from "@/core/time";
 
 import { coreAnswersSchema } from "./contract";
 import {
@@ -138,12 +139,8 @@ const DOMAIN_GAP_PROMPT: Record<SpineDomain, string> = {
 
 /* ── date helpers (pure, timezone-correct) ───────────────────────────────── */
 
-/** `localDate` (YYYY-MM-DD) for a UTC instant in an IANA zone. `en-CA` formats as ISO. */
-function localDateInZone(iso: string, timeZone: string): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(
-    new Date(iso),
-  );
-}
+// `localDateInZone` now lives in the shared `@/core/time` module (D-053) — the private
+// copy that used to sit here was lifted verbatim into it so every day-key boundary agrees.
 
 /** The calendar-month window [first, last] containing a YYYY-MM-DD date. */
 function monthWindow(localDate: string): { start: string; end: string } {
@@ -253,6 +250,10 @@ export function createAcceptOnboardingService(
           wakeTimeMinutes: input.answers.wakeTimeMinutes,
           sleepTimeMinutes: input.answers.sleepTimeMinutes,
           timeBudgetMinutes: input.answers.timeBudgetMinutes,
+          // D-053: persist the onboarding zone (validated by the input schema's refine) so
+          // every later day-key read resolves this user's true local day. `today` above is
+          // already computed from it.
+          timezone: input.timezone,
           foodPattern: null,
           screenTimeMinutes: null,
           focusPreference: null,

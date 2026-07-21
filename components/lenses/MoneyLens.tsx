@@ -154,7 +154,7 @@ export function MoneyLens({ view }: { view: MoneyView }) {
     <div className="px-4 pb-2">
       <ArtFrame artKey="money.ledger" ratio="h-20" className="mb-3"><p className="flex h-full items-end p-3 font-display text-title text-ink-1">Money</p></ArtFrame>
       <header className="pt-1">
-        <p className="font-ui text-caption uppercase tracking-wide text-money">Money</p>
+        <p className="font-ui text-caption uppercase tracking-wide text-money-strong">Money</p>
         <p className="font-display text-display-xl tabular-nums text-ink-1">{formatPaise(view.headline.netPaise)}</p>
         <p className="font-ui text-caption text-ink-3">this month</p>
       </header>

@@ -51,6 +51,8 @@ const EXPECTED_PUBLIC_ART = {
   "coach.week_band": "/art/coach/week_band.webp",
   "today.rest": "/art/today/rest.webp",
   "today.done_evening": "/art/today/done_evening.webp",
+  // UIE-0e — interim src reuses done_evening.webp until UIE-1 ships the real summit scene.
+  "today.arc_complete": "/art/today/done_evening.webp",
 } as const;
 
 function listPublicArt(directory: string, prefix = ""): string[] {
@@ -61,7 +63,7 @@ function listPublicArt(directory: string, prefix = ""): string[] {
 }
 
 test("art registry owns all supplied scenes and deterministic title/domain fallbacks", () => {
-  assert.equal(Object.keys(ART).length, 41);
+  assert.equal(Object.keys(ART).length, 42);
   assert.deepEqual(Object.fromEntries(Object.entries(ART).map(([key, asset]) => [key, asset.src])), EXPECTED_PUBLIC_ART);
   assert.equal(selectPlanArt("health", "Morning water"), "health.water");
   assert.equal(selectPlanArt("money", "A new plan"), "money.ledger");
@@ -89,6 +91,8 @@ test("committed public art validates without raw sources, stays inside the signe
   assert.equal(existsSync(ART_ROOT), true);
   assert.deepEqual(
     listPublicArt(ART_ROOT).sort(),
-    Object.values(EXPECTED_PUBLIC_ART).map((src) => src.replace("/art/", "")).sort(),
+    // De-dupe: UIE-0e's `today.arc_complete` interim-reuses an already-shipped file, so two
+    // registry keys map to one path — the on-disk set stays 1:1 with the unique src paths.
+    [...new Set(Object.values(EXPECTED_PUBLIC_ART).map((src) => src.replace("/art/", "")))].sort(),
   );
 });

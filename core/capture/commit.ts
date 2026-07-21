@@ -879,7 +879,8 @@ export function createCommitService(options: CreateCommitServiceOptions): Commit
       try {
         const line = await llm.generateText({
           tier: "fast",
-          system: "Write one short, warm reaction to the just-logged entries.",
+          system:
+            "You are Sarthi. Write ONE short, warm sentence reacting to what the user just logged — grounded in the entries they captured. Be encouraging but calm, never preachy. No advice, no new plans, no invented facts. One sentence only.",
           prompt: `Committed ${proposals.length} entries.`,
           telemetry: { operation: "capture-line" },
         });

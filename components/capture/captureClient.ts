@@ -1,6 +1,7 @@
 import type { CommitResult } from "@/core/capture/commit";
 import type { CaptureDraft, ClarificationQuestion, Proposal } from "@/core/capture/contract";
 import { runtimeProviderHeaders } from "@/components/settings/runtimeOverride";
+import { byokHeaders } from "@/components/settings/byok";
 
 /*
  * Client wrappers over the SAR-006 capture route handlers (D-A). Type-only imports
@@ -44,7 +45,11 @@ export interface UndoResponse {
  *  to a safe `ok:false` so the caller re-decks the card instead of losing it. */
 async function postJson<T>(url: string, body: unknown, onError: T, includeRuntimeProvider = false): Promise<T> {
   try {
-    const headers = includeRuntimeProvider ? { ...JSON_HEADERS, ...runtimeProviderHeaders() } : JSON_HEADERS;
+    // BYOK: real-AI requests (parse/commit) carry the user's key + provider so the server
+    // routes to their own model. Absent a key the headers are empty and the fake path runs.
+    const headers = includeRuntimeProvider
+      ? { ...JSON_HEADERS, ...runtimeProviderHeaders(), ...byokHeaders() }
+      : JSON_HEADERS;
     const res = await fetch(url, { method: "POST", headers, body: JSON.stringify(body) });
     return (await res.json()) as T;
   } catch {
@@ -88,8 +93,9 @@ export async function parsePhoto(file: File, photoType: "meal" | "receipt"): Pro
   form.append("timezone", timezone);
   form.append("type", photoType);
   try {
-    // No explicit content-type header: the browser sets the multipart boundary.
-    const res = await fetch("/api/capture/parse-photo", { method: "POST", body: form });
+    // No explicit content-type header: the browser sets the multipart boundary. BYOK key
+    // (when saved) routes the photo to the user's real vision provider.
+    const res = await fetch("/api/capture/parse-photo", { method: "POST", body: form, headers: byokHeaders() });
     return (await res.json()) as ParseResponse;
   } catch {
     return { ok: false, error: "network" };

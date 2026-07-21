@@ -16,12 +16,14 @@
  *   • #2 (integer units) — the schemas are non-negative integers (paise/kcal/grams);
  *     the mapper is passthrough only — no arithmetic, no float.
  *
- * Framework-clean: imports zod, core contracts/types, `node:crypto`, and `Intl` only
- * (the same node-stdlib posture as `commit.ts`). No provider, DB, React, or Next.
+ * Framework-clean: imports zod, core contracts/types, the shared `@/core/time` day
+ * helpers, and `node:crypto` only (the same node-stdlib posture as `commit.ts`). No
+ * provider, DB, React, or Next.
  */
 import { randomUUID } from "node:crypto";
 
 import type { ImageInput, VisionProvider } from "@/core/contracts";
+import { localDateInZone } from "@/core/time";
 import { z } from "zod";
 
 import {
@@ -108,18 +110,8 @@ export interface VisionDraftContext {
   mimeType?: string | null;
 }
 
-/**
- * `localDate` from a UTC instant in an IANA zone — the first correct-by-construction
- * site for the standing UTC→local follow-up. `en-CA` formats as `YYYY-MM-DD`.
- */
-function localDateInZone(iso: string, timeZone: string): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date(iso));
-}
+// `localDateInZone` now lives in the shared `@/core/time` module (D-053) — the private
+// copy that used to sit here was lifted verbatim into it. Behavior is identical.
 
 /** The single photo evidence handle attached to the draft AND every derived proposal. */
 function photoEvidenceRef(ctx: VisionDraftContext): DraftEvidenceRef {
@@ -234,8 +226,8 @@ export interface ParsePhotoInput {
  */
 function promptFor(photoType: VisionPhotoType): string {
   return photoType === "receipt"
-    ? "Read this receipt photo and return the printed transactions as typed money entries."
-    : "Analyze this meal photo and return the estimated nutrition as a typed meal entry.";
+    ? "Read this receipt photo. Return every printed line item as a typed money transaction: amount in integer paise (rupees × 100), the merchant or item label, and a category if it is clear. Transcribe only what is printed — never invent a line, price, or tax. Return only the structured object."
+    : "Analyze this meal photo. Identify the foods and return one typed meal entry with estimated nutrition in integer units — kcal, plus protein/carbs/fat in grams. Base each estimate on a typical portion of the foods you can actually see, and mark them estimated. Do not invent foods that are not visible. Return only the structured object.";
 }
 
 export async function parsePhoto(input: ParsePhotoInput, vision: VisionProvider): Promise<ParseResult> {
@@ -244,7 +236,8 @@ export async function parsePhoto(input: ParsePhotoInput, vision: VisionProvider)
       images: input.images,
       schema: visionResultSchema,
       prompt: promptFor(input.photoType),
-      tier: "deep",
+      // Model plan: photo vision runs on the light structured model (balanced → gemini-2.5-flash-lite).
+      tier: "balanced",
     });
     // Defensive re-validation: a malformed vision object must NEVER become rows — it
     // is a retryable draft, not a crash and not a silent write (mirrors parseDump).

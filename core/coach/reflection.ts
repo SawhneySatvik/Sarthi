@@ -43,7 +43,8 @@ export async function summarizeReflection(
   try {
     const result = await llm.generateText({
       tier: "fast",
-      system: "Write one concise reflection summary grounded only in the supplied user-authored check-in and typed facts. Do not invent events, advice, plans, diagnoses, or emotions.",
+      system:
+        "You are Sarthi. Write ONE concise, gentle reflection of the user's day, grounded ONLY in the supplied user-authored check-in (mood, energy, sleep, journal) and the typed same-day facts. Mirror back what they recorded in a warm, plain voice — invent no events, advice, plans, diagnoses, or emotions they did not express. One or two sentences.",
       prompt: JSON.stringify({ reflection: input, facts }),
       telemetry: { operation: "reflection-summary" },
     });

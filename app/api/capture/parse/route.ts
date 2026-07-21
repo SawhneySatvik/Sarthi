@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getSessionForRuntimeRequest, type Session } from "@/app/lib/session";
 import { isRuntimeOverrideError } from "@/app/lib/runtimeOverride";
+import { scrubProviderError, withByok } from "@/app/lib/byok";
 import { parseDump } from "@/core/capture";
 
 /*
@@ -26,22 +27,27 @@ export async function POST(request: Request): Promise<Response> {
       ? (body.transcriptConfidenceBps as number)
       : null;
 
-  let llm: Session["llm"];
+  let session: Session;
   try {
-    ({ llm } = await getSessionForRuntimeRequest(request));
+    session = await getSessionForRuntimeRequest(request);
   } catch (error) {
     if (isRuntimeOverrideError(error)) {
       return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
     }
     throw error;
   }
+  // A per-request BYOK key (if present) overrides the configured provider for THIS parse.
+  const { llm } = withByok(session, request);
   const result = await parseDump(
     { rawText, timezone, capturedAt: new Date().toISOString(), source, transcriptConfidenceBps },
     llm,
   );
 
   if (!result.ok) {
-    return NextResponse.json({ ok: false, retryable: result.retryable, error: result.error }, { status: 502 });
+    return NextResponse.json(
+      { ok: false, retryable: result.retryable, error: scrubProviderError(result.error, request.headers) },
+      { status: 502 },
+    );
   }
   return NextResponse.json({ ok: true, draft: result.draft });
 }

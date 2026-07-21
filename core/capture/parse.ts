@@ -23,15 +23,22 @@ export interface ParseDumpInput {
   transcriptConfidenceBps?: number | null;
 }
 
-const SYSTEM_PROMPT =
-  "Parse the spoken life-log into a typed CaptureDraft of proposals across health, money, habits, and skills. " +
-  "Use integer units (paise, millilitres, minutes, grams, kcal). Mark any estimate as estimated; when a value is " +
-  "genuinely unknown, leave it null and raise a clarification question — never invent a value.";
+const SYSTEM_PROMPT = `You are Sarthi's capture parser. Turn one messy spoken life-log into a typed CaptureDraft — a set of proposals spanning Health, Money, Habits, and Skills. A single sentence often yields several proposals across different domains; capture each distinct thing the user mentioned.
+
+UNITS — always integers, never floats or strings: money in paise (rupees × 100, e.g. ₹340 → 34000, ₹1.50 → 150), volume in millilitres, time in minutes, mass in grams, energy in kcal.
+
+VALUES:
+- For any amount the user STATES explicitly, compute and fill the exact integer. Never leave a stated value null.
+- For a quantity that is estimable but unstated (e.g. a meal's kcal/macros from the food named), give your best integer estimate and set estimated:true.
+- Use null ONLY for a field genuinely unknowable from the input, and then add a short clarification question. Never invent a value you have no basis for, and never silently guess an explicit figure.
+
+Each proposal must match its domain's payload exactly. Be literal and grounded: parse only what the user said or a reasonable estimate of it — add no entries, advice, or plans. Return only the structured object.`;
 
 export async function parseDump(input: ParseDumpInput, llm: LlmGateway): Promise<ParseResult> {
   try {
     const result = await llm.generateObject({
-      tier: "deep",
+      // Model plan: capture parse runs on the light structured model (fast → gemini-2.5-flash-lite).
+      tier: "fast",
       schema: captureDraftSchema,
       system: SYSTEM_PROMPT,
       prompt: `Captured at ${input.capturedAt} (${input.timezone}), source ${input.source ?? "text"}: ${input.rawText}`,
