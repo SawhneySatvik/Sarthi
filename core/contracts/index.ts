@@ -27,10 +27,12 @@ export type {
   SkillRepositories,
   PlanRepositories,
   CoachRepositories,
+  CoachMemoryRepository,
   EvidenceRepository,
   JourneyRepositories,
   CommitRepository,
   BillingRepository,
+  AdminWaitlistRepository,
   UserScopedRepositories,
   RepositoryFactory,
 } from "./repositories";

@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, useReducedMotion } from "framer-motion";
-import { ReceiptText, Utensils } from "lucide-react";
+import { ReceiptText, Utensils, WifiOff } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/Button";
 import type { CommitResult } from "@/core/capture/commit";
 import type { CaptureDraft, ClarificationQuestion, Proposal } from "@/core/capture/contract";
 import { ACCEPT_ALL_MIN_CONFIDENCE_BPS, blockedProposalIds, routeDraft } from "@/core/capture/route";
+import { offlineQueueEnabled } from "@/app/lib/offline/flag";
 
 import { DOMAIN_DOT } from "../today/domain";
 import { CaptureOrb } from "./CaptureOrb";
@@ -58,6 +59,10 @@ export function CaptureSheet({ input, onClose }: { input: CaptureInput; onClose:
   const [lastCommitId, setLastCommitId] = useState<string | null>(null);
   const [wroteAnything, setWroteAnything] = useState(false);
   const [confirmed, setConfirmed] = useState<Proposal[]>([]);
+  // Offline-queue only (flag on): proposals queued while offline. NOT confirmed writes —
+  // they surface in Today only after the queued commit replays to the authoritative server.
+  // Flag-off this stays empty, so the rendered DOM is unchanged.
+  const [pendingSync, setPendingSync] = useState<Proposal[]>([]);
   const [transcript, setTranscript] = useState("");
   const [transcriptConfidenceBps, setTranscriptConfidenceBps] = useState<number | null>(null);
   const [voiceError, setVoiceError] = useState<string | null>(null);
@@ -103,6 +108,11 @@ export function CaptureSheet({ input, onClose }: { input: CaptureInput; onClose:
 
     const commit = await commitProposals(auto, "auto");
     if (!isActive()) return;
+    if (commit.pendingSync) {
+      // Offline: the auto batch is queued, never a silent write. Surface it as pending.
+      setPendingSync((p) => [...p, ...auto.filter((x) => !p.some((y) => y.proposalId === x.proposalId))]);
+      return;
+    }
     const unresolvedIds = new Set((commit.unresolved ?? []).map((u) => u.proposalId));
     // The strip shows ONLY what actually committed — never a phantom "filed" row.
     setStrip(commit.result ? auto.filter((p) => !unresolvedIds.has(p.proposalId)) : []);
@@ -226,6 +236,11 @@ export function CaptureSheet({ input, onClose }: { input: CaptureInput; onClose:
       setConfirmed((c) => [...c, proposal]);
       return;
     }
+    if (res.pendingSync) {
+      // Offline: queued for reconnect. Show it as pending sync — clearly not confirmed.
+      setPendingSync((p) => (p.some((x) => x.proposalId === proposal.proposalId) ? p : [...p, proposal]));
+      return;
+    }
     // Resolution failed → the card comes back (never vanishes) + its demotion question.
     setDeck((d) => (d.some((x) => x.proposalId === proposal.proposalId) ? d : [proposal, ...d]));
     redeck([proposal], res);
@@ -243,6 +258,11 @@ export function CaptureSheet({ input, onClose }: { input: CaptureInput; onClose:
     const eligibleIds = new Set(eligible.map((p) => p.proposalId));
     setDeck((d) => d.filter((p) => !eligibleIds.has(p.proposalId))); // optimistic
     const res = await commitProposals(eligible, "accept");
+    if (res.pendingSync) {
+      // Offline: the whole eligible batch is queued for reconnect, not written.
+      setPendingSync((p) => [...p, ...eligible.filter((x) => !p.some((y) => y.proposalId === x.proposalId))]);
+      return;
+    }
     const refusedIds = new Set((res.unresolved ?? []).map((u) => u.proposalId));
     if (res.ok && res.result) {
       recordCommit(res.result);
@@ -406,7 +426,11 @@ export function CaptureSheet({ input, onClose }: { input: CaptureInput; onClose:
 
         {phase === "error" && (
           <div className="px-4">
-            <p className="font-ui text-body text-ink-1">Couldn’t read that — give it another try.</p>
+            <p className="font-ui text-body text-ink-1">
+              {offlineQueueEnabled() && typeof navigator !== "undefined" && navigator.onLine === false
+                ? "You’re offline — reading an entry needs a connection. Reconnect and try again; nothing was lost."
+                : "Couldn’t read that — give it another try."}
+            </p>
             {input.mode === "text" ? (
               <Button className="mt-3" onClick={onClose}>Close</Button>
             ) : (
@@ -426,6 +450,33 @@ export function CaptureSheet({ input, onClose }: { input: CaptureInput; onClose:
         {phase === "confirm" && (
           <>
             <FiledStrip proposals={strip} onUndo={stripUndoable ? undoAuto : undefined} />
+            {pendingSync.length > 0 && (
+              <div className="px-4">
+                <div className="flex items-center gap-2">
+                  <WifiOff size={14} strokeWidth={1.5} className="text-ink-3" aria-hidden />
+                  <p className="font-ui text-caption uppercase tracking-wide text-ink-3">
+                    Will sync when back online
+                  </p>
+                </div>
+                <ul className="mt-1 divide-y divide-line border-y border-line" aria-label="Pending sync">
+                  {pendingSync.map((p) => {
+                    const view = displayProposal(p);
+                    const value = formatPrimary(view.primary);
+                    return (
+                      <li key={p.proposalId} className="flex items-center gap-3 px-1 py-2">
+                        <span className={`h-1.5 w-1.5 shrink-0 rounded-chip ${DOMAIN_DOT[view.domain]}`} aria-hidden />
+                        <span className="flex-1 truncate font-ui text-body text-ink-2">{view.title}</span>
+                        <span className="shrink-0 font-ui text-caption text-ink-3">Pending</span>
+                        {value && <span className="shrink-0 font-ui text-caption tabular-nums text-ink-3">{value}</span>}
+                      </li>
+                    );
+                  })}
+                </ul>
+                <p className="mt-1 font-ui text-caption text-ink-3">
+                  Not logged yet — Sarthi files these the moment you reconnect.
+                </p>
+              </div>
+            )}
             {questions.map((q) => (
               <div key={q.questionId} className="px-4">
                 <QuestionCard
@@ -464,7 +515,11 @@ export function CaptureSheet({ input, onClose }: { input: CaptureInput; onClose:
                 {leveledUp && <LevelUpBloom />}
                 {xpGained > 0 && <p className="text-center font-display text-title tabular-nums text-energy">+{xpGained} XP</p>}
                 <p className="mt-2 text-center font-coach text-body text-ink-2">
-                  {wroteAnything ? "Logged. Nice momentum." : "Nothing logged this time."}
+                  {wroteAnything
+                    ? "Logged. Nice momentum."
+                    : pendingSync.length > 0
+                      ? "Queued offline — syncs when you reconnect."
+                      : "Nothing logged this time."}
                 </p>
                 <Button className="mt-4 w-full" onClick={onClose}>
                   Done

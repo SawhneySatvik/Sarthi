@@ -59,8 +59,8 @@ export function B4Day({ answers, patch, onContinue }: StepProps) {
 
       <div className="mt-8 flex flex-col gap-6">
         <label className="flex flex-col gap-2">
-          <span className="flex items-center justify-between font-ui text-caption uppercase tracking-wide text-ink-3">
-            Wake <span className="font-display text-body tabular-nums text-ink-1">{clockLabel(wake)}</span>
+          <span className="flex items-center justify-between font-ui text-caption uppercase tracking-wide on-art-dim">
+            Wake <span className="font-display text-body tabular-nums on-art">{clockLabel(wake)}</span>
           </span>
           <input
             type="range"
@@ -74,8 +74,8 @@ export function B4Day({ answers, patch, onContinue }: StepProps) {
           />
         </label>
         <label className="flex flex-col gap-2">
-          <span className="flex items-center justify-between font-ui text-caption uppercase tracking-wide text-ink-3">
-            Sleep <span className="font-display text-body tabular-nums text-ink-1">{clockLabel(sleep)}</span>
+          <span className="flex items-center justify-between font-ui text-caption uppercase tracking-wide on-art-dim">
+            Sleep <span className="font-display text-body tabular-nums on-art">{clockLabel(sleep)}</span>
           </span>
           <input
             type="range"

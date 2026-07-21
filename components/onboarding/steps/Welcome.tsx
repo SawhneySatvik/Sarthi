@@ -59,20 +59,25 @@ export function Welcome({ authMode, onBegin }: { authMode: AuthenticatedUser["mo
         onPointerUp={clearTimer}
         onPointerLeave={clearTimer}
         onPointerCancel={clearTimer}
-        className="select-none pt-12 text-center font-display text-title uppercase tracking-[0.35em] text-ink-2"
+        className="select-none pt-12 text-center font-display text-title uppercase tracking-[0.35em] on-art-dim"
       >
         Sarthi
       </p>
 
       <div className="flex flex-1 flex-col items-center justify-center text-center">
-        <h1 className="font-display text-display-xl text-ink-1">One sentence a day. Four lives in order.</h1>
+        {/* On-art light inks over the full-bleed backdrop (UIE-5 / R5 wordmark AA). */}
+        <h1 className="font-display text-display-xl on-art">One sentence a day. Four lives in order.</h1>
       </div>
 
       <Button className="w-full" onClick={onBegin}>
         Begin
       </Button>
-      {authMode !== "local" && (
-        <button type="button" className="mt-4 font-ui text-caption text-ink-3 underline">
+      {authMode === "supabase" && (
+        <button
+          type="button"
+          onClick={() => router.push("/login")}
+          className="mt-4 font-ui text-caption text-ink-3 underline focus-visible:ring-2 focus-visible:ring-ring"
+        >
           I have an account
         </button>
       )}

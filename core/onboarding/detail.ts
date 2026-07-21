@@ -18,6 +18,7 @@
 import { z } from "zod";
 
 import type { UserScopedRepositories } from "@/core/contracts";
+import { isValidTimeZone } from "@/core/time";
 import { type ProfileUpdate, themeEnum, themeModeEnum } from "@/data/schema/contract";
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -79,6 +80,15 @@ export const detailThemeSchema = z.object({
   themeMode: themeModeEnum,
 });
 
+/** Settings (T2) — persists the user's IANA day-boundary zone. Like `theme`, this has no gap
+ *  and is editable post-onboarding from the Settings sheet; it re-uses `profiles.timezone`
+ *  (D-053 — the single authority for this user's local day at every read boundary). Mirrors
+ *  the `accept.ts` guard so junk can never reach the column. */
+export const detailTimezoneSchema = z.object({
+  section: z.literal("timezone"),
+  timezone: z.string().min(1).refine(isValidTimeZone, { message: "timezone must be a valid IANA zone" }),
+});
+
 export const onboardingDetailInputSchema = z.discriminatedUnion("section", [
   detailFoodSchema,
   detailScreenSchema,
@@ -86,6 +96,7 @@ export const onboardingDetailInputSchema = z.discriminatedUnion("section", [
   detailCareerSchema,
   detailMoneySchema,
   detailThemeSchema,
+  detailTimezoneSchema,
 ]);
 export type OnboardingDetailInput = z.infer<typeof onboardingDetailInputSchema>;
 export type OnboardingDetailSection = OnboardingDetailInput["section"];
@@ -102,9 +113,11 @@ export const DETAIL_GAP_KEY = {
   focus: "detail-focus",
   career: "detail-career",
   money: "detail-money",
-} as const satisfies Record<Exclude<OnboardingDetailSection, "theme">, string>;
+} as const satisfies Record<Exclude<OnboardingDetailSection, "theme" | "timezone">, string>;
 
-/** `onboardingStep` markers (D-B): E answers land the flow past CORE (6); theme is later. */
+/** `onboardingStep` markers (D-B): E answers land the flow past CORE (6); theme is later.
+ *  `theme`/`timezone` are also editable from Settings post-onboarding — `timezone` carries a
+ *  0 so a Settings re-edit never rewinds a further-along step (the patch takes `Math.max`). */
 const SECTION_STEP: Record<OnboardingDetailSection, number> = {
   food: 7,
   screen: 7,
@@ -112,6 +125,7 @@ const SECTION_STEP: Record<OnboardingDetailSection, number> = {
   career: 7,
   money: 7,
   theme: 8,
+  timezone: 0,
 };
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -262,7 +276,7 @@ export async function applyOnboardingDetail(
     await repos.transaction(async () => {
       // Idempotent replay guard: if this section's gap is already answered, the E5 create
       // (the only non-idempotent write) is skipped so a double-submit never doubles the rules.
-      const gapKey = input.section === "theme" ? null : DETAIL_GAP_KEY[input.section];
+      const gapKey = input.section === "theme" || input.section === "timezone" ? null : DETAIL_GAP_KEY[input.section];
       const gap = gapKey ? (await repos.profile.gaps.list({ gapKey }))[0] ?? null : null;
       const alreadyAnswered = gap?.status === "answered";
 
@@ -284,6 +298,9 @@ export async function applyOnboardingDetail(
         case "theme":
           patch.theme = input.theme;
           patch.themeMode = input.themeMode;
+          break;
+        case "timezone":
+          patch.timezone = input.timezone;
           break;
         case "money":
           break;

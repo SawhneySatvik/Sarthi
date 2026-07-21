@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { getSession } from "@/app/lib/session";
 import { CaptureLauncher } from "@/components/capture/CaptureLauncher";
+import { LocalReminders } from "@/components/pwa/LocalReminders";
 import { BottomNav } from "@/components/shell/BottomNav";
 import { LeftRail } from "@/components/shell/LeftRail";
 import { ToolsProvider, ToolsResumeRibbon } from "@/components/tools/ToolsProvider";
@@ -36,6 +37,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <ToolsResumeRibbon />
         <CaptureLauncher />
         <BottomNav />
+        {/* Renders nothing — arms the opt-in local reminder scheduler for the session (reads
+            only, never prompts). */}
+        <LocalReminders />
       </div>
     </ToolsProvider>
   );

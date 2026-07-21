@@ -63,6 +63,16 @@ async function ensureSchema(url: string): Promise<void> {
       console.log("schema already present — skipping migration apply (assumed drizzle-kit push or prior seed)");
     }
 
+    // Column-heal for waitlist.status (migration 0005). The migration loop above only runs on a
+    // FRESH DB, so an already-provisioned prod Postgres never received this column — yet the live
+    // /api/waitlist + admin gate SELECT waitlist.status and would 500 (and the signup gate then
+    // fails closed). Run the additive ALTER unconditionally: `IF NOT EXISTS` makes it a no-op on a
+    // DB that already has the column (fresh or previously healed), so it is safe on every branch.
+    await sql.unsafe(
+      "ALTER TABLE IF EXISTS waitlist ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'pending'",
+    );
+    console.log("verified waitlist.status exists");
+
     const [{ hasTimezone }] = await sql<{ hasTimezone: boolean }[]>`
       SELECT EXISTS (
         SELECT 1 FROM information_schema.columns

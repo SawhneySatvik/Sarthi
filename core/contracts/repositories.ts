@@ -99,6 +99,16 @@ import type {
   CoachNoteRecord,
   CoachNoteCreate,
   CoachNoteQuery,
+  CoachMessageRecord,
+  CoachMessageCreate,
+  CoachMessageQuery,
+  CoachMemoryRecord,
+  CoachMemoryCreate,
+  CoachMemoryUpdate,
+  CoachMemoryQuery,
+  CoachMemoryAuditRecord,
+  CoachMemoryAuditCreate,
+  CoachMemoryAuditQuery,
   AdaptationRecord,
   AdaptationCreate,
   AdaptationUpdate,
@@ -137,6 +147,7 @@ import type {
   WaitlistRecord,
   WaitlistCreate,
   WaitlistQuery,
+  WaitlistStatus,
 } from "@/data/schema/contract";
 
 /** The verified identity a request runs as. No repository method accepts a caller-supplied `userId`. */
@@ -214,9 +225,30 @@ export interface PlanRepositories {
   dayOneSnapshots: AppendOnlyRepository<DayOneSnapshotRecord, DayOneSnapshotCreate, DayOneSnapshotQuery>;
 }
 
+/**
+ * Durable distilled memory (COACH-1, Layer 2). NOT a `ScopedEntityRepository`:
+ * its content (`text`/`kind`/`domain`) is immutable post-create, and it is
+ * retired — never deleted — so it exposes create/byId/list plus a BOUNDED
+ * lifecycle update (`pinned`/`useCount`/`lastUsedAt`/`retired` only, invariant #6),
+ * and no `softDelete`. `create`/`list` never accept a caller-supplied `userId`.
+ */
+export interface CoachMemoryRepository {
+  create(input: Omit<CoachMemoryCreate, "userId">): Promise<CoachMemoryRecord>;
+  byId(id: string): Promise<CoachMemoryRecord | null>;
+  list(query: Omit<CoachMemoryQuery, "userId">): Promise<readonly CoachMemoryRecord[]>;
+  /** Bounded lifecycle/bookkeeping update — pinned/useCount/lastUsedAt/retired only. */
+  update(id: string, patch: CoachMemoryUpdate): Promise<CoachMemoryRecord>;
+}
+
 export interface CoachRepositories {
   notes: AppendOnlyRepository<CoachNoteRecord, CoachNoteCreate, CoachNoteQuery>;
   adaptations: ScopedEntityRepository<AdaptationRecord, AdaptationCreate, AdaptationUpdate, AdaptationQuery>;
+  /** Layer 1 raw turn buffer — append + query only. */
+  messages: AppendOnlyRepository<CoachMessageRecord, CoachMessageCreate, CoachMessageQuery>;
+  /** Layer 2 durable distilled memory — create + bounded update + list. */
+  memory: CoachMemoryRepository;
+  /** Append-only provenance ledger for every coach_memory state change. */
+  memoryAudit: AppendOnlyRepository<CoachMemoryAuditRecord, CoachMemoryAuditCreate, CoachMemoryAuditQuery>;
 }
 
 /** Evidence is a single table, so its repository is the scoped repo directly. */
@@ -249,6 +281,25 @@ export interface BillingRepository {
   checkoutSessions: ScopedEntityRepository<CheckoutSessionRecord, CheckoutSessionCreate, CheckoutSessionUpdate, CheckoutSessionQuery>;
   events: AppendOnlyRepository<BillingEventRecord, BillingEventCreate, BillingEventQuery>;
   waitlist: AppendOnlyRepository<WaitlistRecord, WaitlistCreate, WaitlistQuery>;
+}
+
+/**
+ * Admin-only, DELIBERATELY UNSCOPED waitlist access (PL-2). The waitlist is a global
+ * email list — `userId` is metadata, never a tenant key — so approving/inviting emails
+ * requires enumerating ALL rows, which the per-tenant `AppendOnlyRepository` above cannot
+ * do. This port is the explicit seam for that: it is NOT reachable through
+ * `RepositoryFactory.forUser`, and its only production caller (`app/lib/admin.ts`) hands
+ * it out ONLY after an authenticated + allowlisted admin gate. Business logic still goes
+ * through this repository (typed methods, no raw SQL in routes — invariant #5); the seam is
+ * the absence of tenant scoping, not the absence of the repository layer.
+ */
+export interface AdminWaitlistRepository {
+  /** Every waitlist row, most-recent first. Unscoped by design (admin enumeration). */
+  listAll(): Promise<readonly WaitlistRecord[]>;
+  /** The lifecycle status of one email (normalized lower/trim), or null if not on the list. */
+  statusForEmail(email: string): Promise<WaitlistStatus | null>;
+  /** Move one row (by id) to a new lifecycle status. Throws if the id is unknown. */
+  updateStatus(id: string, status: WaitlistStatus): Promise<WaitlistRecord>;
 }
 
 /** The full per-user repository surface, obtained via `RepositoryFactory.forUser`. */

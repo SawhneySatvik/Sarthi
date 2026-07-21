@@ -1,7 +1,51 @@
+import type { LlmGateway } from "@/core/contracts";
 import { deriveGameSummary, deriveReentryCandidate, type GameSummary } from "@/core/game";
+import type { CoachMemoryDomain, CoachMemoryRecord } from "@/data/schema/contract";
 
+import { proposeAdaptationRow } from "./adaptation";
+import { runCoachAgent, type CoachAgentMemory, type CoachAgentTranscriptMessage } from "./agent";
 import { coachBriefOutputSchema, toCoachEvidence, type CoachEngine, type CreateCoachEngineOptions, type DateRange, type DomainCoachContext } from "./contract";
+import { bumpMemoryUsage, selectMemories } from "./memory";
 import { DOMAIN_REGISTRY } from "./registry";
+
+/** The four locked domains a broad/ambiguous turn fans out to (COACH-2 domain detection). */
+const COACH_TURN_DOMAINS: readonly CoachMemoryDomain[] = ["health", "money", "habits", "skills"];
+
+/** Map the persisted Layer-2 memory rows into the agent envelope's memory shape. */
+function toAgentMemories(rows: readonly CoachMemoryRecord[]): CoachAgentMemory[] {
+  return rows.map((row) => ({ id: row.id, domain: row.domain, kind: row.kind, text: row.text, pinned: row.pinned }));
+}
+
+/** Keep only JSON-primitive arg values so the bounded `coachToolLog` shape validates. */
+function toLogArgs(args: Record<string, unknown>): Record<string, string | number | boolean | null> {
+  const out: Record<string, string | number | boolean | null> = {};
+  for (const [key, value] of Object.entries(args)) {
+    out[key] =
+      typeof value === "string" || typeof value === "number" || typeof value === "boolean" || value === null ? value : String(value);
+  }
+  return out;
+}
+
+/**
+ * Detect the turn's domain(s) from the question by simple keyword match (COACH-2). The
+ * detected set filters Layer-2's top-K NON-pinned rows; `global` is always eligible (added
+ * inside `selectMemories`) and ALL pinned rows are returned regardless of domain — so a
+ * money goal survives a health-domain turn. Cross-cutting asks (progress / planning) and
+ * anything unmatched fan out to all four locked domains.
+ */
+function detectDomains(text: string): CoachMemoryDomain[] {
+  const q = text.toLowerCase();
+  const domains = new Set<CoachMemoryDomain>();
+  if (/(money|spend|spent|budget|paise|rupee|₹|expense|save|saving|cost|afford)/.test(q)) domains.add("money");
+  if (/(health|meal|water|sleep|workout|weight|hydrat|calorie|eat)/.test(q)) domains.add("health");
+  if (/(habit|routine|wake|morning|meditat)/.test(q)) domains.add("habits");
+  if (/(skill|practice|study|learn|focus|deep work)/.test(q)) domains.add("skills");
+  if (/(streak|progress|xp|level|how am i|momentum|inactive|plan|lighter|target|adjust|reduce|heavy|too much|goal)/.test(q)) {
+    for (const domain of COACH_TURN_DOMAINS) domains.add(domain);
+  }
+  if (domains.size === 0) for (const domain of COACH_TURN_DOMAINS) domains.add(domain);
+  return [...domains];
+}
 
 function fingerprint(scope: "daily" | "weekly", range: DateRange, contexts: readonly DomainCoachContext[], profileGapKey: string | null): string {
   const items = contexts.flatMap((context) => context.evidence).map((item) => [item.domain, item.entryKind, item.entryId ?? "", item.valueInt ?? "", item.unit ?? "", item.label].join("|"));
@@ -12,10 +56,6 @@ function weekEnd(weekStart: string): string {
   const [year, month, day] = weekStart.split("-").map(Number);
   const date = new Date(Date.UTC(year, month - 1, day + 6));
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
-}
-
-function askTier(text: string): "fast" | "deep" {
-  return /\b(plan|budget|spend|money|paise|rupee|₹|adjust)\b/i.test(text) ? "deep" : "fast";
 }
 
 export function createCoachEngine(options: CreateCoachEngineOptions): CoachEngine {
@@ -83,38 +123,109 @@ export function createCoachEngine(options: CreateCoachEngineOptions): CoachEngin
     weeklyBrief(input) {
       return brief("weekly", { start: input.weekStart, end: weekEnd(input.weekStart) }, input.timezone);
     },
-    async ask(input) {
+    async converse(input) {
       const text = input.text.trim();
       if (!text) throw new Error("coach question is required");
-      const result = await llm.generateText({
-        tier: askTier(text),
-        system:
-          "You are Sarthi, a grounded life coach. Answer the user's question in two to four clear, informational sentences, in a calm, plain voice. Stay factual and practical; for money or plan questions, explain the reasoning rather than guessing numbers. Do not fabricate the user's data, write or apply plans or entries, or give medical or financial guarantees. Answer only what was asked.",
-        prompt: JSON.stringify({ text, timezone: input.timezone }),
-        telemetry: { operation: "coach-ask" },
+
+      const nowIso = now();
+      const nowDate = new Date(nowIso);
+
+      // Layer 2 — all pinned + top-K frecency for the turn's detected domain(s).
+      const domains = detectDomains(text);
+      const { pinned, ranked } = await selectMemories({ repos, domains, now: nowDate });
+
+      // Layer 1 — the last-12 raw turn buffer (chronological), read BEFORE the current
+      // user row is appended so the question is never duplicated into its own transcript.
+      const buffer = (await repos.coach.messages.list({}))
+        .slice()
+        .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id))
+        .slice(-12);
+      const transcript: CoachAgentTranscriptMessage[] = buffer.map((message) => ({ role: message.role, text: message.text }));
+
+      // Persist the user turn (append-only; user rows leave the model columns null).
+      await repos.coach.messages.create({
+        role: "user",
+        text,
+        localDate: input.localDate,
+        toolLogJson: null,
+        proposedAdaptationId: null,
+        modelProvider: null,
+        modelId: null,
       });
-      return { text: result.text, ...(askTier(text) === "deep" ? { action: "adjust-plan" as const } : {}) };
+
+      // CoachAgentResult (C0) does not surface the authoring provider/model and agent.ts is
+      // frozen, so a thin gateway wrapper records the last successful generateObject's
+      // provider/modelId (both stay null if every attempt failed on the degrade path).
+      let modelProvider: string | null = null;
+      let modelId: string | null = null;
+      const capturing: LlmGateway = {
+        async generateObject(request) {
+          const result = await llm.generateObject(request);
+          modelProvider = result.provider;
+          modelId = result.modelId;
+          return result;
+        },
+        generateText: (request) => llm.generateText(request),
+      };
+
+      const result = await runCoachAgent({
+        repos,
+        llm: capturing,
+        question: text,
+        memories: { pinned: toAgentMemories(pinned), ranked: toAgentMemories(ranked) },
+        transcript,
+        timezone: input.timezone,
+        localDate: input.localDate,
+        flightKey: options.userId,
+      });
+
+      if (result.status === "busy") {
+        // A concurrent turn for this user is still in flight — persist an honest holding
+        // reply (a rejection, not a degradation) and touch nothing else.
+        const message = await repos.coach.messages.create({
+          role: "coach",
+          text: result.text,
+          localDate: input.localDate,
+          toolLogJson: { degraded: false, stepsUsed: 0, entries: [] },
+          proposedAdaptationId: null,
+          modelProvider,
+          modelId,
+        });
+        return { message, proposedAdaptation: null };
+      }
+
+      // Metadata-only bookkeeping on the memories this turn actually surfaced (§2.3).
+      await bumpMemoryUsage({ repos, memories: [...pinned, ...ranked], now: nowDate });
+
+      const message = await repos.coach.messages.create({
+        role: "coach",
+        text: result.text,
+        localDate: input.localDate,
+        // MAP the bounded `coachToolLog` shape from the result — never store it verbatim.
+        toolLogJson: {
+          degraded: result.degraded,
+          stepsUsed: result.stepsUsed,
+          entries: result.toolLog.map((entry) => ({
+            tool: entry.tool,
+            ok: entry.ok,
+            args: toLogArgs(entry.args),
+            resultSummary: entry.resultSummary,
+            entryIds: entry.entries.filter((row) => row.entryId !== null).map((row) => row.entryId as string),
+          })),
+        },
+        // COACH-3: the agent loop created the `status:"proposed"` row inside runCoachAgent;
+        // link its id here so the persisted coach turn opens the Keep/Revert dialog on it.
+        proposedAdaptationId: result.proposedAdaptation?.id ?? null,
+        modelProvider,
+        modelId,
+      });
+
+      return { message, proposedAdaptation: result.proposedAdaptation };
     },
-    async proposeAdaptation(input) {
-      if (
-        input.before.entryKind !== "planItem" || input.after.entryKind !== "planItem" ||
-        input.before.entryId !== input.planItemId || input.after.entryId !== input.planItemId
-      ) throw new Error("adaptation must contain one matching typed plan-item patch");
-      const equivalent = (await repos.coach.adaptations.list({})).find((adaptation) =>
-        adaptation.status === "proposed" && adaptation.planItemId === input.planItemId &&
-        JSON.stringify(adaptation.beforeJson) === JSON.stringify(input.before) && JSON.stringify(adaptation.afterJson) === JSON.stringify(input.after),
-      );
-      if (equivalent) return equivalent;
-      return repos.coach.adaptations.create({
-        planItemId: input.planItemId,
-        beforeJson: input.before,
-        afterJson: input.after,
-        reason: input.reason,
-        status: "proposed",
-        keptAt: null,
-        revertedAt: null,
-        appliedCommitId: null,
-      });
+    proposeAdaptation(input) {
+      // Same dedupe + create the conversational agent uses (shared `proposeAdaptationRow`),
+      // so re-entry and conversation converge on one AdaptationRecord shape and one dedupe.
+      return proposeAdaptationRow({ repos, planItemId: input.planItemId, before: input.before, after: input.after, reason: input.reason });
     },
     async findReentryAdaptation(input) {
       const [progress, planItems] = await Promise.all([repos.plans.progress.list({}), repos.plans.items.list({})]);

@@ -1,11 +1,12 @@
 import type { LlmGateway, ObjectRequest, ObjectResult, TextRequest } from "@/core/contracts";
+import { deriveAgentStep, readAgentStepEnvelope } from "@/core/coach/agent";
 import { coreAnswersSchema, deriveSpine, readFillEnvelope, readSpineEnvelope } from "@/core/onboarding";
+import { deriveAffordVerdict, readAffordEnvelope } from "@/core/tools";
 import type { z } from "zod";
 import {
   CANNED_ONBOARDING_FILLS,
   CANONICAL_CAPTURE_DRAFT_FIXTURE,
   CANNED_COACH_LINE_FIXTURE,
-  DETERMINISTIC_COACH_ASK_FIXTURE,
   DETERMINISTIC_BRIEF_FIXTURE,
   DETERMINISTIC_WEEKLY_BRIEF_FIXTURE,
 } from "./fixtures";
@@ -17,7 +18,23 @@ function fixtureForObject(operation: ObjectRequest<z.ZodType>["telemetry"]["oper
   if (operation === "capture-parse") {
     return CANONICAL_CAPTURE_DRAFT_FIXTURE;
   }
+  // T4 (D-017) — the keyless afford-it verdict is DERIVED from the ledger envelope in the
+  // prompt, so it genuinely varies with price vs safe-to-spend (never a fixed string).
+  if (operation === "afford-check") {
+    const context = readAffordEnvelope(prompt);
+    if (!context) throw new Error("afford-check prompt is missing its ledger envelope");
+    return deriveAffordVerdict(context);
+  }
   return /"scope":"weekly"/.test(prompt) ? DETERMINISTIC_WEEKLY_BRIEF_FIXTURE : DETERMINISTIC_BRIEF_FIXTURE;
+}
+
+/** COACH-0 (COACH-LIFT §2.5) — the keyless agentic-coach step is DERIVED from the envelope
+ *  in the prompt (keyword routing + integer-grounded answer), so it genuinely varies with
+ *  the question and the accumulated toolLog — never a fixed canned string. */
+function agentStepFromPrompt(prompt: string): unknown {
+  const envelope = readAgentStepEnvelope(prompt);
+  if (!envelope) throw new Error("coach-agent-step prompt is missing its envelope");
+  return deriveAgentStep(envelope);
 }
 
 /** SAR-012 (D-D) — the deterministic voice-fill dispatch: read the question key out of
@@ -43,10 +60,6 @@ function spineFromPrompt(prompt: string): unknown {
   return deriveSpine(envelope.domain, answers);
 }
 
-function fixtureForText(operation: TextRequest["telemetry"]["operation"]): string {
-  return operation === "capture-line" ? CANNED_COACH_LINE_FIXTURE.text : DETERMINISTIC_COACH_ASK_FIXTURE.text;
-}
-
 function reflectionText(prompt: string): string {
   const parsed = JSON.parse(prompt) as { reflection?: { mood?: string; energyLevel?: number; sleepMinutes?: number | null; journal?: string }; facts?: unknown[] };
   const reflection = parsed.reflection;
@@ -63,11 +76,13 @@ export class FakeLlmGateway implements LlmGateway {
   ): Promise<ObjectResult<z.infer<TSchema>>> {
     const { operation } = request.telemetry;
     const raw =
-      operation === "onboarding-spine"
-        ? spineFromPrompt(request.prompt)
-        : operation === "onboarding-fill"
-          ? fixtureForFill(request.prompt)
-          : fixtureForObject(operation, request.prompt);
+      operation === "coach-agent-step"
+        ? agentStepFromPrompt(request.prompt)
+        : operation === "onboarding-spine"
+          ? spineFromPrompt(request.prompt)
+          : operation === "onboarding-fill"
+            ? fixtureForFill(request.prompt)
+            : fixtureForObject(operation, request.prompt);
     const object = request.schema.parse(raw);
     return {
       object,
@@ -80,7 +95,7 @@ export class FakeLlmGateway implements LlmGateway {
 
   async generateText(request: TextRequest) {
     return {
-      text: request.telemetry.operation === "reflection-summary" ? reflectionText(request.prompt) : fixtureForText(request.telemetry.operation),
+      text: request.telemetry.operation === "reflection-summary" ? reflectionText(request.prompt) : CANNED_COACH_LINE_FIXTURE.text,
       modelId: `fake-${request.tier}-v1`,
       provider: "fake" as const,
       latencyMs: FAKE_LATENCY_MS,

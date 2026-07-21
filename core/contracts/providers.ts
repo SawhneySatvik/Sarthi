@@ -31,7 +31,15 @@ export interface ObjectRequest<TSchema extends z.ZodType> {
   prompt: string;
   images?: readonly ImageInput[];
   telemetry: {
-    operation: "capture-parse" | "coach-brief" | "coach-ask" | "vision" | "onboarding-spine" | "onboarding-fill";
+    operation:
+      | "capture-parse"
+      | "coach-brief"
+      | "coach-agent-step"
+      | "coach-memory-distill"
+      | "vision"
+      | "onboarding-spine"
+      | "onboarding-fill"
+      | "afford-check";
   };
 }
 
@@ -47,7 +55,7 @@ export interface TextRequest {
   tier: Tier;
   system: string;
   prompt: string;
-  telemetry: { operation: "capture-line" | "coach-ask" | "reflection-summary" };
+  telemetry: { operation: "capture-line" | "reflection-summary" };
 }
 
 export interface LlmGateway {

@@ -20,7 +20,10 @@ export function SelectChip({
       aria-pressed={active}
       className={cn(
         "min-h-[44px] rounded-chip border px-4 py-2 font-ui text-body transition-colors duration-[var(--t-fast)]",
-        active ? "border-transparent bg-ink-1 text-canvas" : "border-line text-ink-2",
+        // Unselected carries an OPAQUE `bg-card` surface (not a transparent border) so it stays
+        // AA on BOTH the full-bleed CORE backdrop (UIE-5) and the DETAIL phase's plain canvas —
+        // normal inks over a solid chip work in every theme-mode; on-art can't (shared with E).
+        active ? "border-transparent bg-ink-1 text-canvas" : "border-line bg-card text-ink-2",
         className,
       )}
       {...props}

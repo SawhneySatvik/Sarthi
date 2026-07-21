@@ -16,7 +16,7 @@
  *    quantities are integer millilitres/minutes/grams/weightGrams. No float money.
  *  - Confidence is `confidenceBps` in 0..10000. `localDate` is ISO YYYY-MM-DD;
  *    timestamps are ISO strings (storage layer maps to its native type).
- *  - JSON is limited to the four named support shapes below; it is never a
+ *  - JSON is limited to the five named support shapes below; it is never a
  *    generic accepted-entry payload.
  *  - Nullable means unknown; zero is a real value.
  *
@@ -83,6 +83,33 @@ export type Domain = z.infer<typeof domainEnum>;
 export const coachScopeEnum = z.enum(['capture', 'daily', 'weekly']);
 export type CoachScope = z.infer<typeof coachScopeEnum>;
 
+/* ── Coach conversation + memory vocab (COACH-1 / D-054 — coach infra, NOT a
+ * fifth domain; invariant #7). All closed enums. ─────────────────────────── */
+
+/** coach_messages.role — who authored a raw turn-buffer message. */
+export const coachMessageRoleEnum = z.enum(['user', 'coach']);
+export type CoachMessageRole = z.infer<typeof coachMessageRoleEnum>;
+
+/**
+ * coach_memory.domain — the four locked domains PLUS `global` (a cross-domain
+ * memory). Distinct from `domainEnum` (which carries `overall`, not `global`):
+ * a durable memory is either scoped to one domain or globally eligible.
+ */
+export const coachMemoryDomainEnum = z.enum(['health', 'money', 'habits', 'skills', 'global']);
+export type CoachMemoryDomain = z.infer<typeof coachMemoryDomainEnum>;
+
+/** coach_memory.kind — the nature of a distilled durable memory. */
+export const coachMemoryKindEnum = z.enum(['goal', 'preference', 'commitment', 'observation', 'struggle']);
+export type CoachMemoryKind = z.infer<typeof coachMemoryKindEnum>;
+
+/** coach_memory_audit.kind — every memory state change leaves a trail (retire, never delete). */
+export const coachMemoryAuditKindEnum = z.enum(['created', 'confirmed', 'pinned', 'unpinned', 'edited', 'retired']);
+export type CoachMemoryAuditKind = z.infer<typeof coachMemoryAuditKindEnum>;
+
+/** coach_memory_audit.source — which coach cadence produced a memory state change. */
+export const coachMemoryAuditSourceEnum = z.enum(['converse', 'daily-brief', 'weekly-reflect', 'user']);
+export type CoachMemoryAuditSource = z.infer<typeof coachMemoryAuditSourceEnum>;
+
 export const adaptationStatusEnum = z.enum(['proposed', 'kept', 'reverted']);
 export type AdaptationStatus = z.infer<typeof adaptationStatusEnum>;
 
@@ -103,6 +130,15 @@ export type Currency = z.infer<typeof currencyEnum>;
 
 export const waitlistSourceEnum = z.enum(['pricing']);
 export type WaitlistSource = z.infer<typeof waitlistSourceEnum>;
+
+/**
+ * Selective-rollout lifecycle for a waitlist email (PL-2). A public signup rides
+ * `pending` by default; an admin moves it to `approved` (may complete signup) or
+ * `invited` (approved + notified), or `rejected` (blocked). Only `approved`/`invited`
+ * open the signup gate — see `app/lib/admin-policy.ts`.
+ */
+export const waitlistStatusEnum = z.enum(['pending', 'approved', 'invited', 'rejected']);
+export type WaitlistStatus = z.infer<typeof waitlistStatusEnum>;
 
 /* ────────────────────────────────────────────────────────────────────────────
  * 2. NAMED JSON SUPPORT SHAPES (the ONLY JSON shapes permitted in the schema)
@@ -154,6 +190,33 @@ export const coachEvidence = z.object({
   ),
 });
 export type CoachEvidence = z.infer<typeof coachEvidence>;
+
+/**
+ * coach_messages.toolLogJson — the bounded, grounded tool trace of ONE coach
+ * agent turn (COACH-LIFT §2.2). A named support shape, never a generic passthrough:
+ * `tool` is plain text (like the commit-effect snapshots) so a growing tool vocab
+ * never breaks historic rows; `args` is a bounded record of primitives (same
+ * discipline as `commitRowSnapshot.columns`); `entryIds` are the grounded citations
+ * an answer resolved against. `degraded` records a provider failure / wall-timeout
+ * that forced an honest partial-grounded answer (telemetry + eval visibility).
+ */
+export const coachToolLog = z.object({
+  degraded: z.boolean(),
+  stepsUsed: z.number().int(),
+  entries: z.array(
+    z.object({
+      tool: z.string(),
+      ok: z.boolean(),
+      args: z.record(
+        z.string(),
+        z.union([z.string(), z.number(), z.boolean(), z.null()]),
+      ),
+      resultSummary: z.string(),
+      entryIds: z.array(z.string()),
+    }),
+  ),
+});
+export type CoachToolLog = z.infer<typeof coachToolLog>;
 
 /** commit_rows before/after — a typed snapshot of one row for glass-box undo. */
 export const commitRowSnapshot = z.object({
@@ -1266,8 +1329,10 @@ const skillSessionsTable: TableDescriptor = {
  * §4.6 PLAN, PROGRESS, COACH, AND EVIDENCE TABLES
  *   JSON columns carry ONLY the named support shapes (ruleJson→PlanRule,
  *   statsJson→DomainStatsSnapshot, evidenceJson→CoachEvidence, adaptation
- *   before/after→CommitRowSnapshot). day_one_snapshots + coach_notes are
- *   immutable (record/create/query only).
+ *   before/after→CommitRowSnapshot, toolLogJson→CoachToolLog). day_one_snapshots
+ *   + coach_notes + coach_messages are immutable (record/create/query only);
+ *   coach_memory carries a bounded lifecycle update (pinned/useCount/lastUsedAt/
+ *   retired only), and coach_memory_audit is append-only.
  * ────────────────────────────────────────────────────────────────────────── */
 
 /* ── plan_arcs ────────────────────────────────────────────────────────────
@@ -1521,6 +1586,200 @@ const coachNotesTable: TableDescriptor = {
   primaryKey: ['id'],
   unique: [['userId', 'scope', 'stalenessKey']],
   indexes: [['userId', 'localDate', 'scope']],
+};
+
+/* ── coach_messages (immutable — Layer 1 raw turn buffer, COACH-1) ─────────
+ * One persisted conversation turn (user or coach). Append + query only; the
+ * rolling context window is a read-time bound, never a destructive prune. A
+ * coach row carries its grounded `toolLogJson` (CoachToolLog) + optional
+ * `proposedAdaptationId` + the provider/model that authored it; user rows leave
+ * the model columns null.
+ */
+const coachMessagesBusinessShape = {
+  role: coachMessageRoleEnum,
+  text: z.string(),
+  localDate: z.string(),
+  toolLogJson: coachToolLog.nullable(),
+  proposedAdaptationId: z.string().nullable(),
+  modelProvider: z.string().nullable(),
+  modelId: z.string().nullable(),
+};
+
+export const coachMessagesRecord = z.object({
+  ...immutableBaseShape,
+  ...coachMessagesBusinessShape,
+});
+export const coachMessagesCreate = z.object({
+  ...immutableCreateBaseShape,
+  ...coachMessagesBusinessShape,
+});
+export const coachMessagesQuery = z.object({
+  userId: z.string(),
+  role: coachMessageRoleEnum.optional(),
+  localDate: z.string().optional(),
+});
+
+export type CoachMessageRecord = z.infer<typeof coachMessagesRecord>;
+export type CoachMessageCreate = z.infer<typeof coachMessagesCreate>;
+export type CoachMessageQuery = z.infer<typeof coachMessagesQuery>;
+
+const coachMessagesTable: TableDescriptor = {
+  name: 'coach_messages',
+  columns: [
+    ...immutableBaseColumns,
+    { name: 'role', type: 'text', notNull: true, enum: 'coachMessageRole' },
+    { name: 'text', type: 'text', notNull: true },
+    { name: 'localDate', type: 'date', notNull: true },
+    { name: 'toolLogJson', type: 'json', notNull: false, jsonShape: 'CoachToolLog' },
+    { name: 'proposedAdaptationId', type: 'uuid', notNull: false, references: 'adaptations' },
+    { name: 'modelProvider', type: 'text', notNull: false },
+    { name: 'modelId', type: 'text', notNull: false },
+  ],
+  primaryKey: ['id'],
+  unique: [],
+  indexes: [['userId', 'createdAt']],
+};
+
+/* ── coach_memory (Layer 2 durable distilled memory, COACH-1) ──────────────
+ * A durable, frecency-ranked memory item. Immutable base + IMMUTABLE content
+ * (`domain`/`kind`/`text` never change post-create); only the bounded lifecycle
+ * surface (`pinned`/`useCount`/`lastUsedAt`/`retired`) is updatable — retire,
+ * never delete. `confidenceBps` is integer basis points (invariant #2, no
+ * floats); `estimated` + `confidenceBps` + the audit trail make every row's
+ * provenance explicit (write gating enforced in C7).
+ */
+const coachMemoryBusinessShape = {
+  domain: coachMemoryDomainEnum,
+  kind: coachMemoryKindEnum,
+  text: z.string(),
+  pinned: z.boolean(),
+  useCount: z.number().int().nonnegative(),
+  lastUsedAt: z.string().nullable(),
+  sourceCaptureId: z.string().nullable(),
+  estimated: z.boolean(),
+  confidenceBps: z.number().int().min(0).max(10000),
+  retired: z.boolean(),
+};
+
+export const coachMemoryRecord = z.object({
+  ...immutableBaseShape,
+  ...coachMemoryBusinessShape,
+});
+/**
+ * Create input: content + provenance are required; the lifecycle fields are
+ * OPTIONAL and take their locked column defaults (unpinned, useCount 0, active)
+ * so a caller writes only what it knows — the default lives in the DB column
+ * (data/schema/*.ts + migration 0006), the single source of truth for the stored
+ * value. `estimated`/`confidenceBps` are always explicit (the write gate).
+ */
+export const coachMemoryCreate = z.object({
+  ...immutableCreateBaseShape,
+  domain: coachMemoryDomainEnum,
+  kind: coachMemoryKindEnum,
+  text: z.string(),
+  pinned: z.boolean().optional(),
+  useCount: z.number().int().nonnegative().optional(),
+  lastUsedAt: z.string().nullable().optional(),
+  sourceCaptureId: z.string().nullable().optional(),
+  estimated: z.boolean(),
+  confidenceBps: z.number().int().min(0).max(10000),
+  retired: z.boolean().optional(),
+});
+/**
+ * The ONLY mutation coach_memory permits — a bounded lifecycle/bookkeeping
+ * surface (invariant #6, never a generic event log). `text`/`kind`/`domain` are
+ * immutable post-create and are deliberately absent here.
+ */
+export const coachMemoryUpdate = z
+  .object({
+    pinned: z.boolean(),
+    useCount: z.number().int().nonnegative(),
+    lastUsedAt: z.string().nullable(),
+    retired: z.boolean(),
+  })
+  .partial();
+export const coachMemoryQuery = z.object({
+  userId: z.string(),
+  domain: coachMemoryDomainEnum.optional(),
+  kind: coachMemoryKindEnum.optional(),
+  pinned: z.boolean().optional(),
+  retired: z.boolean().optional(),
+});
+
+export type CoachMemoryRecord = z.infer<typeof coachMemoryRecord>;
+export type CoachMemoryCreate = z.infer<typeof coachMemoryCreate>;
+export type CoachMemoryUpdate = z.infer<typeof coachMemoryUpdate>;
+export type CoachMemoryQuery = z.infer<typeof coachMemoryQuery>;
+
+const coachMemoryTable: TableDescriptor = {
+  name: 'coach_memory',
+  columns: [
+    ...immutableBaseColumns,
+    { name: 'domain', type: 'text', notNull: true, enum: 'coachMemoryDomain' },
+    { name: 'kind', type: 'text', notNull: true, enum: 'coachMemoryKind' },
+    { name: 'text', type: 'text', notNull: true },
+    { name: 'pinned', type: 'boolean', notNull: true },
+    { name: 'useCount', type: 'integer', notNull: true },
+    { name: 'lastUsedAt', type: 'timestamp', notNull: false },
+    { name: 'sourceCaptureId', type: 'uuid', notNull: false },
+    { name: 'estimated', type: 'boolean', notNull: true },
+    { name: 'confidenceBps', type: 'integer', notNull: true },
+    { name: 'retired', type: 'boolean', notNull: true },
+  ],
+  primaryKey: ['id'],
+  unique: [],
+  indexes: [
+    ['userId', 'domain'],
+    ['userId', 'pinned'],
+  ],
+};
+
+/* ── coach_memory_audit (immutable — COACH-1) ──────────────────────────────
+ * Append-only provenance ledger for coach_memory: every state change (created /
+ * confirmed / pinned / unpinned / edited / retired) leaves a trail with its
+ * confidence tier + source cadence, so nothing is fabricated and every memory is
+ * revertible by history (retire, never delete).
+ */
+const coachMemoryAuditBusinessShape = {
+  memoryId: z.string(),
+  kind: coachMemoryAuditKindEnum,
+  confidenceTier: z.string(),
+  source: coachMemoryAuditSourceEnum,
+};
+
+export const coachMemoryAuditRecord = z.object({
+  ...immutableBaseShape,
+  ...coachMemoryAuditBusinessShape,
+});
+export const coachMemoryAuditCreate = z.object({
+  ...immutableCreateBaseShape,
+  ...coachMemoryAuditBusinessShape,
+});
+export const coachMemoryAuditQuery = z.object({
+  userId: z.string(),
+  memoryId: z.string().optional(),
+  kind: coachMemoryAuditKindEnum.optional(),
+});
+
+export type CoachMemoryAuditRecord = z.infer<typeof coachMemoryAuditRecord>;
+export type CoachMemoryAuditCreate = z.infer<typeof coachMemoryAuditCreate>;
+export type CoachMemoryAuditQuery = z.infer<typeof coachMemoryAuditQuery>;
+
+const coachMemoryAuditTable: TableDescriptor = {
+  name: 'coach_memory_audit',
+  columns: [
+    ...immutableBaseColumns,
+    { name: 'memoryId', type: 'uuid', notNull: true, references: 'coach_memory' },
+    { name: 'kind', type: 'text', notNull: true, enum: 'coachMemoryAuditKind' },
+    { name: 'confidenceTier', type: 'text', notNull: true },
+    { name: 'source', type: 'text', notNull: true, enum: 'coachMemoryAuditSource' },
+  ],
+  primaryKey: ['id'],
+  unique: [],
+  indexes: [
+    ['userId', 'memoryId'],
+    ['userId', 'createdAt'],
+  ],
 };
 
 /* ── adaptations ──────────────────────────────────────────────────────────
@@ -2023,6 +2282,7 @@ const billingEventsTable: TableDescriptor = {
 const waitlistBusinessShape = {
   email: z.string(),
   source: waitlistSourceEnum,
+  status: waitlistStatusEnum,
 };
 
 export const waitlistRecord = z.object({
@@ -2033,16 +2293,25 @@ export const waitlistCreate = z.object({
   ...immutableCreateBaseShape,
   email: z.string(),
   source: waitlistSourceEnum.default('pricing'),
+  // NOTE: `status` is intentionally NOT a create input. It is a server/admin-managed lifecycle
+  // field: new rows take the DB column default ('pending'), and only the admin seam
+  // (`AdminWaitlistRepository.updateStatus`) may move it. Callers cannot set it on create.
 });
 export const waitlistQuery = z.object({
   userId: z.string(),
   email: z.string().optional(),
   source: waitlistSourceEnum.optional(),
+  status: waitlistStatusEnum.optional(),
+});
+/** Admin-only status transition (PL-2) — the ONLY mutation the waitlist permits. */
+export const waitlistStatusUpdate = z.object({
+  status: waitlistStatusEnum,
 });
 
 export type WaitlistRecord = z.infer<typeof waitlistRecord>;
 export type WaitlistCreate = z.infer<typeof waitlistCreate>;
 export type WaitlistQuery = z.infer<typeof waitlistQuery>;
+export type WaitlistStatusUpdate = z.infer<typeof waitlistStatusUpdate>;
 
 const waitlistTable: TableDescriptor = {
   name: 'waitlist',
@@ -2050,6 +2319,7 @@ const waitlistTable: TableDescriptor = {
     ...immutableBaseColumns,
     { name: 'email', type: 'text', notNull: true },
     { name: 'source', type: 'text', notNull: true, enum: 'waitlistSource' },
+    { name: 'status', type: 'text', notNull: true, enum: 'waitlistStatus' },
   ],
   primaryKey: ['id'],
   // Dedupe by EMAIL alone (global) — a waitlist collects unique contactable
@@ -2228,6 +2498,25 @@ export const schemaContract = {
     record: coachNotesRecord,
     create: coachNotesCreate,
     query: coachNotesQuery,
+  },
+  coach_messages: {
+    descriptor: coachMessagesTable,
+    record: coachMessagesRecord,
+    create: coachMessagesCreate,
+    query: coachMessagesQuery,
+  },
+  coach_memory: {
+    descriptor: coachMemoryTable,
+    record: coachMemoryRecord,
+    create: coachMemoryCreate,
+    update: coachMemoryUpdate,
+    query: coachMemoryQuery,
+  },
+  coach_memory_audit: {
+    descriptor: coachMemoryAuditTable,
+    record: coachMemoryAuditRecord,
+    create: coachMemoryAuditCreate,
+    query: coachMemoryAuditQuery,
   },
   adaptations: {
     descriptor: adaptationsTable,

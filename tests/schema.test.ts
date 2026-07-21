@@ -9,7 +9,7 @@ import test, { after, before } from "node:test";
 
 import { allTableDescriptors, schemaContract } from "../data/schema/contract";
 
-const EXPECTED_TABLE_COUNT = 35;
+const EXPECTED_TABLE_COUNT = 38;
 
 // Descriptor assertions are pure and offline; prove it by making any fetch throw.
 const savedFetch = globalThis.fetch;
@@ -22,7 +22,7 @@ after(() => {
   globalThis.fetch = savedFetch;
 });
 
-test("the contract declares exactly 35 tables", () => {
+test("the contract declares exactly 38 tables", () => {
   assert.equal(allTableDescriptors.length, EXPECTED_TABLE_COUNT);
   assert.equal(Object.keys(schemaContract).length, EXPECTED_TABLE_COUNT);
 });

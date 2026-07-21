@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+import { getRuntimeConfig } from "@/app/lib/runtime";
 import { SANDBOX_USER_COOKIE, sandboxCookieOptions } from "@/providers/auth/sandbox-cookie";
 
 // A cookie-setting redirect must never be cached or statically evaluated.
@@ -18,6 +19,11 @@ export const dynamic = "force-dynamic";
  * Reached via a PLAIN full-navigation `<a>` (not `next/link`) so it is never prefetched.
  */
 export function GET(request: NextRequest): NextResponse {
+  // Anonymous-deploy only (same rationale as /api/try-demo): under any other provider this
+  // sandbox-cookie mint has no meaning, so the route does not exist.
+  if (getRuntimeConfig().authProvider !== "anonymous") {
+    return new NextResponse(null, { status: 404 });
+  }
   const response = NextResponse.redirect(new URL("/onboarding", request.url));
   response.cookies.set(SANDBOX_USER_COOKIE, crypto.randomUUID(), sandboxCookieOptions());
   return response;

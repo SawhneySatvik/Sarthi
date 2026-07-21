@@ -98,7 +98,7 @@ export function SpineGeneration({
         />
         {/* The center label. */}
         <div className="absolute inset-0 flex items-center justify-center px-10 text-center">
-          <p className="font-coach text-body leading-[var(--leading-coach)] text-ink-2">Drafting your plans…</p>
+          <p className="font-coach text-body leading-[var(--leading-coach)] on-art-dim">Drafting your plans…</p>
         </div>
         {/* The domain chips, upright, at even points on the ring — each resolves on its own. */}
         {domains.map((domain, index) => {
@@ -114,7 +114,7 @@ export function SpineGeneration({
           );
         })}
       </div>
-      <p className="mt-10 font-ui text-caption uppercase tracking-wide text-ink-1">From your answers</p>
+      <p className="mt-10 font-ui text-caption uppercase tracking-wide on-art">From your answers</p>
     </div>
   );
 }

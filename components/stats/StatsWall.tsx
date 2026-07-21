@@ -30,7 +30,7 @@ export function StatsWall({ view }: { view: StatsView }) {
 
   return (
     <div className="mx-auto max-w-[72rem] px-4 pb-8">
-      <ArtFrame artKey="mile.levelup" ratio="h-20" className="mb-3"><p className="flex h-full items-end p-3 font-display text-title text-ink-1">Stats</p></ArtFrame>
+      <ArtFrame artKey="stats.overview" ratio="h-20" className="mb-3"><p className="flex h-full items-end p-3 font-display text-title on-art">Stats</p></ArtFrame>
       <div role="tablist" aria-label="Stats view" className="mt-2 flex rounded-chip border border-line p-1">
         {faces.map((item) => (
           <button

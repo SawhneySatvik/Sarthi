@@ -18,8 +18,17 @@ import { SANDBOX_USER_COOKIE, sandboxCookieOptions } from "@/providers/auth/sand
  * pass-through no-op, so the demo spine is untouched. The `/api/try-demo` and
  * `/api/start-fresh` handlers own their own cookie and are excluded by the matcher below so
  * middleware never fights them.
+ *
+ * SAR-021: when `AUTH_PROVIDER=supabase` (production auth), the supabase branch is checked FIRST
+ * and the helper is DYNAMIC-imported, so the default edge bundle never loads a line of Supabase
+ * code — the local-password / anonymous paths stay byte-for-byte unchanged (guardrail #1).
  */
-export function middleware(request: NextRequest): NextResponse {
+export async function middleware(request: NextRequest): Promise<NextResponse> {
+  if (process.env.AUTH_PROVIDER === "supabase") {
+    const { updateSupabaseSession } = await import("@/providers/auth/supabase-middleware");
+    return updateSupabaseSession(request);
+  }
+
   if (process.env.AUTH_PROVIDER !== "anonymous") {
     return NextResponse.next();
   }

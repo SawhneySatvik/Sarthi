@@ -46,10 +46,26 @@ export const ART = {
   "mile.first_week": { src: "/art/mile/first_week.webp", alt: "A small sapling on a sill", accent: "overall" },
   "mile.hundred_hours": { src: "/art/mile/hundred_hours.webp", alt: "Dawn from a city desk", accent: "overall" },
   "coach.week_band": { src: "/art/coach/week_band.webp", alt: "A misty morning horizon", accent: "overall" },
+  // UIE-1 (D-052) — new calm placements. The WebPs are authored externally per
+  // `docs/experience/ASSETS-02.md` and dropped in later; until then the ArtFrame
+  // plate+grain fallback renders (intentional, not broken — no ART_MANIFEST row yet,
+  // so `art:check` stays green). Overall accent → neutral plate, never amber.
+  "stats.overview": { src: "/art/stats/overview.webp", alt: "A wide calm vista, a figure small before the whole horizon", accent: "overall" },
+  "empty.stillness": { src: "/art/empty/stillness.webp", alt: "A quiet room at first light, waiting to begin", accent: "overall" },
 } as const satisfies Record<string, { src: string; alt: string; accent: ArtAccent }>;
 
 export type ArtKey = keyof typeof ART;
 export type ArtDomain = "health" | "money" | "habits" | "skills" | "overall";
+
+/**
+ * UIE-1 (D-052) — keys whose painterly WebP is authored externally (see
+ * `docs/experience/ASSETS-02.md`) and not yet in `public/art`. `ArtFrame` skips the
+ * `<Image>` for these so the plate+grain fallback is the *primary* paint — deliberate,
+ * and with zero network request so next/image never logs a 400 for the missing source.
+ * Remove a key here (and repoint its src) the moment its real asset ships.
+ */
+const PENDING_ART: ReadonlySet<ArtKey> = new Set<ArtKey>(["stats.overview", "empty.stillness"]);
+export const isArtPending = (key: ArtKey): boolean => PENDING_ART.has(key);
 
 const DOMAIN_FALLBACK: Record<Exclude<ArtDomain, "overall">, ArtKey> = {
   health: "health.meal_home",

@@ -22,8 +22,8 @@ import { ConfirmCards } from "./ConfirmCards";
 import { DetailFlow } from "./detail/DetailFlow";
 import { DetailIntro } from "./detail/DetailIntro";
 import { Landing } from "./Landing";
-import { ArtFrame } from "@/components/art/ArtFrame";
 import type { ArtKey } from "@/components/art/registry";
+import { useOnboardingBackdrop } from "./backdropContext";
 import { MOTION } from "./motion";
 import { SpineGeneration } from "./SpineGeneration";
 import type { SpineOutcome } from "./spineClient";
@@ -62,7 +62,8 @@ function BackChevron({ onClick }: { onClick: () => void }) {
       type="button"
       aria-label="Back"
       onClick={onClick}
-      className="-ml-2 flex h-10 w-10 items-center justify-center rounded-chip text-ink-2"
+      // The chevron only renders on art-backed phases (CORE/spine/confirm) — on-art ink for AA.
+      className="-ml-2 flex h-10 w-10 items-center justify-center rounded-chip on-art-dim"
     >
       <ChevronLeft size={22} strokeWidth={1.5} aria-hidden />
     </button>
@@ -82,6 +83,7 @@ function BackChevron({ onClick }: { onClick: () => void }) {
 export function OnboardingFlow({ authMode }: { authMode: AuthenticatedUser["mode"] }) {
   const reduce = useReducedMotion();
   const router = useRouter();
+  const { setArtKey } = useOnboardingBackdrop();
   const [screen, setScreen] = useState<OnboardingScreen>("welcome");
   const [answers, setAnswers] = useState<CoreAnswersDraft>({});
   const [phase, setPhase] = useState<Phase>("core");
@@ -264,6 +266,13 @@ export function OnboardingFlow({ authMode }: { authMode: AuthenticatedUser["mode
           ? "onboard.core"
           : null;
 
+  // Publish the per-phase art key to the layout's full-bleed backdrop layer (UIE-5). The
+  // backdrop lives OUTSIDE the question column, so the painterly art is genuinely
+  // full-viewport (and survives the desktop split) rather than trapped in the ~528px column.
+  useEffect(() => {
+    setArtKey(backdropArt);
+  }, [backdropArt, setArtKey]);
+
   return (
     <>
       {showHairline && <Hairline fraction={fraction} />}
@@ -283,16 +292,7 @@ export function OnboardingFlow({ authMode }: { authMode: AuthenticatedUser["mode
           transition={{ duration: MOTION.crossfadeSec, ease: MOTION.ease }}
           className="relative flex flex-1 flex-col"
         >
-          {backdropArt && (
-            <div className="pointer-events-none absolute inset-0 z-0">
-              <ArtFrame
-                artKey={backdropArt}
-                eager={backdropArt === "onboard.welcome"}
-                className="h-full w-full rounded-none border-0 opacity-35"
-              />
-            </div>
-          )}
-          <div className="relative z-10 flex flex-1 flex-col">{renderStage()}</div>
+          {renderStage()}
         </motion.div>
       </AnimatePresence>
     </>

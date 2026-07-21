@@ -4,6 +4,8 @@ import { Pause, Play } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useMemo, useSyncExternalStore } from "react";
 
+import { mirrorDurableState } from "@/app/lib/offline/durable-state";
+
 type ToolKind = "focus" | "meditation";
 
 export interface ActiveToolRun {
@@ -18,6 +20,19 @@ export interface ActiveToolRun {
 
 export function isToolRunReady(run: ActiveToolRun, now = Date.now()): boolean {
   return now - run.startedAt >= run.durationMinutes * 60000;
+}
+
+export function remainingSeconds(run: ActiveToolRun, now = Date.now()): number {
+  const total = run.durationMinutes * 60;
+  const elapsed = Math.floor((now - run.startedAt) / 1000);
+  return Math.min(total, Math.max(0, total - elapsed));
+}
+
+export function formatCountdown(totalSeconds: number): string {
+  const safe = Math.max(0, Math.floor(totalSeconds));
+  const minutes = Math.floor(safe / 60);
+  const seconds = safe % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
 interface ToolsContextValue {
@@ -86,11 +101,14 @@ export function ToolsProvider({ children }: { children: React.ReactNode }) {
   const startRun = useCallback((next: ActiveToolRun) => {
     storedRun = next;
     try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch { /* session state remains in memory */ }
+    // Additive durable mirror (T10, flag-gated): sessionStorage stays the source of truth.
+    void mirrorDurableState(STORAGE_KEY, next);
     notifyRun();
   }, []);
   const clearRun = useCallback(() => {
     storedRun = null;
     try { sessionStorage.removeItem(STORAGE_KEY); } catch { /* no-op */ }
+    void mirrorDurableState(STORAGE_KEY, null);
     notifyRun();
   }, []);
   const value = useMemo(() => ({ run, startRun, clearRun }), [run, startRun, clearRun]);

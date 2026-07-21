@@ -21,6 +21,7 @@ import type {
   PlanRule,
   DomainStatsSnapshot,
   CoachEvidence,
+  CoachToolLog,
   CommitRowSnapshot,
 } from '@/data/schema/contract';
 
@@ -499,6 +500,60 @@ export const coachNotes = pgTable(
   ],
 );
 
+/* ── coach_messages — immutable base. Matches coachMessagesTable. */
+export const coachMessages = pgTable(
+  'coach_messages',
+  {
+    ...immutableBase,
+    role: text('role').notNull(),
+    text: text('text').notNull(),
+    localDate: text('localDate').notNull(),
+    toolLogJson: jsonb('toolLogJson').$type<CoachToolLog>(),
+    proposedAdaptationId: text('proposedAdaptationId'),
+    modelProvider: text('modelProvider'),
+    modelId: text('modelId'),
+  },
+  (t) => [index('coach_messages_userId_createdAt_idx').on(t.userId, t.createdAt)],
+);
+
+/* ── coach_memory — immutable base + bounded lifecycle update. Matches coachMemoryTable. */
+export const coachMemory = pgTable(
+  'coach_memory',
+  {
+    ...immutableBase,
+    domain: text('domain').notNull(),
+    kind: text('kind').notNull(),
+    text: text('text').notNull(),
+    pinned: boolean('pinned').notNull().default(false),
+    useCount: integer('useCount').notNull().default(0),
+    lastUsedAt: text('lastUsedAt'),
+    sourceCaptureId: text('sourceCaptureId'),
+    estimated: boolean('estimated').notNull(),
+    confidenceBps: integer('confidenceBps').notNull(),
+    retired: boolean('retired').notNull().default(false),
+  },
+  (t) => [
+    index('coach_memory_userId_domain_idx').on(t.userId, t.domain),
+    index('coach_memory_userId_pinned_idx').on(t.userId, t.pinned),
+  ],
+);
+
+/* ── coach_memory_audit — immutable base. Matches coachMemoryAuditTable. */
+export const coachMemoryAudit = pgTable(
+  'coach_memory_audit',
+  {
+    ...immutableBase,
+    memoryId: text('memoryId').notNull(),
+    kind: text('kind').notNull(),
+    confidenceTier: text('confidenceTier').notNull(),
+    source: text('source').notNull(),
+  },
+  (t) => [
+    index('coach_memory_audit_userId_memoryId_idx').on(t.userId, t.memoryId),
+    index('coach_memory_audit_userId_createdAt_idx').on(t.userId, t.createdAt),
+  ],
+);
+
 /* ── adaptations — mutable base. Matches adaptationsTable. */
 export const adaptations = pgTable(
   'adaptations',
@@ -709,6 +764,8 @@ export const waitlist = pgTable(
     ...immutableBase,
     email: text('email').notNull(),
     source: text('source').notNull().default('pricing'),
+    // Selective-rollout lifecycle (PL-2): pending | approved | invited | rejected.
+    status: text('status').notNull().default('pending'),
   },
   (t) => [uniqueIndex('waitlist_email_uq').on(t.email)],
 );
