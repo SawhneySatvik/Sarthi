@@ -23,7 +23,7 @@ export function Coach() {
 
         <Reveal delay={0.05}>
           <div className="max-w-lg">
-            <h2 className="font-coach text-display-xl text-ink-1">A coach that shows its work.</h2>
+            <h2 className="font-coach text-display-xl tracking-tight text-ink-1">A coach that shows its work.</h2>
             <p className="mt-4 font-ui text-body leading-relaxed text-ink-2">
               Sarthi reacts to each capture, briefs you every morning, and reflects each week. When it
               changes your plan, it shows the whole reasoning — and every change is one tap to revert.

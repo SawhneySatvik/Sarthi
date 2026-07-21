@@ -103,6 +103,8 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
         gaps={gaps}
         isDeveloperControlAllowed={process.env.NODE_ENV !== "production" || config.judgeMode}
         llmProvider={config.llmProvider}
+        accountMode={user.mode}
+        accountEmail={user.email}
       />
     </>
   );

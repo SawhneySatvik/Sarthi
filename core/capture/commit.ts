@@ -81,8 +81,37 @@ export interface MeditationToolCommitInput {
   timezone: string;
 }
 
+/**
+ * A deliberate Workout Counter completion (T4 → Health). Duration + exercises are explicit
+ * user-entered values; `burnKcal` is null unless the user provided one — the tool never
+ * fabricates an estimated burn that would auto-write. Writes the same typed Health rows as
+ * a captured workout (`workout` + `workoutExercise`) through the exhaustive dispatch.
+ */
+export interface WorkoutToolCommitInput {
+  idempotencyKey: string;
+  kind: "tool";
+  tool: "workout";
+  durationMinutes: number;
+  burnKcal: number | null;
+  exercises: readonly {
+    name: string;
+    sets: number | null;
+    reps: number | null;
+    loadGrams: number | null;
+  }[];
+  occurredAt: string;
+  localDate: string;
+  timezone: string;
+}
+
 /** Exhaustive commit command surface; tools cannot smuggle a generic row/payload. */
-export type CommitInput = ProposalCommitInput | FocusToolCommitInput | MeditationToolCommitInput;
+export type CommitInput =
+  | ProposalCommitInput
+  | FocusToolCommitInput
+  | MeditationToolCommitInput
+  | WorkoutToolCommitInput;
+
+type ToolCommitInput = FocusToolCommitInput | MeditationToolCommitInput | WorkoutToolCommitInput;
 
 export interface WrittenEntry {
   entryKind: string;
@@ -406,11 +435,28 @@ function assertPositiveInteger(value: number, label: string): void {
   }
 }
 
-function assertToolCommand(input: FocusToolCommitInput | MeditationToolCommitInput): void {
-  assertPositiveInteger(input.minutes, "tool minutes");
+function assertNonNegativeIntegerOrNull(value: number | null, label: string): void {
+  if (value !== null && (!Number.isSafeInteger(value) || value < 0)) {
+    throw new Error(`${label} must be a non-negative integer or null`);
+  }
+}
+
+function assertToolCommand(input: ToolCommitInput): void {
   if (!input.idempotencyKey || !input.occurredAt || !input.localDate || !input.timezone) {
     throw new Error("tool command is missing required timing or idempotency fields");
   }
+  if (input.tool === "workout") {
+    assertPositiveInteger(input.durationMinutes, "workout minutes");
+    assertNonNegativeIntegerOrNull(input.burnKcal, "workout burn");
+    for (const exercise of input.exercises) {
+      if (!exercise.name.trim()) throw new Error("workout exercise requires a name");
+      assertNonNegativeIntegerOrNull(exercise.sets, "workout sets");
+      assertNonNegativeIntegerOrNull(exercise.reps, "workout reps");
+      assertNonNegativeIntegerOrNull(exercise.loadGrams, "workout load");
+    }
+    return;
+  }
+  assertPositiveInteger(input.minutes, "tool minutes");
   if (input.tool === "focus" && !input.skillId) {
     throw new Error("focus command requires a resolved skill");
   }
@@ -445,6 +491,35 @@ function toolProposal(input: FocusToolCommitInput | MeditationToolCommitInput, h
     domain: "habits",
     kind: "habitLog",
     payload: { habitId, status: "done", note: `Meditation · ${input.minutes} min` },
+  };
+}
+
+/** A deliberate Workout Counter completion → one explicit, non-estimated Health workout proposal. */
+function workoutToolProposal(input: WorkoutToolCommitInput): ResolvedProposal {
+  return {
+    proposalId: randomUUID(),
+    intent: "create",
+    occurredAt: input.occurredAt,
+    localDate: input.localDate,
+    timezone: input.timezone,
+    estimated: false,
+    confidenceBps: 10000,
+    why: { basis: "explicit workout counter", assumptions: [] },
+    evidenceRefs: [],
+    status: "accepted",
+    domain: "health",
+    kind: "workout",
+    payload: {
+      durationMinutes: input.durationMinutes,
+      burnKcal: input.burnKcal,
+      exercises: input.exercises.map((exercise) => ({
+        name: exercise.name,
+        sets: exercise.sets,
+        reps: exercise.reps,
+        loadGrams: exercise.loadGrams,
+      })),
+      note: null,
+    },
   };
 }
 
@@ -627,7 +702,9 @@ export function createCommitService(options: CreateCommitServiceOptions): Commit
             input.kind === "tool"
               ? input.tool === "focus"
                 ? `Logged ${input.minutes} focus minutes`
-                : `Logged ${input.minutes} meditation minutes`
+                : input.tool === "meditation"
+                  ? `Logged ${input.minutes} meditation minutes`
+                  : `Logged a ${input.durationMinutes} min workout`
               : `${proposals.length} entr${proposals.length === 1 ? "y" : "ies"} via capture`,
         });
 
@@ -638,6 +715,8 @@ export function createCommitService(options: CreateCommitServiceOptions): Commit
             const skill = await repos.skills.skills.byId(input.skillId);
             if (!skill || skill.isArchived) throw new Error("focus skill is unavailable in this user scope");
             proposals = [toolProposal(input, "")];
+          } else if (input.tool === "workout") {
+            proposals = [workoutToolProposal(input)];
           } else {
             let habitId: string;
             if (input.habit.mode === "existing") {

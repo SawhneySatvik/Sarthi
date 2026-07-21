@@ -25,7 +25,7 @@ export function Hero() {
 
       <div className="relative z-10 mx-auto flex min-h-dvh w-full max-w-6xl flex-col justify-end px-6 pb-20 pt-32 sm:px-8">
         <Reveal className="max-w-3xl">
-          <h1 className="font-coach text-display-xl md:text-hero on-art">One sentence. Your whole life, sorted.</h1>
+          <h1 className="font-coach text-display-xl md:text-hero tracking-tight on-art">One sentence. Your whole life, sorted.</h1>
           <p className="mt-6 max-w-2xl font-ui text-body leading-relaxed on-art-dim">
             Speak one messy line — &ldquo;spent ₹340 on lunch, 90 min of system design, woke at 5:10&rdquo; — and Sarthi
             files it across Health, Money, Habits and Skills at once. Nothing estimated is written until you confirm.

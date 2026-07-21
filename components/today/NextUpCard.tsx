@@ -52,9 +52,9 @@ function NextUpContent({ item, pending, onAct, imageBacked = false }: { item: To
       <div className="flex items-start gap-3">
         <span className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-chip ${DOMAIN_DOT[item.domain]}`} aria-hidden />
         <div>
-          <p className="font-display text-title text-ink-1">{item.title}</p>
+          <p className={`font-display text-title ${imageBacked ? "on-art" : "text-ink-1"}`}>{item.title}</p>
           {item.targetValue !== null && (
-            <p className="mt-1 font-ui text-caption text-ink-2 tabular-nums">
+            <p className={`mt-1 font-ui text-caption tabular-nums ${imageBacked ? "on-art-dim" : "text-ink-2"}`}>
               {item.targetValue}
               {item.targetUnit ? ` ${item.targetUnit}` : ""}
             </p>

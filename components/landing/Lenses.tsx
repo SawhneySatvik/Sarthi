@@ -42,7 +42,7 @@ export function Lenses() {
     <section className="border-t border-line bg-raised">
       <div className="mx-auto w-full max-w-6xl px-6 py-24 sm:px-8 sm:py-32">
         <Reveal className="max-w-2xl">
-          <h2 className="font-coach text-display-xl text-ink-1">
+          <h2 className="font-coach text-display-xl tracking-tight text-ink-1">
             Four domains. Four deliberately-unalike lenses.
           </h2>
           <p className="mt-4 font-ui text-body leading-relaxed text-ink-2">

@@ -2,6 +2,8 @@ import type { CommitResult } from "@/core/capture/commit";
 import type { CaptureDraft, ClarificationQuestion, Proposal } from "@/core/capture/contract";
 import { runtimeProviderHeaders } from "@/components/settings/runtimeOverride";
 import { byokHeaders } from "@/components/settings/byok";
+import { offlineQueueEnabled } from "@/app/lib/offline/flag";
+import { enqueueCaptureMutation } from "@/app/lib/offline/capture-queue";
 
 /*
  * Client wrappers over the SAR-006 capture route handlers (D-A). Type-only imports
@@ -34,11 +36,15 @@ export interface CommitResponse {
   ok: boolean;
   result?: CommitResult;
   unresolved?: Unresolved[];
+  /** Offline-queue only (flag on): the mutation was queued for reconnect, NOT written yet. */
+  pendingSync?: boolean;
 }
 
 export interface UndoResponse {
   ok: boolean;
   reason?: string;
+  /** Offline-queue only (flag on): the undo was queued for reconnect, NOT applied yet. */
+  pendingSync?: boolean;
 }
 
 /** A fetch rejection / non-JSON body must never throw into the sheet (R1): it degrades
@@ -102,19 +108,97 @@ export async function parsePhoto(file: File, photoType: "meal" | "receipt"): Pro
   }
 }
 
+/*
+ * OFFLINE ADDITIVE QUEUE (T10/PL-3), gated by NEXT_PUBLIC_ENABLE_OFFLINE_QUEUE.
+ *
+ * Flag OFF: `offlineQueueEnabled()` is false, so commit/undo run the EXACT original
+ * `postJson` call below — same body, same headers, same `{ok:false}` degrade, no
+ * IndexedDB. Byte-identical to today.
+ *
+ * Flag ON: when a commit/undo fetch fails while genuinely offline, the mutation is
+ * persisted to the IndexedDB queue with a STABLE idempotency key and replayed once on
+ * reconnect. An unreachable-but-thought-online fetch is also queued (safe: the same key
+ * dedupes server-side). `pendingSync:true` tells the sheet to show an explicit
+ * "will sync when online" state — NOT a confirmed typed write (invariant #1).
+ */
+
+/** Unique sentinel: a transport failure (fetch/JSON threw), distinct from a server ok:false. */
+const TRANSPORT_FAILED = Symbol("transport-failed");
+
+function isOffline(): boolean {
+  return typeof navigator !== "undefined" && navigator.onLine === false;
+}
+
 export async function commitProposals(
   proposals: readonly Proposal[],
   mode: "auto" | "accept",
   kind: "capture" | "tap" | "edit" = "capture",
 ): Promise<CommitResponse> {
-  return postJson(
-    "/api/capture/commit",
-    { proposals, idempotencyKey: crypto.randomUUID(), kind, mode },
-    { ok: false, unresolved: [] },
-    true,
-  );
+  const idempotencyKey = crypto.randomUUID();
+  const body = { proposals, idempotencyKey, kind, mode };
+  if (!offlineQueueEnabled()) {
+    return postJson("/api/capture/commit", body, { ok: false, unresolved: [] }, true);
+  }
+  // Snapshot the same headers the online commit sends (runtime provider + BYOK), so a
+  // queued replay routes identically. The helpers only ever return plain objects.
+  const headers: Record<string, string> = {
+    ...JSON_HEADERS,
+    ...(runtimeProviderHeaders() as Record<string, string>),
+    ...(byokHeaders() as Record<string, string>),
+  };
+  if (isOffline()) {
+    await enqueueCaptureMutation({ idempotencyKey, kind: "commit", url: "/api/capture/commit", body, headers });
+    return { ok: false, unresolved: [], pendingSync: true };
+  }
+  const res = await postSentinel<CommitResponse>("/api/capture/commit", body, headers);
+  if (res === TRANSPORT_FAILED) {
+    await enqueueCaptureMutation({ idempotencyKey, kind: "commit", url: "/api/capture/commit", body, headers });
+    return { ok: false, unresolved: [], pendingSync: true };
+  }
+  return res;
 }
 
 export async function undoCommit(commitId: string): Promise<UndoResponse> {
-  return postJson("/api/capture/undo", { commitId }, { ok: false, reason: "network" });
+  const body = { commitId };
+  if (!offlineQueueEnabled()) {
+    return postJson("/api/capture/undo", body, { ok: false, reason: "network" });
+  }
+  // Undo is naturally idempotent server-side (a second undo of an undone commit is a 409),
+  // so the queue key is queue-local. NOTE: the 5-minute undo window may lapse before
+  // reconnect — an expired replay is an honest 409, never a double effect.
+  const idempotencyKey = `undo:${commitId}`;
+  if (isOffline()) {
+    await enqueueCaptureMutation({ idempotencyKey, kind: "undo", url: "/api/capture/undo", body, headers: { ...JSON_HEADERS } });
+    return { ok: false, reason: "offline", pendingSync: true };
+  }
+  const res = await postSentinel<UndoResponse>("/api/capture/undo", body, { ...JSON_HEADERS });
+  if (res === TRANSPORT_FAILED) {
+    await enqueueCaptureMutation({ idempotencyKey, kind: "undo", url: "/api/capture/undo", body, headers: { ...JSON_HEADERS } });
+    return { ok: false, reason: "offline", pendingSync: true };
+  }
+  return res;
+}
+
+/**
+ * POST that signals TRANSPORT_FAILED ONLY when `fetch` itself rejects (server unreachable
+ * → queue offline). A server that DID respond but with a non-JSON body is online, not
+ * offline, so it degrades to `{ok:false}` exactly like the original path (re-deck), never
+ * queued — otherwise an online 5xx could be mistaken for an offline mutation.
+ */
+async function postSentinel<T>(
+  url: string,
+  body: unknown,
+  headers: Record<string, string>,
+): Promise<T | typeof TRANSPORT_FAILED> {
+  let res: Response;
+  try {
+    res = await fetch(url, { method: "POST", headers, body: JSON.stringify(body) });
+  } catch {
+    return TRANSPORT_FAILED;
+  }
+  try {
+    return (await res.json()) as T;
+  } catch {
+    return { ok: false } as T;
+  }
 }

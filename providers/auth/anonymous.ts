@@ -1,4 +1,5 @@
 import type { AuthProvider, AuthenticatedUser } from "@/core/contracts";
+import { ProviderConfigurationError } from "@/core/contracts";
 
 import { SANDBOX_USER_COOKIE, sandboxCookieOptions } from "./sandbox-cookie";
 
@@ -52,10 +53,21 @@ export class AnonymousAuthProvider implements AuthProvider {
     return { userId, email: null, mode: "local" };
   }
 
-  // No account lifecycle in sandbox mode: these are unreachable from the login-less UI, so
-  // they no-op rather than throw (a stray call must never break the sandbox).
-  async signUp(): Promise<void> {}
-  async signIn(): Promise<void> {}
+  // No account lifecycle in sandbox mode. `signIn`/`signUp` REFUSE (defense-in-depth): a
+  // resolving no-op would let the real-auth UI (which only exists under supabase) fabricate a
+  // "success" if it were ever reached on the anonymous deploy — no account is created, so it
+  // must never pretend one was. `signOut` and the reset methods stay best-effort no-ops (there
+  // is no session or account store to tear down; a stray call must not break the sandbox).
+  async signUp(): Promise<void> {
+    throw new ProviderConfigurationError(
+      "signUp is not supported in anonymous sandbox mode (use Supabase in production).",
+    );
+  }
+  async signIn(): Promise<void> {
+    throw new ProviderConfigurationError(
+      "signIn is not supported in anonymous sandbox mode (use Supabase in production).",
+    );
+  }
   async signOut(): Promise<void> {}
   async requestPasswordReset(): Promise<void> {}
   async updatePassword(): Promise<void> {}

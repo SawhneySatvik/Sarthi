@@ -44,7 +44,7 @@ export function B5Goals({ answers, patch, onContinue }: StepProps) {
       <div key={pulse} className={cn("flex flex-col gap-6", pulse > 0 && "animate-onboarding-pulse")}>
         {GOAL_GROUPS.map((group) => (
           <div key={group.domain}>
-            <p className="mb-2 font-ui text-caption uppercase tracking-wide text-ink-3">{group.label}</p>
+            <p className="mb-2 font-ui text-caption uppercase tracking-wide on-art-dim">{group.label}</p>
             <div className="flex flex-wrap gap-2">
               {group.options.map((option) => (
                 <SelectChip
@@ -60,7 +60,7 @@ export function B5Goals({ answers, patch, onContinue }: StepProps) {
         ))}
 
         <div>
-          <p className="mb-2 font-ui text-caption uppercase tracking-wide text-ink-3">Skills</p>
+          <p className="mb-2 font-ui text-caption uppercase tracking-wide on-art-dim">Skills</p>
           <input
             value={goals.skillName ?? ""}
             onChange={(e) => patch({ goals: { ...goals, skillName: e.target.value.length ? e.target.value : null } })}

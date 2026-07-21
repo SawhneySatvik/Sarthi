@@ -11,7 +11,7 @@ export function Pricing() {
     <section className="border-t border-line bg-raised">
       <div className="mx-auto w-full max-w-6xl px-6 py-24 sm:px-8 sm:py-32">
         <Reveal className="max-w-2xl">
-          <h2 className="font-coach text-display-xl text-ink-1">Start free. Bring your own key.</h2>
+          <h2 className="font-coach text-display-xl tracking-tight text-ink-1">Start free. Bring your own key.</h2>
           <p className="mt-4 font-ui text-body leading-relaxed text-ink-2">
             The whole experience runs keyless on a deterministic stack. Add your own model key for live
             AI — or let us run it for you.

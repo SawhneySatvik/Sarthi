@@ -2,6 +2,7 @@ import { Check } from "lucide-react";
 import Link from "next/link";
 
 import { Card } from "@/components/ui/Card";
+import { Reveal } from "@/components/ui/Reveal";
 import { ArtFrame } from "@/components/art/ArtFrame";
 import type { TodayItem, TodayView } from "@/core/domains/today";
 
@@ -20,8 +21,15 @@ function ViaCaptureBadge() {
   );
 }
 
-function LaterRow({ item }: { item: TodayItem }) {
-  return <li><NextUpCard item={item} /></li>;
+function LaterRow({ item, index }: { item: TodayItem; index: number }) {
+  // Calm per-row entrance stagger (small, not bouncy). Keyed by item.id upstream, so a
+  // Done/Skip revalidation keeps stable rows mounted → `once` never replays their reveal;
+  // NextUpCard's drag/Done/Skip logic is untouched (the motion sits one level up on the <li>).
+  return (
+    <Reveal as="li" delay={0.05 + Math.min(index, 6) * 0.04}>
+      <NextUpCard item={item} />
+    </Reveal>
+  );
 }
 
 function CompletedRow({ item }: { item: TodayItem }) {
@@ -88,30 +96,31 @@ function SpineBody({ view }: { view: TodayView }) {
   return (
     <div className="flex flex-col gap-6 px-4 pt-2">
       {view.nextUp && (
-        <section>
+        <Reveal as="section">
           <SectionLabel>Next up</SectionLabel>
           <NextUpCard item={view.nextUp} />
-        </section>
+        </Reveal>
       )}
       {view.laterToday.length > 0 && (
+        // The section itself stays static; only its rows stagger in (no nested reveals).
         <section>
           <SectionLabel>Remaining today</SectionLabel>
           <ul className="flex flex-col gap-2">
-            {view.laterToday.map((item) => (
-              <LaterRow key={item.id} item={item} />
+            {view.laterToday.map((item, index) => (
+              <LaterRow key={item.id} item={item} index={index} />
             ))}
           </ul>
         </section>
       )}
       {view.completed.length > 0 && (
-        <section>
+        <Reveal as="section" delay={0.1}>
           <SectionLabel>Completed</SectionLabel>
           <ul className="flex flex-col gap-1">
             {view.completed.map((item) => (
               <CompletedRow key={item.id} item={item} />
             ))}
           </ul>
-        </section>
+        </Reveal>
       )}
     </div>
   );

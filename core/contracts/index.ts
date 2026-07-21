@@ -31,6 +31,7 @@ export type {
   JourneyRepositories,
   CommitRepository,
   BillingRepository,
+  AdminWaitlistRepository,
   UserScopedRepositories,
   RepositoryFactory,
 } from "./repositories";

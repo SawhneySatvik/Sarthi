@@ -104,6 +104,15 @@ export type Currency = z.infer<typeof currencyEnum>;
 export const waitlistSourceEnum = z.enum(['pricing']);
 export type WaitlistSource = z.infer<typeof waitlistSourceEnum>;
 
+/**
+ * Selective-rollout lifecycle for a waitlist email (PL-2). A public signup rides
+ * `pending` by default; an admin moves it to `approved` (may complete signup) or
+ * `invited` (approved + notified), or `rejected` (blocked). Only `approved`/`invited`
+ * open the signup gate — see `app/lib/admin-policy.ts`.
+ */
+export const waitlistStatusEnum = z.enum(['pending', 'approved', 'invited', 'rejected']);
+export type WaitlistStatus = z.infer<typeof waitlistStatusEnum>;
+
 /* ────────────────────────────────────────────────────────────────────────────
  * 2. NAMED JSON SUPPORT SHAPES (the ONLY JSON shapes permitted in the schema)
  * ────────────────────────────────────────────────────────────────────────── */
@@ -2023,6 +2032,7 @@ const billingEventsTable: TableDescriptor = {
 const waitlistBusinessShape = {
   email: z.string(),
   source: waitlistSourceEnum,
+  status: waitlistStatusEnum,
 };
 
 export const waitlistRecord = z.object({
@@ -2033,16 +2043,25 @@ export const waitlistCreate = z.object({
   ...immutableCreateBaseShape,
   email: z.string(),
   source: waitlistSourceEnum.default('pricing'),
+  // NOTE: `status` is intentionally NOT a create input. It is a server/admin-managed lifecycle
+  // field: new rows take the DB column default ('pending'), and only the admin seam
+  // (`AdminWaitlistRepository.updateStatus`) may move it. Callers cannot set it on create.
 });
 export const waitlistQuery = z.object({
   userId: z.string(),
   email: z.string().optional(),
   source: waitlistSourceEnum.optional(),
+  status: waitlistStatusEnum.optional(),
+});
+/** Admin-only status transition (PL-2) — the ONLY mutation the waitlist permits. */
+export const waitlistStatusUpdate = z.object({
+  status: waitlistStatusEnum,
 });
 
 export type WaitlistRecord = z.infer<typeof waitlistRecord>;
 export type WaitlistCreate = z.infer<typeof waitlistCreate>;
 export type WaitlistQuery = z.infer<typeof waitlistQuery>;
+export type WaitlistStatusUpdate = z.infer<typeof waitlistStatusUpdate>;
 
 const waitlistTable: TableDescriptor = {
   name: 'waitlist',
@@ -2050,6 +2069,7 @@ const waitlistTable: TableDescriptor = {
     ...immutableBaseColumns,
     { name: 'email', type: 'text', notNull: true },
     { name: 'source', type: 'text', notNull: true, enum: 'waitlistSource' },
+    { name: 'status', type: 'text', notNull: true, enum: 'waitlistStatus' },
   ],
   primaryKey: ['id'],
   // Dedupe by EMAIL alone (global) — a waitlist collects unique contactable

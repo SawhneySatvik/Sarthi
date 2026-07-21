@@ -106,8 +106,9 @@ export function ConfirmCards({
 
   return (
     <div className="flex flex-1 flex-col pb-10">
-      <h1 className="font-display text-display text-ink-1">Here&rsquo;s your start.</h1>
-      <p className="mt-2 font-coach text-body leading-[var(--leading-coach)] text-ink-2">
+      {/* On the full-bleed backdrop (UIE-5) — light on-art inks for AA over `--scrim-art`. */}
+      <h1 className="font-display text-display on-art">Here&rsquo;s your start.</h1>
+      <p className="mt-2 font-coach text-body leading-[var(--leading-coach)] on-art-dim">
         Tweak anything — nothing is saved until you start Day 1.
       </p>
 

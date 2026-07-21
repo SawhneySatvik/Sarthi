@@ -2,11 +2,22 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-import { createCommitService } from "../core/capture";
-import { ToolCommandError, createToolsService, loadToolsView } from "../core/tools";
+import { createCommitService, proposalSchema, resolveProposal } from "../core/capture";
+import {
+  ToolCommandError,
+  assessAfford,
+  buildAffordPrompt,
+  createToolsService,
+  deriveAffordVerdict,
+  kilogramsToGrams,
+  loadToolsView,
+  readAffordEnvelope,
+  rupeesToPaise,
+} from "../core/tools";
 import { createRepositoryFactory } from "../data/repository";
 import { createMemoryDb } from "./helpers/memory-db";
 import { createLlmGateway } from "../providers";
+import { type ActiveToolRun, formatCountdown, isToolRunReady, remainingSeconds } from "../components/tools/ToolsProvider";
 
 const LOCAL = { userId: "local-dev", email: null, mode: "local" as const };
 const OTHER = { userId: "other-user", email: null, mode: "local" as const };
@@ -219,6 +230,150 @@ test("Tools view chooses the most recently used active skill and keeps scope-bou
   assert.deepEqual(view.focus.skills.map((skill) => skill.name), ["Algorithms", "System design"]);
 });
 
+test("Workout Counter files one explicit typed Health workout with null burn, replays, and undoes", async () => {
+  const { repos, tools } = await setup();
+  const input = {
+    durationMinutes: 45,
+    burnKcal: null,
+    exercises: [
+      { name: "Squat", sets: 5, reps: 5, loadGrams: 60000 },
+      { name: "Plank", sets: 3, reps: 1, loadGrams: null },
+    ],
+    idempotencyKey: "5f0c2a10-0000-4000-8000-000000000001",
+  };
+
+  const first = await tools.completeWorkout(input);
+  const replay = await tools.completeWorkout(input);
+  assert.equal(first.status, "committed");
+  assert.equal(replay.status, "replayed");
+
+  const workouts = await repos.health.workouts.list({});
+  assert.equal(workouts.length, 1);
+  assert.deepEqual(
+    { duration: workouts[0].durationMinutes, burn: workouts[0].burnKcal, source: workouts[0].source, estimated: workouts[0].estimated },
+    { duration: 45, burn: null, source: "tool", estimated: false },
+  );
+
+  const exercises = (await repos.health.workoutExercises.list({}))
+    .map((e) => ({ name: e.name, sets: e.sets, reps: e.reps, loadGrams: e.loadGrams }))
+    .sort((a, b) => (a.name < b.name ? -1 : 1));
+  assert.deepEqual(exercises, [
+    { name: "Plank", sets: 3, reps: 1, loadGrams: null },
+    { name: "Squat", sets: 5, reps: 5, loadGrams: 60000 },
+  ]);
+
+  const commits = createCommitService({ repos, llm: createLlmGateway("fake"), now: () => NOW });
+  await commits.undoLatest({ commitId: first.commitId, now: "2026-07-19T05:22:00.000Z" });
+  assert.equal((await repos.health.workouts.list({})).length, 0);
+  assert.equal((await repos.health.workoutExercises.list({})).length, 0);
+});
+
+test("Workout Counter rejects a zero/non-integer duration before any write", async () => {
+  const { repos, tools } = await setup();
+  await assert.rejects(
+    () => tools.completeWorkout({ durationMinutes: 0, burnKcal: null, exercises: [], idempotencyKey: "5f0c2a10-0000-4000-8000-000000000002" }),
+  );
+  await assert.rejects(
+    () => tools.completeWorkout({ durationMinutes: 45.5, burnKcal: null, exercises: [], idempotencyKey: "5f0c2a10-0000-4000-8000-000000000002" }),
+  );
+  assert.equal((await repos.health.workouts.list({})).length, 0);
+  assert.equal((await repos.commits.commits.list({})).length, 0);
+});
+
+test("rupeesToPaise parses rupee strings to integer paise without float drift", () => {
+  assert.equal(rupeesToPaise("340"), 34000);
+  assert.equal(rupeesToPaise("1.50"), 150);
+  assert.equal(rupeesToPaise("1,000"), 100000);
+  assert.equal(rupeesToPaise("₹99"), 9900);
+  assert.equal(rupeesToPaise("0.10"), 10); // parseFloat*100 would give 10.0000000002
+  assert.equal(rupeesToPaise("19.99"), 1999); // parseFloat*100 would give 1998.9999…
+  assert.equal(rupeesToPaise(""), null);
+  assert.equal(rupeesToPaise("0"), null); // non-positive never becomes a write
+  assert.equal(rupeesToPaise("-5"), null);
+  assert.equal(rupeesToPaise("abc"), null);
+  assert.equal(rupeesToPaise("1.234"), null); // more than two decimals
+});
+
+test("kilogramsToGrams parses kg to integer grams; blank/unparseable → null (never an invented load)", () => {
+  assert.equal(kilogramsToGrams("20"), 20000);
+  assert.equal(kilogramsToGrams("12.5"), 12500);
+  assert.equal(kilogramsToGrams("0.25"), 250);
+  assert.equal(kilogramsToGrams(""), null);
+  assert.equal(kilogramsToGrams("abc"), null);
+  assert.equal(kilogramsToGrams("2.5555"), null);
+});
+
+test("afford envelope round-trips through the prompt and derives a ledger-grounded verdict keyless", () => {
+  const context = { item: "Shoes", pricePaise: 300000, safeToSpendPaise: 5000000, balancePaise: 5000000, remainingBudgetedPaise: 0, upcomingRecurringPaise: 0, dataDays: 12 };
+  const { prompt } = buildAffordPrompt(context);
+  assert.deepEqual(readAffordEnvelope(prompt), context);
+  assert.equal(deriveAffordVerdict(context).rating, "comfortable");
+  assert.equal(deriveAffordVerdict({ ...context, upcomingRecurringPaise: 200000 }).rating, "tight");
+  assert.equal(deriveAffordVerdict({ ...context, pricePaise: 6000000 }).rating, "not_now");
+  assert.equal(readAffordEnvelope("not json"), null);
+});
+
+test("afford-it verdict runs keyless on the fake deep tier and varies with the real ledger", async () => {
+  const { repos } = await setup();
+  const llm = createLlmGateway("fake");
+  // An income category exists too — it must never be offered as an expense's log target.
+  await repos.money.categories.create({ name: "Salary", kind: "income", colorKey: null, isSystem: false });
+  await repos.money.categories.create({ name: "Shopping", kind: "expense", colorKey: null, isSystem: false });
+  await repos.money.transactions.create({
+    occurredAt: NOW, localDate: "2026-07-19", timezone: "UTC",
+    direction: "credit", amountPaise: 5000000, categoryId: null, merchant: "Salary", note: null,
+    source: "capture", confidenceBps: 10000, estimated: false, evidenceId: null, recurringRuleId: null,
+  });
+
+  const comfortable = await assessAfford({ repos, llm, localDate: "2026-07-19", input: { item: "Shoes", pricePaise: 300000 } });
+  assert.equal(comfortable.verdict.rating, "comfortable");
+  assert.equal(comfortable.context.safeToSpendPaise, 5000000);
+  assert.equal(comfortable.context.dataDays, 1);
+  assert.equal(comfortable.modelProvider, "fake");
+  assert.ok(comfortable.categories.some((category) => category.name === "Shopping"));
+  // "Bought it → log" defaults to categories[0] — it must be an expense, never income.
+  assert.ok(comfortable.categories.every((category) => category.name !== "Salary"));
+
+  const tight = await assessAfford({ repos, llm, localDate: "2026-07-19", input: { item: "Phone", pricePaise: 3000000 } });
+  assert.equal(tight.verdict.rating, "tight");
+
+  const notNow = await assessAfford({ repos, llm, localDate: "2026-07-19", input: { item: "Watch", pricePaise: 9000000 } });
+  assert.equal(notNow.verdict.rating, "not_now");
+
+  // The verdict is advice only — assessing an afford check writes nothing.
+  assert.equal((await repos.money.transactions.list({})).length, 1);
+  assert.equal((await repos.commits.commits.list({})).length, 0);
+});
+
+test("afford 'Bought it → log' commits one explicit expense transaction via the standard capture path, undoable", async () => {
+  const { repos } = await setup();
+  const category = await repos.money.categories.create({ name: "Shopping", kind: "expense", colorKey: null, isSystem: false });
+  const commits = createCommitService({ repos, llm: createLlmGateway("fake"), now: () => NOW });
+
+  // Mirror the client: a draft transaction proposal (explicit price → integer paise) resolved
+  // and committed through the SAME seam capture uses (kind:"capture", mode accept).
+  const draft = proposalSchema.parse({
+    proposalId: "afford-1", domain: "money", intent: "create",
+    occurredAt: NOW, localDate: "2026-07-19", timezone: "UTC",
+    estimated: false, confidenceBps: 10000, why: { basis: "afford-it check purchase", assumptions: [] }, evidenceRefs: [],
+    kind: "transaction", payload: { direction: "expense", amountPaise: 300000, categoryName: "Shopping", merchant: "Shoes", note: null },
+  });
+  const outcome = await resolveProposal(draft, repos, "accepted");
+  assert.ok(outcome.ok);
+  if (!outcome.ok) throw new Error("unreachable");
+
+  const result = await commits.commit({ idempotencyKey: "afford-commit-1", kind: "capture", proposals: [outcome.resolved] });
+  const txns = await repos.money.transactions.list({});
+  assert.equal(txns.length, 1);
+  assert.deepEqual(
+    { amount: txns[0].amountPaise, direction: txns[0].direction, estimated: txns[0].estimated, categoryId: txns[0].categoryId, merchant: txns[0].merchant },
+    { amount: 300000, direction: "debit", estimated: false, categoryId: category.id, merchant: "Shoes" },
+  );
+
+  await commits.undoLatest({ commitId: result.commitId, now: "2026-07-19T05:22:00.000Z" });
+  assert.equal((await repos.money.transactions.list({})).length, 0);
+});
+
 test("Tools clock exposes a cached external-store snapshot instead of reading the clock during render", () => {
   const source = readFileSync("components/tools/ToolsProvider.tsx", "utf8");
   const snapshot = source.match(/function getClockSnapshot\(\): number \{([^}]*)\}/);
@@ -233,4 +388,39 @@ test("Tools clock exposes a cached external-store snapshot instead of reading th
   assert.match(source, /let clockSnapshot = 0;/);
   assert.match(source, /clockSnapshot = Date\.now\(\);\s*clockTimer = window\.setInterval/);
   assert.match(source, /clockSnapshot = Date\.now\(\);\s*for \(const notify of clockListeners\) notify\(\);/);
+});
+
+const FOCUS_RUN: ActiveToolRun = {
+  kind: "focus",
+  startedAt: 1_000_000,
+  durationMinutes: 25,
+  idempotencyKey: "1f7c9d80-0000-4000-8000-000000000010",
+};
+
+test("remainingSeconds counts down per second and clamps both boundaries", () => {
+  // Full duration at the exact start.
+  assert.equal(remainingSeconds(FOCUS_RUN, FOCUS_RUN.startedAt), 25 * 60);
+  // 5 seconds into a 25-minute run.
+  assert.equal(remainingSeconds(FOCUS_RUN, FOCUS_RUN.startedAt + 5000), 1495);
+  // Exactly at duration → zero.
+  assert.equal(remainingSeconds(FOCUS_RUN, FOCUS_RUN.startedAt + 25 * 60000), 0);
+  // Past duration → clamped low, never negative.
+  assert.equal(remainingSeconds(FOCUS_RUN, FOCUS_RUN.startedAt + 26 * 60000), 0);
+  // Stale/pre-hydration clock (now < startedAt, e.g. now = 0) → clamped high, full duration, no huge value.
+  assert.equal(remainingSeconds(FOCUS_RUN, 0), 25 * 60);
+});
+
+test("remainingSeconds zero boundary aligns with isToolRunReady", () => {
+  const readyAt = FOCUS_RUN.startedAt + FOCUS_RUN.durationMinutes * 60000;
+  assert.equal(remainingSeconds(FOCUS_RUN, readyAt), 0);
+  assert.equal(isToolRunReady(FOCUS_RUN, readyAt), true);
+});
+
+test("formatCountdown renders MM:SS with clamped, padded seconds", () => {
+  assert.equal(formatCountdown(1495), "24:55");
+  assert.equal(formatCountdown(60), "1:00");
+  assert.equal(formatCountdown(5), "0:05");
+  assert.equal(formatCountdown(0), "0:00");
+  assert.equal(formatCountdown(5400), "90:00");
+  assert.equal(formatCountdown(-5), "0:00");
 });
