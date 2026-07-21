@@ -4,9 +4,10 @@ import { ChevronRight, Download, UserRound, X } from "lucide-react";
 import { useEffect, useRef, useSyncExternalStore, useState } from "react";
 import { createPortal } from "react-dom";
 
-import type { LlmProviderName, VoiceProviderName } from "@/core/contracts";
+import type { AuthenticatedUser, LlmProviderName, VoiceProviderName } from "@/core/contracts";
 import type { TodayIdentity } from "@/core/domains/today";
 import type { ProfileGapRecord, ProfileRecord } from "@/data/schema/contract";
+import { signOutAction } from "@/app/(auth)/actions";
 import { LLM_MODEL_MATRIX } from "@/providers/llm";
 import { DetailFlow } from "@/components/onboarding/detail/DetailFlow";
 import { NotificationToggle } from "@/components/pwa/NotificationToggle";
@@ -426,6 +427,8 @@ export function SettingsSheet({
   identity,
   isDeveloperControlAllowed,
   llmProvider,
+  accountMode,
+  accountEmail,
 }: {
   profile: ProfileRecord;
   gaps: readonly ProfileGapRecord[];
@@ -433,6 +436,10 @@ export function SettingsSheet({
   identity: TodayIdentity;
   isDeveloperControlAllowed: boolean;
   llmProvider: LlmProviderName;
+  /** The resolved auth mode (SAR-021). Only `"supabase"` surfaces the account/sign-out section;
+   *  anonymous/local keep the "Local mode" footer. Optional so pre-SAR-021 callers stay valid. */
+  accountMode?: AuthenticatedUser["mode"];
+  accountEmail?: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const [panel, setPanel] = useState<"main" | "appearance" | "details" | "gaps" | "danger" | "about">("main");
@@ -516,7 +523,23 @@ export function SettingsSheet({
                 <Section title="DATA"><a href="/api/settings/export" className="flex min-h-12 items-center px-4"><span className="font-ui text-body text-ink-1">Export my data</span><Download size={16} strokeWidth={1.5} className="ml-auto text-ink-2" aria-hidden /></a><Row label="Danger zone" onClick={() => setPanel("danger")} /></Section>
                 <ByokPanel />
                 {isDeveloperControlAllowed ? <Developer initialProvider={llmProvider} /> : null}
-                <footer className="mt-8 flex items-center justify-between px-1 font-ui text-caption text-ink-3"><button type="button" onClick={() => setPanel("about")}>Sarthi v1.0 · About</button><span>Local mode</span></footer>
+                {accountMode === "supabase" ? (
+                  <Section title="ACCOUNT">
+                    <div className="flex min-h-12 items-center border-b border-line px-4">
+                      <span className="font-ui text-body text-ink-1">Email</span>
+                      <span className="ml-auto truncate pl-3 font-ui text-caption text-ink-2">{accountEmail ?? "—"}</span>
+                    </div>
+                    {/* Server Action sign-out — same next/headers cookie-flush path as login, so
+                        the session cookies are reliably cleared, then it redirects to /login
+                        (SCREEN-AUTH §3 — no local or server data is deleted). */}
+                    <form action={signOutAction}>
+                      <button type="submit" className="flex min-h-12 w-full items-center px-4 text-left font-ui text-body text-ink-1 focus-visible:ring-2 focus-visible:ring-ring">
+                        Sign out
+                      </button>
+                    </form>
+                  </Section>
+                ) : null}
+                <footer className="mt-8 flex items-center justify-between px-1 font-ui text-caption text-ink-3"><button type="button" onClick={() => setPanel("about")}>Sarthi v1.0 · About</button><span>{accountMode === "supabase" ? "Signed in" : "Local mode"}</span></footer>
               </> : null}
             </div>
           </section>

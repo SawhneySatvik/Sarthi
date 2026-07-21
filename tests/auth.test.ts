@@ -8,10 +8,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import type { AuthenticatedUser } from "../core/contracts";
 import { ProviderConfigurationError } from "../core/contracts";
 import { createAuthProvider } from "../providers/auth";
 import { LocalPasswordAuthProvider } from "../providers/auth/local-password";
 import { SupabaseAuthProvider } from "../providers/auth/supabase";
+
+import { createMemoryDb } from "./helpers/memory-db";
 
 /** Runs `body` with fetch stubbed to throw and APP_PASSWORD restored afterwards. */
 async function withSentinels(
@@ -69,30 +72,91 @@ test("local-password signIn refuses when APP_PASSWORD is unset", async () => {
   });
 });
 
-test("createAuthProvider('supabase') returns a stub that refuses every method", async () => {
-  await withSentinels("test-secret", async () => {
-    const auth = createAuthProvider("supabase");
-    await assert.rejects(auth.requireUser(), ProviderConfigurationError);
-    await assert.rejects(
-      auth.signUp({ email: "a@b.co", password: "x" }),
-      ProviderConfigurationError,
-    );
-    await assert.rejects(
-      auth.signIn({ email: "a@b.co", password: "x" }),
-      ProviderConfigurationError,
-    );
-    await assert.rejects(auth.signOut(), ProviderConfigurationError);
-    await assert.rejects(
-      auth.requestPasswordReset({ email: "a@b.co", redirectTo: "/" }),
-      ProviderConfigurationError,
-    );
-    await assert.rejects(
-      auth.updatePassword({ password: "x" }),
-      ProviderConfigurationError,
-    );
-    // instanceof narrows the concrete type, so assert it last (after interface calls).
-    assert.ok(auth instanceof SupabaseAuthProvider);
-  });
+test("supabase adapter is inert without creds and refuses only on invocation (guardrail #1)", async () => {
+  // Prove the default (local-password / anonymous) stack posture: with NO Supabase creds present,
+  // constructing the adapter is side-effect-free, and the session/account methods refuse clearly
+  // ONLY when actually invoked — never at import/construction, so the default boot never breaks.
+  const savedUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const savedKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+  delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  try {
+    await withSentinels("test-secret", async () => {
+      const auth = createAuthProvider("supabase");
+      // Construction did not throw and pulled in no live client.
+      assert.ok(auth instanceof SupabaseAuthProvider);
+      await assert.rejects(auth.requireUser(), ProviderConfigurationError);
+      await assert.rejects(
+        auth.signUp({ email: "a@b.co", password: "supersecret" }),
+        ProviderConfigurationError,
+      );
+      await assert.rejects(
+        auth.signIn({ email: "a@b.co", password: "supersecret" }),
+        ProviderConfigurationError,
+      );
+      await assert.rejects(auth.signOut(), ProviderConfigurationError);
+      await assert.rejects(
+        auth.updatePassword({ password: "supersecret" }),
+        ProviderConfigurationError,
+      );
+      // Enumeration-safe reset ALWAYS resolves — it never signals config or account state, even
+      // when the provider is unconfigured. (Resolves rather than rejects — that is the contract.)
+      await auth.requestPasswordReset({
+        email: "a@b.co",
+        redirectTo: "https://sarthi.example/auth/callback",
+      });
+    });
+  } finally {
+    if (savedUrl === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+    else process.env.NEXT_PUBLIC_SUPABASE_URL = savedUrl;
+    if (savedKey === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    else process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = savedKey;
+  }
+});
+
+test("supabase identities get fully isolated repository scopes (tenant isolation, keyless)", async () => {
+  // Guardrail #3: a Supabase user id threads through the IDENTICAL scoped factory as any other
+  // identity. Two `mode: "supabase"` users must not be able to read, mutate, or delete each
+  // other's rows — and the tenant id comes only from the scope, never from caller input.
+  const savedFetch = globalThis.fetch;
+  globalThis.fetch = (async () => {
+    throw new Error("repository layer must not call fetch");
+  }) as typeof fetch;
+  try {
+    const { db } = await createMemoryDb();
+    const { createRepositoryFactory } = await import("../data/repository");
+    const factory = createRepositoryFactory(db);
+
+    const userA: AuthenticatedUser = { userId: "supabase-uid-A", email: "a@x.co", mode: "supabase" };
+    const userB: AuthenticatedUser = { userId: "supabase-uid-B", email: "b@x.co", mode: "supabase" };
+    const reposA = factory.forUser(userA);
+    const reposB = factory.forUser(userB);
+
+    const skillA = await reposA.skills.skills.create({
+      name: "A private",
+      targetMinutes: null,
+      isArchived: false,
+    });
+    // The row is stamped with the SCOPE id, not a caller-supplied one.
+    assert.equal(skillA.userId, "supabase-uid-A");
+
+    // B cannot READ A's row (neither list nor byId).
+    assert.equal((await reposB.skills.skills.list({})).length, 0);
+    assert.equal(await reposB.skills.skills.byId(skillA.id), null);
+
+    // B cannot MUTATE A's row (update refuses across the tenant boundary)…
+    await assert.rejects(reposB.skills.skills.update(skillA.id, { targetMinutes: 1 }));
+    // …and a cross-tenant softDelete is a scoped no-op that never touches A's row.
+    await reposB.skills.skills.softDelete(skillA.id);
+
+    // A still sees exactly its own, un-deleted row.
+    const aList = await reposA.skills.skills.list({});
+    assert.equal(aList.length, 1);
+    assert.equal(aList[0].id, skillA.id);
+    assert.ok(await reposA.skills.skills.byId(skillA.id));
+  } finally {
+    globalThis.fetch = savedFetch;
+  }
 });
 
 test("createAuthProvider defaults to the keyless local-password gate", async () => {

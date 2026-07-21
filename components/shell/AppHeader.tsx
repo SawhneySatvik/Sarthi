@@ -27,6 +27,8 @@ export async function AppHeader({ title }: { title: string }) {
         identity={buildIdentity({ progress, arcs })}
         isDeveloperControlAllowed={process.env.NODE_ENV !== "production" || config.judgeMode}
         llmProvider={config.llmProvider}
+        accountMode={user.mode}
+        accountEmail={user.email}
       />
     </header>
   );

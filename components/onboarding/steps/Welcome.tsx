@@ -73,7 +73,11 @@ export function Welcome({ authMode, onBegin }: { authMode: AuthenticatedUser["mo
         Begin
       </Button>
       {authMode !== "local" && (
-        <button type="button" className="mt-4 font-ui text-caption text-ink-3 underline">
+        <button
+          type="button"
+          onClick={() => router.push("/login")}
+          className="mt-4 font-ui text-caption text-ink-3 underline focus-visible:ring-2 focus-visible:ring-ring"
+        >
           I have an account
         </button>
       )}
