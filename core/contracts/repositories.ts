@@ -99,6 +99,16 @@ import type {
   CoachNoteRecord,
   CoachNoteCreate,
   CoachNoteQuery,
+  CoachMessageRecord,
+  CoachMessageCreate,
+  CoachMessageQuery,
+  CoachMemoryRecord,
+  CoachMemoryCreate,
+  CoachMemoryUpdate,
+  CoachMemoryQuery,
+  CoachMemoryAuditRecord,
+  CoachMemoryAuditCreate,
+  CoachMemoryAuditQuery,
   AdaptationRecord,
   AdaptationCreate,
   AdaptationUpdate,
@@ -215,9 +225,30 @@ export interface PlanRepositories {
   dayOneSnapshots: AppendOnlyRepository<DayOneSnapshotRecord, DayOneSnapshotCreate, DayOneSnapshotQuery>;
 }
 
+/**
+ * Durable distilled memory (COACH-1, Layer 2). NOT a `ScopedEntityRepository`:
+ * its content (`text`/`kind`/`domain`) is immutable post-create, and it is
+ * retired — never deleted — so it exposes create/byId/list plus a BOUNDED
+ * lifecycle update (`pinned`/`useCount`/`lastUsedAt`/`retired` only, invariant #6),
+ * and no `softDelete`. `create`/`list` never accept a caller-supplied `userId`.
+ */
+export interface CoachMemoryRepository {
+  create(input: Omit<CoachMemoryCreate, "userId">): Promise<CoachMemoryRecord>;
+  byId(id: string): Promise<CoachMemoryRecord | null>;
+  list(query: Omit<CoachMemoryQuery, "userId">): Promise<readonly CoachMemoryRecord[]>;
+  /** Bounded lifecycle/bookkeeping update — pinned/useCount/lastUsedAt/retired only. */
+  update(id: string, patch: CoachMemoryUpdate): Promise<CoachMemoryRecord>;
+}
+
 export interface CoachRepositories {
   notes: AppendOnlyRepository<CoachNoteRecord, CoachNoteCreate, CoachNoteQuery>;
   adaptations: ScopedEntityRepository<AdaptationRecord, AdaptationCreate, AdaptationUpdate, AdaptationQuery>;
+  /** Layer 1 raw turn buffer — append + query only. */
+  messages: AppendOnlyRepository<CoachMessageRecord, CoachMessageCreate, CoachMessageQuery>;
+  /** Layer 2 durable distilled memory — create + bounded update + list. */
+  memory: CoachMemoryRepository;
+  /** Append-only provenance ledger for every coach_memory state change. */
+  memoryAudit: AppendOnlyRepository<CoachMemoryAuditRecord, CoachMemoryAuditCreate, CoachMemoryAuditQuery>;
 }
 
 /** Evidence is a single table, so its repository is the scoped repo directly. */

@@ -16,9 +16,10 @@
  * composition root casts db + tables ONLY at this boundary. At runtime every
  * table object handed to the ORM matches the active executor's dialect.
  *
- * The 10 groups below wire all 35 tables. `S` builds a mutable per-domain
+ * The 10 groups below wire all 38 tables. `S` builds a mutable per-domain
  * repository (full CRUD + soft delete); `A` builds an append-only/audit
- * repository (create/byId/list).
+ * repository (create/byId/list); `coach_memory` uses a dedicated bounded repo
+ * (create/byId/list + a bounded lifecycle update; see ./coach-memory.ts).
  */
 import type {
   AdminWaitlistRepository,
@@ -46,6 +47,7 @@ import {
 export type SarthiRepositoryFactory = RepositoryFactory & {
   adminWaitlist(): AdminWaitlistRepository;
 };
+import { createCoachMemoryRepository } from "./coach-memory";
 import { createCommitStateTransitions } from "./commits";
 import { ScopeContext, runInTransaction } from "./scope";
 
@@ -58,7 +60,7 @@ import { ScopeContext, runInTransaction } from "./scope";
 type SchemaTables = typeof sqliteSchema;
 
 /**
- * Assemble the 10 repository groups for one already-scoped request. All 35
+ * Assemble the 10 repository groups for one already-scoped request. All 38
  * tables are reachable through exactly one group; `userId` is injected only via
  * `ctx`. `transaction` swaps `ctx`'s executor to the tx handle for the duration
  * of `work` (see `runInTransaction`). `t` selects the dialect's table objects.
@@ -107,6 +109,9 @@ export function assembleUserScopedRepositories(
     coach: {
       notes: A("coach_notes", t.coachNotes, ctx),
       adaptations: S("adaptations", t.adaptations, ctx),
+      messages: A("coach_messages", t.coachMessages, ctx),
+      memory: createCoachMemoryRepository(ctx, t.coachMemory),
+      memoryAudit: A("coach_memory_audit", t.coachMemoryAudit, ctx),
     },
     evidence: S("evidence", t.evidence, ctx),
     journey: {
