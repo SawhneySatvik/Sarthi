@@ -1,51 +1,37 @@
 "use client";
 
 import { Download, Share, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+
+import { InstallGuide } from "./InstallGuide";
+import { usePwaInstall } from "./usePwaInstall";
 
 /*
- * InstallPrompt — the dismissible "Add Sarthi to your home screen" affordance (T3, FLOWS G).
+ * InstallPrompt — the dismissible "Add Sarthi to your home screen" affordance on Today (T3, FLOWS G).
  *
- * INLINE, NOT AN OVERLAY: this renders in Today's normal content flow (mirroring TodayHintRow),
- * so it can never sit on top of the header's Settings gear or the bottom capture bar — the demo
- * path is never blocked. Two paths:
- *   • Chromium: capture `beforeinstallprompt` (preventDefault + stash), show an "Add" button that
- *     calls the stashed event's prompt(). This only fires when the SW + manifest make the app
- *     installable, so with the SW flag OFF it simply never appears — the graceful no-op.
- *   • iOS Safari: never fires `beforeinstallprompt`, so we detect it and show the manual
- *     Share → "Add to Home Screen" instruction instead.
- * Dismissal (and a completed install) persist to localStorage so it never nags. Tokens only,
- * neutral ink (install is not an "earned" moment — no amber). Reads UA/localStorage in a mount
- * effect, not during render, so SSR === the first client render.
+ * INLINE, NOT AN OVERLAY: renders in Today's normal content flow (mirroring TodayHintRow), so it can
+ * never sit on top of the header gear or the capture bar — the demo path is never blocked.
+ *
+ * Install truth comes from the shared usePwaInstall hook (one module-level `beforeinstallprompt`
+ * capture, shared with the Settings row). Two paths:
+ *   • installable (Chromium) → a real "Add" button that fires the stashed prompt().
+ *   • ios (Safari)           → iOS never fires the event, and iOS cannot be told to install
+ *                              programmatically, so the card is a real button that OPENS InstallGuide
+ *                              (the honest Share → "Add to Home Screen" walkthrough). No dead chip.
+ * When installed / unsupported it renders nothing.
+ *
+ * Dismissal persists to localStorage so it never nags (this is Today-only — Settings ignores it).
+ * The iOS card reveals after a short beat so it never competes with first paint / the coach's line.
+ * localStorage is read in a mount effect, so SSR === the first client render.
  */
 
 const DISMISS_KEY = "sarthi-pwa-install-dismissed";
+const IOS_REVEAL_MS = 2500;
 
-type BeforeInstallPromptEvent = Event & {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
-};
-
-type Mode = "hidden" | "prompt" | "ios";
-
-function alreadyInstalled(): boolean {
-  return (
-    window.matchMedia?.("(display-mode: standalone)").matches === true ||
-    (window.navigator as Navigator & { standalone?: boolean }).standalone === true
-  );
-}
-
-function isIosSafari(): boolean {
-  const ua = window.navigator.userAgent;
-  const iOS =
-    /iphone|ipad|ipod/i.test(ua) ||
-    // iPadOS 13+ masquerades as desktop Safari; touch points disambiguate it.
-    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-  const webkit = /webkit/i.test(ua);
-  // Chrome/Firefox/Edge/Opera on iOS all use WebKit but can't "Add to Home Screen".
-  const otherBrowser = /crios|fxios|edgios|opios|mercury/i.test(ua);
-  return iOS && webkit && !otherBrowser;
-}
+// Read-only external "store" for the localStorage dismissal flag: getServerSnapshot pins SSR +
+// hydration to `true` (hidden), so the server render === the first client render; after hydration
+// the client reads the real flag. This keeps the read SSR-safe without a setState-in-effect.
+const SUBSCRIBE_NOOP = (): (() => void) => () => {};
 
 function isDismissed(): boolean {
   try {
@@ -64,96 +50,91 @@ function persistDismissed(): void {
 }
 
 export function InstallPrompt() {
-  const [mode, setMode] = useState<Mode>("hidden");
-  const deferredRef = useRef<BeforeInstallPromptEvent | null>(null);
+  const { state, promptInstall } = usePwaInstall();
+  const storedDismissed = useSyncExternalStore(SUBSCRIBE_NOOP, isDismissed, () => true);
+  const [locallyDismissed, setLocallyDismissed] = useState(false);
+  const [iosReady, setIosReady] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
+  const dismissed = storedDismissed || locallyDismissed;
 
+  // Reveal the iOS card after a short beat (Chromium's "Add" appears immediately when the event lands).
   useEffect(() => {
-    if (alreadyInstalled() || isDismissed()) return;
-
-    const onBeforeInstall = (event: Event) => {
-      // Stop Chromium's default mini-infobar; we present our own tokenized affordance.
-      event.preventDefault();
-      deferredRef.current = event as BeforeInstallPromptEvent;
-      setMode("prompt");
-    };
-    const onInstalled = () => {
-      persistDismissed();
-      deferredRef.current = null;
-      setMode("hidden");
-    };
-
-    window.addEventListener("beforeinstallprompt", onBeforeInstall);
-    window.addEventListener("appinstalled", onInstalled);
-
-    // iOS has no beforeinstallprompt — reveal the manual instruction after a short beat so it
-    // never competes with first paint / the coach's opening line.
-    let iosTimer: ReturnType<typeof setTimeout> | undefined;
-    if (isIosSafari()) {
-      iosTimer = setTimeout(() => setMode((current) => (current === "hidden" ? "ios" : current)), 2500);
-    }
-
-    return () => {
-      window.removeEventListener("beforeinstallprompt", onBeforeInstall);
-      window.removeEventListener("appinstalled", onInstalled);
-      if (iosTimer) clearTimeout(iosTimer);
-    };
-  }, []);
-
-  if (mode === "hidden") return null;
+    if (state !== "ios") return;
+    const timer = setTimeout(() => setIosReady(true), IOS_REVEAL_MS);
+    return () => clearTimeout(timer);
+  }, [state]);
 
   const dismiss = () => {
     persistDismissed();
-    setMode("hidden");
+    setLocallyDismissed(true);
   };
 
   const install = async () => {
-    const event = deferredRef.current;
-    if (!event) return;
-    try {
-      await event.prompt();
-      await event.userChoice;
-    } catch {
-      /* user gesture races / unsupported — fall through to hiding */
-    }
-    deferredRef.current = null;
-    // `appinstalled` persists the dismissal on success; a decline just hides for now (the
-    // browser controls whether beforeinstallprompt fires again later).
-    setMode("hidden");
+    await promptInstall();
   };
 
+  const showAdd = state === "installable";
+  const showIos = state === "ios" && iosReady;
+  const visible = !dismissed && (showAdd || showIos);
+
+  if (!visible) return null;
+
   return (
-    <div className="mx-4 mb-2 flex items-center gap-3 rounded-card border border-line bg-raised px-4 py-3">
-      <span
-        aria-hidden
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-chip border border-line bg-card text-ink-2"
-      >
-        {mode === "ios" ? <Share size={18} strokeWidth={1.5} /> : <Download size={18} strokeWidth={1.5} />}
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="font-ui text-body text-ink-1">Add Sarthi to your home screen</p>
-        <p className="mt-0.5 font-ui text-caption text-ink-2">
-          {mode === "ios"
-            ? "Tap the Share button, then “Add to Home Screen.”"
-            : "Install for a faster, full-screen experience."}
-        </p>
-      </div>
-      {mode === "prompt" ? (
+    <>
+      <div className="mx-4 mb-2 flex items-center gap-3 rounded-card border border-line bg-raised px-4 py-3">
+        {showIos ? (
+          <button
+            type="button"
+            onClick={() => setGuideOpen(true)}
+            aria-haspopup="dialog"
+            className="-my-3 flex min-w-0 flex-1 items-center gap-3 py-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <span
+              aria-hidden
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-chip border border-line bg-card text-ink-2"
+            >
+              <Share size={18} strokeWidth={1.5} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block font-ui text-body text-ink-1">Add Sarthi to your home screen</span>
+              <span className="mt-0.5 block font-ui text-caption text-ink-2">
+                Tap to see how — it takes three taps in Safari.
+              </span>
+            </span>
+          </button>
+        ) : (
+          <>
+            <span
+              aria-hidden
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-chip border border-line bg-card text-ink-2"
+            >
+              <Download size={18} strokeWidth={1.5} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="font-ui text-body text-ink-1">Add Sarthi to your home screen</p>
+              <p className="mt-0.5 font-ui text-caption text-ink-2">
+                Install for a faster, full-screen experience.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={install}
+              className="inline-flex min-h-11 shrink-0 items-center rounded-chip bg-ink-1 px-4 font-ui text-caption text-canvas focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              Add
+            </button>
+          </>
+        )}
         <button
           type="button"
-          onClick={install}
-          className="inline-flex min-h-11 shrink-0 items-center rounded-chip bg-ink-1 px-4 font-ui text-caption text-canvas focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label="Dismiss install prompt"
+          onClick={dismiss}
+          className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-chip text-ink-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          Add
+          <X size={16} strokeWidth={2} aria-hidden />
         </button>
-      ) : null}
-      <button
-        type="button"
-        aria-label="Dismiss install prompt"
-        onClick={dismiss}
-        className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-chip text-ink-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      >
-        <X size={16} strokeWidth={2} aria-hidden />
-      </button>
-    </div>
+      </div>
+      <InstallGuide open={guideOpen} onClose={() => setGuideOpen(false)} />
+    </>
   );
 }
