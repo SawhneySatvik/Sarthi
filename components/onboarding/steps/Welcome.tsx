@@ -72,7 +72,7 @@ export function Welcome({ authMode, onBegin }: { authMode: AuthenticatedUser["mo
       <Button className="w-full" onClick={onBegin}>
         Begin
       </Button>
-      {authMode !== "local" && (
+      {authMode === "supabase" && (
         <button
           type="button"
           onClick={() => router.push("/login")}

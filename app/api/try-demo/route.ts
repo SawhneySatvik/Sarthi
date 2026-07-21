@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+import { getRuntimeConfig } from "@/app/lib/runtime";
 import { reposForUserId } from "@/app/lib/session";
 import { seedDemo } from "@/data/seed/demo";
 import { SANDBOX_USER_COOKIE, sandboxCookieOptions } from "@/providers/auth/sandbox-cookie";
@@ -26,6 +27,12 @@ export const dynamic = "force-dynamic";
  * paywalled (invariant #10): the demo is always free.
  */
 export async function GET(request: NextRequest): Promise<NextResponse> {
+  // The per-visitor demo seed EXISTS ONLY on the anonymous deploy, where the minted id flows
+  // through the sandbox cookie + repository `userId` scoping. Under any other provider (notably
+  // supabase in prod) this would be an UNAUTHENTICATED seed-write into Postgres — refuse it.
+  if (getRuntimeConfig().authProvider !== "anonymous") {
+    return new NextResponse(null, { status: 404 });
+  }
   const target = new URL("/today", request.url);
   try {
     const userId = crypto.randomUUID();

@@ -1,6 +1,6 @@
 "use server";
 
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { checkSignupGate } from "@/app/lib/admin";
 import { getRuntimeConfig } from "@/app/lib/runtime";
@@ -23,6 +23,18 @@ function auth() {
   return createAuthProvider(getRuntimeConfig().authProvider);
 }
 
+/**
+ * The account-creating actions (login/signup) EXIST ONLY under supabase. A direct POST to a
+ * Server Action bypasses the `(auth)` layout guard, so re-assert it here: under any other
+ * provider the route simply does not exist (404). Defense-in-depth over the provider's own
+ * refusal — together they guarantee no phantom "success" on the anonymous/local deploy.
+ */
+function requireSupabaseAuth(): void {
+  if (getRuntimeConfig().authProvider !== "supabase") {
+    notFound();
+  }
+}
+
 function field(formData: FormData, name: string): string {
   const value = formData.get(name);
   return typeof value === "string" ? value : "";
@@ -43,6 +55,7 @@ export async function loginAction(
   _prev: AuthActionState,
   formData: FormData,
 ): Promise<AuthActionState> {
+  requireSupabaseAuth();
   const email = field(formData, "email").trim();
   const password = field(formData, "password");
   if (!email || !password) {
@@ -62,6 +75,7 @@ export async function signupAction(
   _prev: AuthActionState,
   formData: FormData,
 ): Promise<AuthActionState> {
+  requireSupabaseAuth();
   const email = field(formData, "email").trim();
   const password = field(formData, "password");
   if (!email || password.length < MIN_PASSWORD) {
@@ -73,10 +87,10 @@ export async function signupAction(
   // default stays unchanged.
   const gate = await checkSignupGate(email);
   if (!gate.allowed) {
+    // Enumeration-safe: ONE notice regardless of `gate.onList`, so a probe cannot distinguish an
+    // on-waitlist email from an unknown one (consistent with the login/reset posture).
     return {
-      notice: gate.onList
-        ? "You're on the waitlist — we'll email you the moment early access opens."
-        : "Sarthi is invite-only right now. Join the waitlist and we'll email you when a spot opens.",
+      notice: "Sarthi is invite-only right now. Join the waitlist and we'll email you when a spot opens.",
     };
   }
   try {

@@ -1,13 +1,24 @@
+import { notFound } from "next/navigation";
+
+import { getRuntimeConfig } from "@/app/lib/runtime";
+
 /*
  * app/(auth)/layout.tsx — SAR-021. The production auth boundary (`/signup`, `/login`,
  * `/reset-password`, reset callback). A single narrow, token-driven form column on a quiet
  * canvas — no app shell, no bottom nav, no onboarding gate (these routes sit OUTSIDE the
  * `(app)` group), no developer/seed gesture, no password-gate wording. Every public auth
  * route links to Privacy and Terms without blocking conversion (SCREEN-AUTH §1).
+ *
+ * The real-auth UI EXISTS ONLY under `AUTH_PROVIDER=supabase`. On the anonymous/local default
+ * deploy these pages 404 (single chokepoint for every child route) so a login-less visitor can
+ * never reach a form whose provider would resolve a no-op into a phantom "signed-in" state.
  */
 export const dynamic = "force-dynamic";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
+  if (getRuntimeConfig().authProvider !== "supabase") {
+    notFound();
+  }
   return (
     <main className="flex min-h-screen flex-col bg-canvas text-ink-1">
       <div className="mx-auto flex w-full max-w-[24rem] flex-1 flex-col justify-center px-5 py-12">

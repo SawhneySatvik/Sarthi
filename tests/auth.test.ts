@@ -10,6 +10,7 @@ import test from "node:test";
 
 import type { AuthenticatedUser } from "../core/contracts";
 import { ProviderConfigurationError } from "../core/contracts";
+import { safeRelativeNext } from "../app/auth/callback/safe-next";
 import { createAuthProvider } from "../providers/auth";
 import { LocalPasswordAuthProvider } from "../providers/auth/local-password";
 import { SupabaseAuthProvider } from "../providers/auth/supabase";
@@ -164,4 +165,41 @@ test("createAuthProvider defaults to the keyless local-password gate", async () 
     const auth = createAuthProvider("local-password");
     assert.ok(auth instanceof LocalPasswordAuthProvider);
   });
+});
+
+test("anonymous sandbox REFUSES signIn/signUp (no phantom account on the default deploy)", async () => {
+  // F6: a resolving no-op would let the supabase-only auth UI fabricate a "success" if it were
+  // ever reached on the anonymous deploy. signIn/signUp must throw; signOut stays a safe no-op.
+  const savedFetch = globalThis.fetch;
+  globalThis.fetch = (async () => {
+    throw new Error("anonymous auth must not call fetch");
+  }) as typeof fetch;
+  try {
+    const auth = createAuthProvider("anonymous");
+    await assert.rejects(
+      auth.signIn({ email: "a@b.co", password: "supersecret" }),
+      ProviderConfigurationError,
+    );
+    await assert.rejects(
+      auth.signUp({ email: "a@b.co", password: "supersecret" }),
+      ProviderConfigurationError,
+    );
+    // signOut is a best-effort no-op (no session store) — it must NOT throw.
+    await auth.signOut();
+  } finally {
+    globalThis.fetch = savedFetch;
+  }
+});
+
+test("safeRelativeNext rejects open-redirect targets, keeps same-origin relatives", () => {
+  // F8: `new URL("//evil.com", origin)` → https://evil.com/, so startsWith("/") is insufficient.
+  const SAFE = "/reset-password/update";
+  assert.equal(safeRelativeNext("//evil.com"), SAFE);
+  assert.equal(safeRelativeNext("/\\evil.com"), SAFE); // /\evil.com — backslash variant
+  assert.equal(safeRelativeNext("https://evil.com"), SAFE);
+  assert.equal(safeRelativeNext("evil.com"), SAFE);
+  assert.equal(safeRelativeNext(null), SAFE);
+  // Legitimate same-origin relative paths pass through unchanged.
+  assert.equal(safeRelativeNext("/reset-password/update"), "/reset-password/update");
+  assert.equal(safeRelativeNext("/today"), "/today");
 });
