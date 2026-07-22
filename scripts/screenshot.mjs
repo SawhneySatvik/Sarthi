@@ -75,7 +75,7 @@ async function withPage(browser, { theme, mode, width, strict = false }, fn) {
 async function today(browser, label, themes, widths) {
   for (const [theme, mode] of themes) {
     for (const width of widths) {
-      await withPage(browser, { theme, mode, width }, async (page) => {
+      await withPage(browser, { theme, mode, width, strict: true }, async (page) => {
         await page.goto(`${BASE}/today`, { waitUntil: "networkidle" });
         await page.waitForTimeout(350);
         await shot(page, `today-${label}-${width}-${theme}-${mode}`);
@@ -278,63 +278,72 @@ async function captureFlow(browser, themes, widths) {
 }
 
 async function coachScreens(browser, themes, widths) {
-  for (const [theme, mode] of themes) for (const width of widths) await withPage(browser, { theme, mode, width }, async (page) => {
-    await page.goto(`${BASE}/coach`, { waitUntil: "networkidle" }); await page.waitForTimeout(SETTLE_MS);
-    await shot(page, `coach-reading-${width}-${theme}-${mode}`);
-    if (width >= DESKTOP) {
-      const context = page.getByRole("complementary", { name: "Coach context" });
-      await context.getByText("Save ₹5,000 every month", { exact: true }).waitFor({ state: "visible", timeout: 4000 });
-      console.log("  coach context verified", `${width}-${theme}-${mode}`);
-      await shot(page, `coach-context-${width}-${theme}-${mode}`);
-    }
-    const pendingAdaptation = width >= DESKTOP
-      ? page.getByRole("complementary", { name: "Coach context" }).getByRole("button", { name: /pending/ })
-      : page.getByRole("button", { name: /pending/ }).first();
-    await pendingAdaptation.click();
-    const adaptationDialog = page.getByRole("dialog", { name: "Adaptation" });
-    await adaptationDialog.waitFor({ state: "visible", timeout: 4000 });
-    await shot(page, `coach-adaptation-${width}-${theme}-${mode}`);
-    await page.getByLabel("Close adaptation").click();
-    await adaptationDialog.waitFor({ state: "hidden", timeout: 4000 });
-    await page.getByLabel("Ask your coach").fill("How should I restart?"); await page.getByLabel("Send question").click(); await page.waitForTimeout(250); await shot(page, `coach-ask-${width}-${theme}-${mode}`);
-    await page.goto(`${BASE}/stats`, { waitUntil: "networkidle" }); await shot(page, `stats-current-${width}-${theme}-${mode}`);
-    await page.getByRole("tab", { name: "Day-1" }).click(); await shot(page, `stats-day-one-${width}-${theme}-${mode}`);
-    await page.getByRole("tab", { name: "Potential" }).click(); await shot(page, `stats-potential-${width}-${theme}-${mode}`);
-    await page.goto(`${BASE}/journey`, { waitUntil: "networkidle" }); await shot(page, `journey-rail-${width}-${theme}-${mode}`);
-    const photos = page.getByRole("button", { name: /photos/ }).first();
-    await photos.click();
-    const proof = page.getByRole("button", { name: /View proof:/ }).first();
-    await proof.waitFor({ state: "visible", timeout: 4000 });
-    await shot(page, `journey-expanded-${width}-${theme}-${mode}`);
-    await proof.click();
-    const viewer = page.getByRole("dialog", { name: "Evidence viewer" });
-    await viewer.waitFor({ state: "visible", timeout: 4000 });
-    await shot(page, `journey-viewer-${width}-${theme}-${mode}`);
-    await page.getByRole("button", { name: "Close evidence viewer" }).click();
-    await viewer.waitFor({ state: "hidden", timeout: 4000 });
-
-    // The weekly reading is intentionally Sunday-evening-only. Freeze the *next*
-    // document before navigating back to Coach so its signed brief request carries
-    // the valid local date 2026-07-19, while the regular Coach pass above remains
-    // representative of the host date.
-    await page.addInitScript((iso) => {
-      const RealDate = Date;
-      const fixedNow = new RealDate(iso).valueOf();
-      class SundayEveningDate extends RealDate {
-        constructor(...args) {
-          super(...(args.length === 0 ? [fixedNow] : args));
-        }
-        static now() { return fixedNow; }
+  for (const [theme, mode] of themes) for (const width of widths) {
+    await withPage(browser, { theme, mode, width, strict: true }, async (page) => {
+      await page.goto(`${BASE}/coach`, { waitUntil: "networkidle" });
+      await page.getByLabel("Ask your coach").waitFor({ state: "visible", timeout: 4000 });
+      await page.waitForTimeout(SETTLE_MS);
+      await shot(page, `coach-reading-${width}-${theme}-${mode}`);
+      if (width >= DESKTOP) {
+        const context = page.getByRole("complementary", { name: "Coach context" });
+        await context.getByText("Save ₹5,000 every month", { exact: true }).waitFor({ state: "visible", timeout: 4000 });
+        console.log("  coach context verified", `${width}-${theme}-${mode}`);
+        await shot(page, `coach-context-${width}-${theme}-${mode}`);
       }
-      Object.defineProperty(window, "Date", { configurable: true, writable: true, value: SundayEveningDate });
-    }, "2026-07-19T20:00:00");
-    await page.goto(`${BASE}/coach`, { waitUntil: "networkidle" });
-    const weekly = page.locator("section").filter({ hasText: "Coach observation" });
-    await weekly.waitFor({ state: "visible", timeout: 6000 });
-    await weekly.scrollIntoViewIfNeeded();
-    await page.waitForTimeout(SETTLE_MS);
-    await shot(page, `coach-weekly-${width}-${theme}-${mode}`);
-  });
+      const pendingAdaptation = width >= DESKTOP
+        ? page.getByRole("complementary", { name: "Coach context" }).getByRole("button", { name: /pending/ })
+        : page.getByRole("button", { name: /pending/ }).first();
+      await pendingAdaptation.waitFor({ state: "visible", timeout: 4000 });
+      await pendingAdaptation.click();
+      const adaptationDialog = page.getByRole("dialog", { name: "Adaptation" });
+      await adaptationDialog.waitFor({ state: "visible", timeout: 4000 });
+      await shot(page, `coach-adaptation-${width}-${theme}-${mode}`);
+      await page.getByLabel("Close adaptation").click();
+      await adaptationDialog.waitFor({ state: "hidden", timeout: 4000 });
+      await page.getByLabel("Ask your coach").fill("How should I restart?");
+      await page.getByLabel("Send question").click();
+      await page.getByText("How should I restart?", { exact: true }).last().waitFor({ state: "visible", timeout: 4000 });
+      await shot(page, `coach-ask-${width}-${theme}-${mode}`);
+    });
+
+    await withPage(browser, { theme, mode, width, strict: true }, async (page) => {
+      // The weekly reading is intentionally Sunday-evening-only. Freeze this document so its
+      // signed brief request carries the valid local date 2026-07-19.
+      await page.addInitScript((iso) => {
+        const RealDate = Date;
+        const fixedNow = new RealDate(iso).valueOf();
+        class SundayEveningDate extends RealDate {
+          constructor(...args) { super(...(args.length === 0 ? [fixedNow] : args)); }
+          static now() { return fixedNow; }
+        }
+        Object.defineProperty(window, "Date", { configurable: true, writable: true, value: SundayEveningDate });
+      }, "2026-07-19T20:00:00");
+      await page.goto(`${BASE}/coach`, { waitUntil: "networkidle" });
+      const weekly = page.locator("section").filter({ hasText: "Coach observation" });
+      await weekly.waitFor({ state: "visible", timeout: 6000 });
+      await weekly.scrollIntoViewIfNeeded();
+      await page.waitForTimeout(SETTLE_MS);
+      await shot(page, `coach-weekly-${width}-${theme}-${mode}`);
+    });
+
+    await withPage(browser, { theme, mode, width }, async (page) => {
+      await page.goto(`${BASE}/stats`, { waitUntil: "networkidle" }); await shot(page, `stats-current-${width}-${theme}-${mode}`);
+      await page.getByRole("tab", { name: "Day-1" }).click(); await shot(page, `stats-day-one-${width}-${theme}-${mode}`);
+      await page.getByRole("tab", { name: "Potential" }).click(); await shot(page, `stats-potential-${width}-${theme}-${mode}`);
+      await page.goto(`${BASE}/journey`, { waitUntil: "networkidle" }); await shot(page, `journey-rail-${width}-${theme}-${mode}`);
+      const photos = page.getByRole("button", { name: /photos/ }).first();
+      await photos.click();
+      const proof = page.getByRole("button", { name: /View proof:/ }).first();
+      await proof.waitFor({ state: "visible", timeout: 4000 });
+      await shot(page, `journey-expanded-${width}-${theme}-${mode}`);
+      await proof.click();
+      const viewer = page.getByRole("dialog", { name: "Evidence viewer" });
+      await viewer.waitFor({ state: "visible", timeout: 4000 });
+      await shot(page, `journey-viewer-${width}-${theme}-${mode}`);
+      await page.getByRole("button", { name: "Close evidence viewer" }).click();
+      await viewer.waitFor({ state: "hidden", timeout: 4000 });
+    });
+  }
 }
 
 // SAR-012 Pass 1 — the CORE onboarding walk (A → B1–B6). Drive against a SEED_STATE=fresh
