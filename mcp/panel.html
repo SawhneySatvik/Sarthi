@@ -1,0 +1,967 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark light" />
+<title>Sarthi</title>
+<style>
+/* ── Tokens (values copied from app/globals.css: Ember dark default, Bone light) ── */
+:root {
+  --bg-canvas: #0c0b0a;
+  --bg-card: #17130e;
+  --bg-raised: #1e1913;
+  --line: #2a241c;
+  --ink-1: #f4efe4;
+  --ink-2: #a79e8e;
+  --ink-3: #8d8377;
+  --energy: #e8913e;
+  --dom-health: #7fb08c;
+  --dom-money: #c0883a;
+  --dom-habits: #8189cf;
+  --dom-skills: #a97fc9;
+  --dom-health-strong: #a6cbaf;
+  --dom-money-strong: #e6bd77;
+  --dom-habits-strong: #a7adde;
+  --dom-skills-strong: #c6a6dc;
+  --ok: #7fb08c;
+  --danger: #c96e63;
+  --ring: #f4efe4;
+  --scrim-art: rgb(10 8 6 / 82%);
+  --scrim-art-top: rgb(10 8 6 / 18%);
+  --ink-on-art-1: #f8f3ea;
+  --ink-on-art-2: #ded6c6;
+
+  --r-card: 20px;
+  --r-chip: 999px;
+  --r-input: 14px;
+  --t-fast: 120ms;
+  --t-base: 200ms;
+  --t-slow: 320ms;
+  --t-flash: 1600ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+
+  --text-display: 28px;
+  --text-display-lh: 32px;
+  --text-title: 20px;
+  --text-title-lh: 26px;
+  --text-body: 15px;
+  --text-body-lh: 22px;
+  --text-caption: 12px;
+  --text-caption-lh: 16px;
+  --track-caps: 0.08em;
+  --weight-strong: 600;
+
+  --font-ui: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-coach: ui-serif, "New York", "Iowan Old Style", Georgia, Cambria, "Times New Roman", serif;
+
+  --hairline: 1px;
+  --focus-width: 2px;
+  --focus-offset: 2px;
+  --dot: 8px;
+  --tap: 44px;
+  --panel-max: 420px;
+  --tint-hue: 16%;
+  --tint-energy: 14%;
+  --tint-danger: 12%;
+  --lift: -2px;
+  --o-disabled: 0.55;
+  --hero-h: 136px;
+  --tile-art-h: 116px;
+  --card-art-h: 72px;
+  --tint-plate: 38%;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-mode="dark"]) {
+    --bg-canvas: #faf7f2;
+    --bg-card: #ffffff;
+    --bg-raised: #fdfcf9;
+    --line: #e5dfd6;
+    --ink-1: #211e1c;
+    --ink-2: #6f6a66;
+    --ink-3: #736d65;
+    --energy: #c86f1b;
+    --dom-health: #7fb08c;
+    --dom-money: #d8a24a;
+    --dom-habits: #8189cf;
+    --dom-skills: #a97fc9;
+    --dom-health-strong: #4c8a5e;
+    --dom-money-strong: #a47417;
+    --dom-habits-strong: #5560b8;
+    --dom-skills-strong: #8352a8;
+    --ok: #4c8a5e;
+    --danger: #b0483c;
+    --ring: #211e1c;
+    --scrim-art: rgb(22 20 18 / 76%);
+    --scrim-art-top: rgb(22 20 18 / 14%);
+  }
+}
+/* Host-declared light theme (ui/initialize hostContext.theme) wins over the OS setting. */
+:root[data-mode="light"] {
+  --bg-canvas: #faf7f2;
+  --bg-card: #ffffff;
+  --bg-raised: #fdfcf9;
+  --line: #e5dfd6;
+  --ink-1: #211e1c;
+  --ink-2: #6f6a66;
+  --ink-3: #736d65;
+  --energy: #c86f1b;
+  --dom-health: #7fb08c;
+  --dom-money: #d8a24a;
+  --dom-habits: #8189cf;
+  --dom-skills: #a97fc9;
+  --dom-health-strong: #4c8a5e;
+  --dom-money-strong: #a47417;
+  --dom-habits-strong: #5560b8;
+  --dom-skills-strong: #8352a8;
+  --ok: #4c8a5e;
+  --danger: #b0483c;
+  --ring: #211e1c;
+  --scrim-art: rgb(22 20 18 / 76%);
+  --scrim-art-top: rgb(22 20 18 / 14%);
+}
+/* ── end tokens ── */
+
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--bg-canvas);
+  color: var(--ink-1);
+  font-family: var(--font-ui);
+  font-size: var(--text-body);
+  line-height: var(--text-body-lh);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+main {
+  max-width: var(--panel-max);
+  margin: 0 auto;
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+[data-domain="health"] { --hue: var(--dom-health); --hue-strong: var(--dom-health-strong); }
+[data-domain="money"] { --hue: var(--dom-money); --hue-strong: var(--dom-money-strong); }
+[data-domain="habits"] { --hue: var(--dom-habits); --hue-strong: var(--dom-habits-strong); }
+[data-domain="skills"] { --hue: var(--dom-skills); --hue-strong: var(--dom-skills-strong); }
+
+.visually-hidden {
+  position: absolute; width: var(--hairline); height: var(--hairline);
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+}
+
+/* Header */
+.top { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.brand { display: flex; flex-direction: column; min-width: 0; }
+.brand h1 {
+  margin: 0; font-family: var(--font-coach); font-weight: var(--weight-strong);
+  font-size: var(--text-title); line-height: var(--text-title-lh); letter-spacing: 0;
+}
+.brand .date { color: var(--ink-2); font-size: var(--text-caption); line-height: var(--text-caption-lh); }
+.xp {
+  display: inline-flex; align-items: center; gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--r-chip);
+  border: var(--hairline) solid var(--energy);
+  color: var(--energy);
+  background: color-mix(in srgb, var(--energy) var(--tint-energy), transparent);
+  font-size: var(--text-caption); line-height: var(--text-caption-lh);
+  font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; white-space: nowrap;
+  transition: transform var(--t-base) var(--ease-standard);
+}
+.xp .gain { display: none; }
+.xp.bump { transform: translateY(var(--lift)); }
+.xp.bump .gain { display: inline; }
+
+/* Sections */
+section { display: flex; flex-direction: column; gap: var(--space-3); }
+.sec-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: var(--tap); }
+.sec-head h2 {
+  margin: 0; font-size: var(--text-caption); line-height: var(--text-caption-lh);
+  text-transform: uppercase; letter-spacing: var(--track-caps); color: var(--ink-2); font-weight: var(--weight-strong);
+}
+.count {
+  display: inline-block; margin-left: var(--space-2); padding: 0 var(--space-2);
+  border-radius: var(--r-chip); background: var(--bg-raised); border: var(--hairline) solid var(--line); color: var(--ink-1);
+}
+.empty {
+  color: var(--ink-2); font-size: var(--text-caption); line-height: var(--text-caption-lh);
+  padding: var(--space-3) var(--space-4); border: var(--hairline) dashed var(--line); border-radius: var(--r-input);
+}
+
+/* Cards */
+.card {
+  background: var(--bg-card); border: var(--hairline) solid var(--line); border-radius: var(--r-card);
+  padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-3);
+  transition: opacity var(--t-base) var(--ease-standard), transform var(--t-base) var(--ease-standard);
+}
+.card.leaving { opacity: 0; transform: translateY(var(--lift)); }
+.chip {
+  align-self: flex-start; display: inline-flex; align-items: center; gap: var(--space-2);
+  padding: var(--space-1) var(--space-3); border-radius: var(--r-chip);
+  background: color-mix(in srgb, var(--hue) var(--tint-hue), transparent);
+  color: var(--hue-strong); font-size: var(--text-caption); line-height: var(--text-caption-lh); font-weight: var(--weight-strong);
+}
+.dot { width: var(--dot); height: var(--dot); border-radius: var(--r-chip); background: var(--hue); flex: none; }
+.card-title { margin: 0; font-size: var(--text-body); line-height: var(--text-body-lh); font-weight: var(--weight-strong); overflow-wrap: anywhere; }
+.value {
+  margin: 0; font-size: var(--text-display); line-height: var(--text-display-lh); font-weight: var(--weight-strong);
+  font-variant-numeric: tabular-nums; overflow-wrap: anywhere;
+}
+.reasons { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--space-1); }
+.reasons li { color: var(--ink-2); font-size: var(--text-caption); line-height: var(--text-caption-lh); }
+.actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+
+button {
+  font: inherit; font-size: var(--text-body); font-weight: var(--weight-strong);
+  min-height: var(--tap); padding: 0 var(--space-4); border-radius: var(--r-chip);
+  border: var(--hairline) solid var(--line); background: var(--bg-raised); color: var(--ink-1);
+  cursor: pointer; transition: opacity var(--t-fast) var(--ease-standard), background var(--t-fast) var(--ease-standard);
+}
+button.primary { background: var(--ink-1); color: var(--bg-canvas); border-color: var(--ink-1); }
+button.quiet { background: transparent; border-color: transparent; color: var(--ink-2); }
+button:disabled { opacity: var(--o-disabled); cursor: default; }
+button:focus-visible, input:focus-visible {
+  outline: var(--focus-width) solid var(--ring); outline-offset: var(--focus-offset);
+}
+.edit-row { display: flex; align-items: flex-end; gap: var(--space-2); flex-wrap: wrap; }
+.edit-row label { display: flex; flex-direction: column; gap: var(--space-1); color: var(--ink-2); font-size: var(--text-caption); line-height: var(--text-caption-lh); flex: 1 1 8ch; min-width: 0; }
+.edit-row input {
+  font: inherit; font-size: var(--text-body); min-height: var(--tap); width: 100%;
+  padding: 0 var(--space-3); border-radius: var(--r-input);
+  border: var(--hairline) solid var(--line); background: var(--bg-raised); color: var(--ink-1);
+  font-variant-numeric: tabular-nums;
+}
+.err { margin: 0; color: var(--danger); font-size: var(--text-caption); line-height: var(--text-caption-lh); }
+.err:empty { display: none; }
+
+/* Filed */
+.rows { margin: 0; padding: 0; list-style: none; background: var(--bg-card); border: var(--hairline) solid var(--line); border-radius: var(--r-card); overflow: hidden; }
+.rows li {
+  display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4);
+  border-top: var(--hairline) solid var(--line);
+  transition: background var(--t-flash) var(--ease-standard);
+}
+.rows li:first-child { border-top: 0; }
+.rows li.fresh { background: color-mix(in srgb, var(--hue) var(--tint-hue), transparent); }
+.rows .r-title { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.rows .r-val { flex: none; font-variant-numeric: tabular-nums; font-weight: var(--weight-strong); }
+.rows .r-tag { color: var(--ok); font-size: var(--text-caption); line-height: var(--text-caption-lh); flex: none; }
+
+/* Today */
+.tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
+.tile {
+  background: var(--bg-card); border: var(--hairline) solid var(--line); border-radius: var(--r-input);
+  padding: var(--space-3); display: flex; flex-direction: column; gap: var(--space-1); min-width: 0;
+}
+.tile .t-label { display: flex; align-items: center; gap: var(--space-2); color: var(--hue-strong); font-size: var(--text-caption); line-height: var(--text-caption-lh); font-weight: var(--weight-strong); }
+.tile .t-big { font-size: var(--text-title); line-height: var(--text-title-lh); font-weight: var(--weight-strong); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.tile .t-sub { color: var(--ink-2); font-size: var(--text-caption); line-height: var(--text-caption-lh); overflow-wrap: anywhere; }
+
+/* Questions */
+.q { background: var(--bg-card); border: var(--hairline) solid var(--line); border-radius: var(--r-input); padding: var(--space-3) var(--space-4); display: flex; flex-direction: column; gap: var(--space-2); }
+.q p { margin: 0; }
+.q .opts { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+.q .opt { padding: 0 var(--space-2); border-radius: var(--r-chip); border: var(--hairline) solid var(--line); color: var(--ink-2); font-size: var(--text-caption); line-height: var(--text-caption-lh); }
+.q .hint { color: var(--ink-3); font-size: var(--text-caption); line-height: var(--text-caption-lh); }
+
+.status { min-height: var(--text-body-lh); font-size: var(--text-caption); line-height: var(--text-caption-lh); color: var(--ink-2); margin: 0; }
+.status.ok { color: var(--ok); }
+.status.bad { color: var(--danger); }
+footer { color: var(--ink-3); font-size: var(--text-caption); line-height: var(--text-caption-lh); text-align: center; padding-bottom: var(--space-2); }
+
+/* Art surfaces (only when __SARTHI_ASSET_ORIGIN__ is set and the image loads; else the plain look) */
+.has-art {
+  position: relative; isolation: isolate; overflow: hidden;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--hue, var(--ink-3)) var(--tint-plate), var(--bg-raised)), var(--bg-card));
+}
+.has-art > .art-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -2; display: block; }
+.has-art > .art-scrim { position: absolute; inset: 0; z-index: -1; background: linear-gradient(to bottom, var(--scrim-art-top), var(--scrim-art)); }
+.top.has-art {
+  min-height: var(--hero-h); align-items: flex-end; padding: var(--space-4);
+  border-radius: var(--r-card); border: var(--hairline) solid var(--line);
+}
+.top.has-art h1 { color: var(--ink-on-art-1); }
+.top.has-art .date { color: var(--ink-on-art-2); }
+.top.has-art .xp { background: var(--scrim-art); }
+.tile.has-art { min-height: var(--tile-art-h); justify-content: flex-end; }
+.tile.has-art .t-label, .tile.has-art .t-big { color: var(--ink-on-art-1); }
+.tile.has-art .t-sub { color: var(--ink-on-art-2); }
+.card-band { display: flex; align-items: flex-start; }
+.card-band.has-art {
+  min-height: var(--card-art-h); padding: var(--space-3) var(--space-4);
+  margin: calc(var(--space-4) * -1) calc(var(--space-4) * -1) 0;
+  border-radius: var(--r-card) var(--r-card) 0 0;
+}
+.card-band.has-art .chip { background: var(--scrim-art); color: var(--ink-on-art-1); }
+
+/* Todos */
+.todo-list { margin: 0; padding: 0; list-style: none; background: var(--bg-card); border: var(--hairline) solid var(--line); border-radius: var(--r-card); overflow: hidden; }
+.todo-list > li { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4); border-top: var(--hairline) solid var(--line); }
+.todo-list > li:first-child { border-top: 0; }
+.todo-row { display: flex; align-items: center; gap: var(--space-3); min-height: var(--tap); }
+.todo-row .td-title { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.todo-list > li.closed .td-title { color: var(--ink-3); }
+.todo-list > li.is-done .td-title { text-decoration: line-through; }
+.td-mark { flex: none; color: var(--ok); font-size: var(--text-caption); line-height: var(--text-caption-lh); }
+.td-state { flex: none; color: var(--ink-3); font-size: var(--text-caption); line-height: var(--text-caption-lh); padding-right: var(--space-2); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+  .xp.bump { transform: none; }
+}
+</style>
+</head>
+<body>
+<main>
+  <header class="top" id="top">
+    <div class="brand">
+      <h1>Sarthi</h1>
+      <span class="date" id="date">Today</span>
+    </div>
+    <span class="xp" id="xp" role="status" aria-label="Experience">—</span>
+  </header>
+
+  <section id="needs-ok" aria-labelledby="needs-h">
+    <div class="sec-head"><h2 id="needs-h">Needs your OK<span class="count" id="needs-count" hidden></span></h2></div>
+    <div id="cards"></div>
+  </section>
+
+  <section id="todos" aria-labelledby="todos-h" hidden>
+    <div class="sec-head"><h2 id="todos-h">Today's todos<span class="count" id="todos-count" hidden></span></h2></div>
+    <div id="todos-body"></div>
+  </section>
+
+  <section id="filed" aria-labelledby="filed-h">
+    <div class="sec-head">
+      <h2 id="filed-h">Filed just now</h2>
+      <button type="button" id="undo" hidden>Undo</button>
+    </div>
+    <div id="filed-body"></div>
+    <p class="err" id="undo-err" role="alert"></p>
+  </section>
+
+  <section id="today" aria-labelledby="today-h">
+    <div class="sec-head"><h2 id="today-h">Today</h2></div>
+    <div class="tiles" id="tiles"></div>
+  </section>
+
+  <section id="questions" aria-labelledby="q-h" hidden>
+    <div class="sec-head"><h2 id="q-h">Sarthi needs to ask</h2></div>
+    <div id="q-body"></div>
+  </section>
+
+  <p class="status" id="status" role="status" aria-live="polite"></p>
+  <footer>Sarthi decides what's saved. Guesses wait for your tap.</footer>
+</main>
+
+<script type="module">
+// ─── State ────────────────────────────────────────────────────────────────
+const S = {
+  pending: [],        // Card[]
+  batches: [],        // [{ commitId, rows: Filed[] }] newest first; one per committing result
+  resolved: [],       // cardIds confirmed/discarded here (filters replayed tool-results)
+  questions: [],
+  today: null,
+  lastCommitId: null,
+  message: "",
+  editing: new Set(), // cardIds in edit mode
+  busy: new Map(),    // cardId -> "keep" | "edit"
+  cardErr: new Map(), // cardId -> message
+  fresh: new Set(),   // filed cardIds to flash
+  drafts: new Map(),   // cardId -> typed edit value (survives re-render)
+  undoBusy: false,
+  ownUndoAt: 0,       // ms timestamp of the panel's own last successful undo (dedupes host echo)
+  tokens: {},
+  todos: [],          // today's todos from the server (replaced whenever a result carries them)
+  todoBusy: new Set(),
+  todoErr: new Map(),         // cardId -> server card signature ("sarthi/cardTokens"); the model never sees it
+  gotResult: false,
+};
+let todayTimer = 0;
+const DOMAIN_LABEL = { health: "Health", money: "Money", habits: "Habits", skills: "Skills" };
+const $ = (id) => document.getElementById(id);
+
+function h(tag, attrs, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v == null || v === false) continue;
+    if (k === "class") el.className = v;
+    else if (k === "text") el.textContent = String(v);
+    else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+    else if (k in el && k !== "list") { try { el[k] = v; } catch { el.setAttribute(k, v); } }
+    else el.setAttribute(k, v === true ? "" : String(v));
+  }
+  for (const c of kids.flat()) if (c != null && c !== false) el.append(c instanceof Node ? c : document.createTextNode(String(c)));
+  return el;
+}
+const fmtInt = (n) => (Number.isFinite(n) ? Math.round(n).toLocaleString("en-IN") : "0");
+function fmtDate(localDate) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(localDate || ""));
+  if (!m) return "Today";
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  return d.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
+}
+function fmtWater(ml) {
+  const v = Math.max(0, Math.round(Number(ml) || 0));
+  if (v < 1000) return `${v} ml`;
+  const tenths = Math.round(v / 100);
+  return `${Math.floor(tenths / 10)}.${tenths % 10} L`;
+}
+
+// ─── Art (decorative; only when the server injects an asset origin) ──────
+function assetOrigin() {
+  try {
+    const o = typeof window.__SARTHI_ASSET_ORIGIN__ === "string" ? window.__SARTHI_ASSET_ORIGIN__.trim() : "";
+    return /^https?:\/\//i.test(o) ? o.replace(/\/+$/, "") : "";
+  } catch { return ""; }
+}
+const ART_FAILED = new Set();
+/** Paint `art/<file>.webp` behind `el`. Absent origin or a load error = the plain tokenized look. */
+function artify(el, file, eager) {
+  const origin = assetOrigin();
+  if (!el || !file || !origin || ART_FAILED.has(file)) return el;
+  const img = document.createElement("img");
+  img.className = "art-img"; img.alt = ""; img.decoding = "async";
+  img.loading = eager ? "eager" : "lazy";
+  img.setAttribute("aria-hidden", "true");
+  const scrim = document.createElement("span");
+  scrim.className = "art-scrim"; scrim.setAttribute("aria-hidden", "true");
+  img.addEventListener("error", () => {
+    ART_FAILED.add(file);
+    img.remove(); scrim.remove(); el.classList.remove("has-art");
+    postSize();
+  }, { once: true });
+  img.src = `${origin}/art/${file}.webp`;
+  el.classList.add("has-art");
+  el.prepend(img, scrim);
+  return el;
+}
+// Mirrors components/art/registry.ts (DOMAIN_FALLBACK + TITLE_MATCHES + todayHeaderArt).
+const DOMAIN_ART = { health: "health/meal_home", money: "money/ledger", habits: "habits/journal", skills: "skills/desk_code" };
+const TITLE_ART = [
+  ["wake", "habits/wake_dawn"], ["bed", "habits/make_bed"], ["shower", "habits/cold_morning"], ["journal", "habits/journal"],
+  ["phone", "habits/phone_down"], ["meditat", "habits/meditate"], ["night", "habits/night_routine"],
+  ["meal", "health/meal_home"], ["food", "health/meal_home"], ["lunch", "health/meal_home"], ["water", "health/water"],
+  ["run", "health/run_dawn"], ["gym", "health/gym"], ["workout", "health/gym"], ["stretch", "health/stretch"], ["weigh", "health/weigh"],
+  ["code", "skills/desk_code"], ["design", "skills/whiteboard"], ["study", "skills/books"], ["read", "skills/books"], ["practice", "skills/desk_night"],
+  ["market", "money/market"], ["spend", "money/ledger"], ["budget", "money/ledger"], ["save", "money/jar"], ["coin", "money/jar"],
+];
+function pickArt(domain, text) {
+  const t = String(text || "").toLowerCase();
+  for (const [needle, file] of TITLE_ART) if (t.includes(needle)) return file;
+  return DOMAIN_ART[domain] || null;
+}
+function headerArt(hour) {
+  if (hour < 10) return "today/dawn";
+  if (hour < 17) return "today/day";
+  if (hour < 21) return "today/dusk";
+  return "today/night";
+}
+
+// ─── Widget-state persistence (Apps SDK, optional) ───────────────────────
+function persist() {
+  const tokens = {};
+  for (const c of S.pending) if (typeof S.tokens[c.cardId] === "string") tokens[c.cardId] = S.tokens[c.cardId];
+  try { window.openai?.setWidgetState?.({ pending: S.pending, resolved: S.resolved.slice(-50), tokens }); } catch { /* host may not support it */ }
+}
+function restore() {
+  try {
+    const ws = window.openai?.widgetState;
+    if (ws && Array.isArray(ws.resolved)) S.resolved = ws.resolved.filter((x) => typeof x === "string");
+    if (ws && Array.isArray(ws.pending)) S.pending = ws.pending.filter((c) => c && c.cardId && !S.resolved.includes(c.cardId));
+    mergeTokens(ws?.tokens);
+  } catch { /* ignore */ }
+}
+
+// ─── Card tokens (result-level _meta, never in structuredContent) ────────
+function mergeTokens(map) {
+  if (!map || typeof map !== "object") return;
+  for (const [id, tok] of Object.entries(map)) if (typeof tok === "string" && tok) S.tokens[id] = tok;
+}
+function tokensFrom(meta) {
+  try { return meta?.["sarthi/cardTokens"]; } catch { return undefined; }
+}
+function readHostTokens() {
+  try { mergeTokens(tokensFrom(window.openai?.toolResponseMetadata)); } catch { /* ignore */ }
+}
+
+// ─── Merge rules ──────────────────────────────────────────────────────────
+function looksLikeState(sc) {
+  return sc && typeof sc === "object" && ("today" in sc || "pending" in sc || "filed" in sc);
+}
+function prependBatch(rows, commitId) {
+  const list = Array.isArray(rows) ? rows.filter((r) => r && r.cardId) : [];
+  const known = new Set(S.batches.flatMap((b) => b.rows.map((r) => r.cardId)));
+  const fresh = list.filter((r) => !known.has(r.cardId));
+  if (!fresh.length) return 0;
+  S.batches.unshift({ commitId: commitId ?? null, rows: fresh });
+  for (const r of fresh) S.fresh.add(r.cardId);
+  setTimeout(() => { for (const r of fresh) S.fresh.delete(r.cardId); render(); }, 1800);
+  return fresh.length;
+}
+function setToday(t) {
+  if (!t || typeof t !== "object") return;
+  const prevXp = S.today?.xp?.total;
+  S.today = t;
+  const nextXp = t?.xp?.total;
+  if (Number.isFinite(prevXp) && Number.isFinite(nextXp) && nextXp > prevXp) bumpXp(nextXp - prevXp);
+}
+function removeCard(cardId) {
+  if (!cardId) return;
+  S.pending = S.pending.filter((c) => c.cardId !== cardId);
+  if (!S.resolved.includes(cardId)) S.resolved.push(cardId);
+  S.editing.delete(cardId); S.busy.delete(cardId); S.cardErr.delete(cardId); S.drafts.delete(cardId);
+}
+
+/** source: "log" | "confirm" | "undo" | "today" | null (infer). */
+function apply(sc, source, extra) {
+  if (!looksLikeState(sc)) return;
+  const filed = Array.isArray(sc.filed) ? sc.filed : [];
+  const pend = Array.isArray(sc.pending) ? sc.pending : [];
+  const qs = Array.isArray(sc.questions) ? sc.questions : [];
+  let kind = source;
+  if (!kind) {
+    if (sc.confirmedCardId) kind = "confirm";
+    else if (filed.length || pend.length || qs.length) kind = "log";
+    else if (/^undid\b/i.test(String(sc.message || "")) && !S.undoBusy && Date.now() - S.ownUndoAt > 3000) {
+      kind = "undo"; extra = { undoneCommitId: S.lastCommitId }; // model-initiated undo_last
+    }
+    else kind = "today";
+  }
+  if (Array.isArray(sc.todos)) {
+    S.todos = sc.todos.filter((t) => t && typeof t.id === "string");
+    for (const id of [...S.todoErr.keys()]) if (!S.todos.some((t) => t.id === id && t.status === "pending")) S.todoErr.delete(id);
+  }
+  if (kind === "log") {
+    // An inferred result with no cards (e.g. a model-side todo/habit write) never wipes open cards.
+    if (pend.length || source === "log") S.pending = pend.filter((c) => c && c.cardId && !S.resolved.includes(c.cardId));
+    if (qs.length || source === "log") S.questions = qs;
+    prependBatch(filed, sc.lastCommitId);
+  } else if (kind === "todo") {
+    prependBatch(filed, sc.lastCommitId);
+  } else if (kind === "confirm") {
+    removeCard(sc.confirmedCardId || extra?.cardId);
+    prependBatch(filed, sc.lastCommitId);
+  } else if (kind === "undo") {
+    // Our own successful undo: the latest commit we know of is gone.
+    const idx = S.batches.findIndex((b) => b.commitId && b.commitId === extra?.undoneCommitId);
+    S.batches.splice(idx >= 0 ? idx : 0, S.batches.length ? 1 : 0);
+  }
+  setToday(sc.today);
+  if ("lastCommitId" in sc) S.lastCommitId = sc.lastCommitId ?? null;
+  if (typeof sc.message === "string") S.message = sc.message;
+  persist();
+  render();
+}
+
+// ─── Bridge (MCP Apps JSON-RPC over postMessage) ─────────────────────────
+let rpcId = 0;
+const inflight = new Map();
+const notify = (method, params) => { try { window.parent.postMessage({ jsonrpc: "2.0", method, params: params ?? {} }, "*"); } catch { /* no host */ } };
+function req(method, params, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const id = ++rpcId;
+    const timer = setTimeout(() => { inflight.delete(id); reject(new Error("Sarthi didn't answer in time.")); }, timeoutMs);
+    inflight.set(id, { resolve, reject, timer });
+    try { window.parent.postMessage({ jsonrpc: "2.0", id, method, params }, "*"); }
+    catch (e) { clearTimeout(timer); inflight.delete(id); reject(e); }
+  });
+}
+window.addEventListener("message", (ev) => {
+  if (ev.source !== window.parent) return;
+  const m = ev.data;
+  if (!m || m.jsonrpc !== "2.0") return;
+  if (m.id != null && !m.method && inflight.has(m.id)) {
+    const p = inflight.get(m.id); inflight.delete(m.id); clearTimeout(p.timer);
+    if (m.error) p.reject(new Error(m.error.message || "Request failed")); else p.resolve(m.result);
+    return;
+  }
+  if (m.method === "ui/notifications/tool-result") {
+    const sc = m.params?.structuredContent ?? m.params?.result?.structuredContent;
+    mergeTokens(tokensFrom(m.params?._meta)); mergeTokens(tokensFrom(m.params?.result?._meta)); readHostTokens();
+    if (m.params?.isError) { setStatus(textOf(m.params) || "That didn't go through.", "bad"); return; }
+    if (looksLikeState(sc)) { S.gotResult = true; clearTimeout(todayTimer); apply(sc, null); if (S.message) setStatus(S.message); }
+    return;
+  }
+  if (m.method === "ui/notifications/host-context-changed") { applyTheme(m.params?.theme ?? m.params?.hostContext?.theme); return; }
+  if (m.method && m.id != null) { // host request we don't specialise (ping, teardown) — acknowledge
+    try { window.parent.postMessage({ jsonrpc: "2.0", id: m.id, result: {} }, "*"); } catch { /* ignore */ }
+  }
+}, { passive: true });
+
+function applyTheme(theme) {
+  if (theme === "light" || theme === "dark") document.documentElement.dataset.mode = theme;
+}
+const ready = (async () => {
+  try {
+    const res = await req("ui/initialize", {
+      appInfo: { name: "sarthi", version: "0.1.0" }, appCapabilities: {}, protocolVersion: "2026-01-26",
+    }, 2500);
+    applyTheme(res?.hostContext?.theme);
+    notify("ui/notifications/initialized", {});
+    return true;
+  } catch { return false; }
+})();
+try { applyTheme(window.openai?.theme); } catch { /* ignore */ }
+
+function textOf(r) {
+  const c = r?.content;
+  if (Array.isArray(c)) return c.map((x) => (x && typeof x.text === "string" ? x.text : "")).join(" ").trim();
+  return "";
+}
+async function callTool(name, args) {
+  const ok = await ready;
+  let res;
+  if (!ok && typeof window.openai?.callTool === "function") res = await window.openai.callTool(name, args);
+  else res = await req("tools/call", { name, arguments: args }, 15000);
+  mergeTokens(tokensFrom(res?._meta)); mergeTokens(tokensFrom(res?.meta));
+  if (!res || res.isError) {
+    const err = new Error(textOf(res) || res?.structuredContent?.message || "Sarthi couldn't do that.");
+    err.toolResult = res; throw err;
+  }
+  return res.structuredContent ?? res;
+}
+
+// ─── Actions ──────────────────────────────────────────────────────────────
+function setStatus(text, tone) {
+  const el = $("status");
+  el.textContent = text || "";
+  el.className = "status" + (tone ? " " + tone : "");
+}
+async function keep(card, value) {
+  if (S.busy.size) return;
+  S.busy.set(card.cardId, value == null ? "keep" : "edit");
+  S.cardErr.delete(card.cardId);
+  render();
+  try {
+    const args = { proposal: card.proposal };
+    if (value != null) args.value = value;
+    readHostTokens();
+    const tok = S.tokens[card.cardId];
+    if (typeof tok === "string" && tok) args.cardToken = tok;
+    const sc = await callTool("confirm_entry", args);
+    if (!looksLikeState(sc)) throw new Error("Sarthi didn't confirm the save.");
+    S.busy.delete(card.cardId);
+    apply(sc, "confirm", { cardId: card.cardId });
+    if (!sc.confirmedCardId) removeCard(card.cardId);
+    setStatus(`Saved · ${card.title}`, "ok");
+    render();
+  } catch (e) {
+    S.busy.delete(card.cardId);
+    S.cardErr.set(card.cardId, e?.message || "Not saved — something went wrong. The card is still here.");
+    render();
+  }
+}
+function discard(card) {
+  removeCard(card.cardId);
+  persist();
+  setStatus(`Discarded · nothing saved for ${card.title}`);
+  render();
+}
+const REFUSED = /window|expired|passed|too late|stands|no longer/i;
+const NOTHING = /nothing to undo|no recent|nothing was undone/i;
+async function undoLast() {
+  if (S.undoBusy) return;
+  S.undoBusy = true; $("undo-err").textContent = ""; render();
+  const undoneCommitId = S.lastCommitId;
+  try {
+    const sc = await callTool("undo_last", {});
+    const msg = typeof sc?.message === "string" ? sc.message : "";
+    S.undoBusy = false;
+    if (REFUSED.test(msg)) { $("undo-err").textContent = "Undo window passed — the entry stands."; apply(sc, "today"); return; }
+    if (NOTHING.test(msg)) { setStatus(msg); apply(sc, "today"); return; }
+    S.ownUndoAt = Date.now();
+    apply(sc, "undo", { undoneCommitId });
+    setStatus(msg || "Undone — that entry is gone.", "ok");
+  } catch (e) {
+    S.undoBusy = false;
+    const msg = e?.message || "";
+    $("undo-err").textContent = REFUSED.test(msg) ? "Undo window passed — the entry stands." : `Undo didn't go through — ${msg || "try again"}.`;
+    render();
+  }
+}
+$("undo").addEventListener("click", undoLast);
+
+async function completeTodo(todo) {
+  if (S.todoBusy.has(todo.id)) return;
+  S.todoBusy.add(todo.id); S.todoErr.delete(todo.id); render();
+  try {
+    const sc = await callTool("complete_todo", { todoId: todo.id });
+    S.todoBusy.delete(todo.id);
+    if (looksLikeState(sc)) apply(sc, "todo");
+    if (!looksLikeState(sc) || !Array.isArray(sc.todos)) {
+      // Success without a refreshed list: reflect the confirmed completion locally.
+      S.todos = S.todos.map((t) => (t.id === todo.id ? { ...t, status: "done" } : t));
+    }
+    setStatus(`Done · ${todo.title}`, "ok");
+    render();
+  } catch (e) {
+    S.todoBusy.delete(todo.id);
+    S.todoErr.set(todo.id, e?.message || "Couldn't mark that done — it's still open.");
+    render();
+  }
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────
+function renderCard(card) {
+  const busy = S.busy.get(card.cardId);
+  const anyBusy = S.busy.size > 0;
+  // A card with a unit carries an editable number; value:null + unit means the number is missing
+  // (e.g. water "volume?") so it opens in Edit. No unit (habitLog) = nothing to edit, plain Keep.
+  const editable = Boolean(card.unit);
+  const editing = editable && (S.editing.has(card.cardId) || card.value == null);
+  const domain = DOMAIN_LABEL[card.domain] ? card.domain : "health";
+  const inputId = `v-${String(card.cardId).replace(/[^\w-]/g, "_")}`;
+  const errId = `${inputId}-err`;
+  const titleId = `${inputId}-t`;
+  const unit = card.unit || "";
+
+  const band = h("div", { class: "card-band" },
+    h("span", { class: "chip" }, h("span", { class: "dot", "aria-hidden": "true" }), DOMAIN_LABEL[domain]));
+  artify(band, pickArt(domain, `${card.kind || ""} ${card.title || ""}`), false);
+  const kids = [
+    band,
+    h("h3", { class: "card-title", id: titleId, text: card.title || "Entry" }),
+    h("p", { class: "value", text: card.valueLabel || (card.value != null ? `${card.value} ${unit}` : "Needs a number") }),
+  ];
+  if (Array.isArray(card.reasons) && card.reasons.length) {
+    kids.push(h("ul", { class: "reasons" }, card.reasons.map((r) => h("li", { text: r }))));
+  }
+  if (editing) {
+    const input = h("input", {
+      id: inputId, type: "number", inputMode: "numeric", step: "1", min: "0",
+      placeholder: card.value != null ? String(card.value) : "", disabled: anyBusy,
+      "aria-describedby": errId,
+    });
+    const draft = S.drafts.get(card.cardId);
+    if (draft != null) input.value = draft; else if (card.value != null) input.value = String(card.value);
+    const keepBtn = h("button", {
+      type: "button", class: "primary", disabled: anyBusy,
+      "aria-label": `Keep ${card.title || "entry"} with this value`,
+      text: busy === "edit" ? "Saving…" : "Keep",
+    });
+    const validate = () => {
+      const raw = input.value.trim();
+      const okNum = /^\d+$/.test(raw);
+      keepBtn.disabled = anyBusy || !okNum;
+      return okNum ? Number(raw) : null;
+    };
+    input.addEventListener("input", () => {
+      S.drafts.set(card.cardId, input.value);
+      const v = validate();
+      const err = $(errId);
+      if (err) err.textContent = input.value.trim() && v == null ? "Whole numbers only." : "";
+    });
+    keepBtn.addEventListener("click", () => { const v = validate(); if (v != null) keep(card, v); });
+    input.addEventListener("keydown", (e) => { if (e.key === "Enter") { const v = validate(); if (v != null) keep(card, v); } });
+    queueMicrotask(validate);
+    kids.push(h("div", { class: "edit-row" },
+      h("label", { for: inputId }, `Your number${unit ? ` (${unit})` : ""}`, input),
+    ));
+    kids.push(h("div", { class: "actions" },
+      keepBtn,
+      card.value != null ? h("button", {
+        type: "button", disabled: anyBusy, text: "Cancel",
+        onclick: () => { S.editing.delete(card.cardId); S.drafts.delete(card.cardId); render(); },
+      }) : null,
+      h("button", {
+        type: "button", class: "quiet", disabled: anyBusy, text: "Discard",
+        "aria-label": `Discard ${card.title || "entry"}`, onclick: () => discard(card),
+      }),
+    ));
+  } else {
+    kids.push(h("div", { class: "actions" },
+      h("button", {
+        type: "button", class: "primary", disabled: anyBusy,
+        "aria-label": `Keep ${card.title || "entry"}, ${card.valueLabel || ""}`,
+        text: busy === "keep" ? "Saving…" : "Keep", onclick: () => keep(card),
+      }),
+      editable && h("button", {
+        type: "button", disabled: anyBusy, text: "Edit", "aria-label": `Edit ${card.title || "entry"}`,
+        onclick: () => { S.editing.add(card.cardId); render(); queueMicrotask(() => $(inputId)?.focus()); },
+      }),
+      h("button", {
+        type: "button", class: "quiet", disabled: anyBusy, text: "Discard",
+        "aria-label": `Discard ${card.title || "entry"}`, onclick: () => discard(card),
+      }),
+    ));
+  }
+  kids.push(h("p", { class: "err", id: errId, role: "alert", text: S.cardErr.get(card.cardId) || "" }));
+  return h("article", { class: "card", "data-domain": domain, "aria-labelledby": titleId, "aria-busy": busy ? "true" : "false" }, kids);
+}
+
+function tile(domain, label, big, sub) {
+  const el = h("div", { class: "tile", "data-domain": domain },
+    h("span", { class: "t-label" }, h("span", { class: "dot", "aria-hidden": "true" }), label),
+    h("span", { class: "t-big", text: big }),
+    h("span", { class: "t-sub", text: sub }),
+  );
+  return artify(el, DOMAIN_ART[domain], false);
+}
+
+function renderTodos() {
+  const list = Array.isArray(S.todos) ? S.todos : [];
+  const open = list.filter((t) => t.status === "pending");
+  const closed = list.filter((t) => t.status !== "pending");
+  $("todos").hidden = list.length === 0;
+  const count = $("todos-count");
+  count.hidden = open.length === 0;
+  count.textContent = String(open.length);
+  if (!list.length) { $("todos-body").replaceChildren(); return; }
+  const rowId = (t) => `td-${String(t.id).replace(/[^\w-]/g, "_")}`;
+  $("todos-body").replaceChildren(h("ul", { class: "todo-list" },
+    open.map((t) => {
+      const busy = S.todoBusy.has(t.id);
+      return h("li", { "aria-busy": busy ? "true" : "false" },
+        h("div", { class: "todo-row" },
+          h("span", { class: "td-title", text: t.title || "Todo" }),
+          h("button", {
+            type: "button", id: `${rowId(t)}-btn`, disabled: busy, text: busy ? "Saving…" : "Done",
+            "aria-label": busy ? `Marking ${t.title || "todo"} done` : `Mark ${t.title || "todo"} done`,
+            onclick: () => completeTodo(t),
+          }),
+        ),
+        h("p", { class: "err", role: "alert", text: S.todoErr.get(t.id) || "" }),
+      );
+    }),
+    closed.map((t) => h("li", { class: `closed${t.status === "done" ? " is-done" : ""}` },
+      h("div", { class: "todo-row" },
+        t.status === "done" ? h("span", { class: "td-mark", "aria-hidden": "true", text: "✓" }) : null,
+        h("span", { class: "td-title", text: t.title || "Todo" }),
+        h("span", { class: "td-state", text: t.status === "done" ? "done" : t.status === "skipped" ? "skipped" : "missed" }),
+      ),
+    )),
+  ));
+}
+
+function render() {
+  const t = S.today;
+  // header
+  $("date").textContent = t ? fmtDate(t.localDate) : "Today";
+  const xp = $("xp");
+  const gain = xp.querySelector(".gain")?.textContent || "";
+  if (t?.xp) {
+    xp.replaceChildren(
+      document.createTextNode(`Lv ${fmtInt(t.xp.level)} · ${fmtInt(t.xp.total)} XP`),
+      h("span", { class: "gain", text: gain }),
+    );
+    xp.setAttribute("aria-label", `Level ${t.xp.level}, ${t.xp.total} XP`);
+  }
+
+  // needs your OK
+  const cards = $("cards");
+  const count = $("needs-count");
+  count.hidden = S.pending.length === 0;
+  count.textContent = String(S.pending.length);
+  const focusedId = document.activeElement?.id;
+  if (!S.pending.length) {
+    cards.replaceChildren(h("p", { class: "empty", text: "Nothing needs your OK. Guesses land here and wait for your tap." }));
+  } else {
+    cards.replaceChildren(h("div", { style: "display:flex;flex-direction:column;gap:var(--space-3)" }, S.pending.map(renderCard)));
+  }
+
+  // filed
+  const rows = S.batches.flatMap((b) => b.rows);
+  const undoBtn = $("undo");
+  undoBtn.hidden = rows.length === 0;
+  undoBtn.disabled = S.undoBusy;
+  undoBtn.textContent = S.undoBusy ? "Undoing…" : "Undo";
+  undoBtn.setAttribute("aria-label", S.undoBusy ? "Undoing the last save" : "Undo the last save");
+  if (!rows.length) {
+    $("filed-body").replaceChildren(h("p", { class: "empty", text: "Nothing filed yet. Values you actually said file straight away." }));
+  } else {
+    $("filed-body").replaceChildren(h("ul", { class: "rows" }, rows.map((r) => {
+      const d = DOMAIN_LABEL[r.domain] ? r.domain : "health";
+      return h("li", { class: S.fresh.has(r.cardId) ? "fresh" : "", "data-domain": d },
+        h("span", { class: "dot", "aria-hidden": "true" }),
+        h("span", { class: "r-title", text: r.title || DOMAIN_LABEL[d] }),
+        h("span", { class: "r-val", text: r.valueLabel || "" }),
+        h("span", { class: "r-tag", "aria-label": "saved", text: "✓" }),
+      );
+    })));
+  }
+
+  // today
+  if (t) {
+    const hl = t.health || {}, mo = t.money || {}, ha = t.habits || {}, sk = t.skills || {};
+    $("tiles").replaceChildren(
+      tile("health", "Health", `${fmtInt(hl.kcalIn)} kcal`, `${fmtWater(hl.waterMl)} water · ${fmtInt(hl.workoutMin)} min workout`),
+      tile("money", "Money", mo.spentLabel || `₹${fmtInt((Number(mo.spentPaise) || 0) / 100)}`, "spent today"),
+      tile("habits", "Habits", `${fmtInt(ha.done)}/${fmtInt(ha.total)}`, "done today"),
+      tile("skills", "Skills", `${fmtInt(sk.minutes)} min`, "practised today"),
+    );
+  } else {
+    $("tiles").replaceChildren(h("p", { class: "empty", style: "grid-column:1/-1", text: "Loading today…" }));
+  }
+
+  renderTodos();
+
+  // questions
+  const qs = Array.isArray(S.questions) ? S.questions : [];
+  $("questions").hidden = qs.length === 0;
+  $("q-body").replaceChildren(...qs.map((q) => h("div", { class: "q" },
+    h("p", { text: q.prompt || "" }),
+    Array.isArray(q.options) && q.options.length ? h("div", { class: "opts" }, q.options.map((o) => h("span", { class: "opt", text: o }))) : null,
+    h("span", { class: "hint", text: "Answer in the chat — Sarthi won't guess." }),
+  )));
+
+  if (focusedId && document.activeElement?.id !== focusedId) $(focusedId)?.focus?.();
+  postSize();
+}
+
+// ─── XP micro-feedback ───────────────────────────────────────────────────
+let bumpTimer;
+function bumpXp(delta) {
+  const xp = $("xp");
+  let g = xp.querySelector(".gain");
+  if (!g) { g = h("span", { class: "gain" }); xp.append(g); }
+  g.textContent = ` +${fmtInt(delta)}`;
+  xp.classList.add("bump");
+  clearTimeout(bumpTimer);
+  bumpTimer = setTimeout(() => { xp.classList.remove("bump"); const gg = xp.querySelector(".gain"); if (gg) gg.textContent = ""; }, 1800);
+}
+
+// ─── Size reporting (harmless if the host ignores it) ────────────────────
+let sizeRaf = 0;
+function postSize() {
+  cancelAnimationFrame(sizeRaf);
+  sizeRaf = requestAnimationFrame(() => {
+    const height = Math.ceil(document.documentElement.scrollHeight);
+    notify("ui/notifications/size-changed", { height });
+  });
+}
+try { new ResizeObserver(postSize).observe(document.body); } catch { /* ignore */ }
+
+// ─── Boot ─────────────────────────────────────────────────────────────────
+restore();
+readHostTokens();
+artify($("top"), headerArt(new Date().getHours()), true);
+try { window.addEventListener("openai:set_globals", () => { readHostTokens(); persist(); }, { passive: true }); } catch { /* ignore */ }
+try {
+  const out = window.openai?.toolOutput;
+  if (looksLikeState(out)) { S.gotResult = true; apply(out, null); }
+} catch { /* ignore */ }
+render();
+todayTimer = setTimeout(async () => {
+  if (S.gotResult) return;
+  try {
+    const sc = await callTool("get_today", {});
+    if (!S.gotResult) apply(sc, "today");
+  } catch (e) {
+    if (!S.today) setStatus(`Couldn't load today — ${e?.message || "Sarthi is unreachable"}.`, "bad");
+  }
+}, 1500);
+</script>
+</body>
+</html>

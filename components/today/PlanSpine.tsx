@@ -13,10 +13,10 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   return <p className="mb-2 font-ui text-caption uppercase tracking-wide text-ink-2">{children}</p>;
 }
 
-function ViaCaptureBadge() {
+function ViaCaptureBadge({ via }: { via: "capture" | "chatgpt" }) {
   return (
     <span className="shrink-0 rounded-chip border border-line px-1.5 py-0.5 font-ui text-caption text-ink-3">
-      via capture
+      {via === "chatgpt" ? "via ChatGPT" : "via capture"}
     </span>
   );
 }
@@ -38,7 +38,7 @@ function CompletedRow({ item }: { item: TodayItem }) {
     <li className="flex items-center gap-3 px-4 py-2">
       <Check size={16} strokeWidth={1.5} aria-hidden className={done ? "text-ok" : "text-ink-3"} />
       <span className="flex-1 font-ui text-body text-ink-3">{item.title}</span>
-      {item.viaCapture && <ViaCaptureBadge />}
+      {item.via && <ViaCaptureBadge via={item.via} />}
     </li>
   );
 }

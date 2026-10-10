@@ -37,6 +37,16 @@ export type {
   RepositoryFactory,
 } from "./repositories";
 
+export type {
+  DecisionAnswer,
+  DecisionChoice,
+  DecisionPredicate,
+  DecisionProvider,
+  DecisionProviderName,
+  DecisionQuestion,
+  DecisionSource,
+} from "./decisions";
+
 export type { AuthProvider } from "./auth";
 
 // Error classes are runtime values, not types — re-export without `type` under isolatedModules.

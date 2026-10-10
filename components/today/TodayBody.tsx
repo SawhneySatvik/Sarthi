@@ -13,6 +13,7 @@ import { InstallPrompt } from "@/components/pwa/InstallPrompt";
 
 import { CoachLine } from "./CoachLine";
 import { DomainSwitcher } from "./DomainSwitcher";
+import { RefreshOnFocus } from "./RefreshOnFocus";
 import { PlanSpine } from "./PlanSpine";
 import { StatCluster } from "./StatCluster";
 import { TodayHintRow } from "./TodayHintRow";
@@ -55,6 +56,7 @@ export function TodayBody({
           <StatCluster stat={view.stat} onArt />
         </div>
       </ArtFrame>
+      <RefreshOnFocus />
       <CoachLine text={view.coachLine} />
       {/* Day-1 only: the one-time mic hint (SAR-012 Phase G), dismissible + persisted. */}
       <TodayHintRow dayOne={view.stat.dayOfArc === 1} />

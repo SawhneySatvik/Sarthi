@@ -55,6 +55,8 @@ export interface TodayItem {
   completionSource: PlanItemRecord["completionSource"];
   /** True when the item was auto-checked by a capture commit (display only). */
   viaCapture: boolean;
+  /** Which capture surface ticked it — the badge reads "via capture" / "via ChatGPT". */
+  via: "capture" | "chatgpt" | null;
 }
 
 /**
@@ -118,7 +120,8 @@ function toItem(record: PlanItemRecord): TodayItem {
     targetValue: record.targetValue,
     targetUnit: record.targetUnit,
     completionSource: record.completionSource,
-    viaCapture: record.completionSource === "capture",
+    viaCapture: record.completionSource === "capture" || record.completionSource === "chatgpt",
+    via: record.completionSource === "capture" ? "capture" : record.completionSource === "chatgpt" ? "chatgpt" : null,
   };
 }
 

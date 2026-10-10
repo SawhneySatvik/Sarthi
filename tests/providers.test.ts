@@ -109,6 +109,51 @@ test("live LLM factories construct their adapters without a network request", ()
   }
 });
 
+test("nvidia and openrouter are wired through the OpenAI-compatible adapter with every tier", async () => {
+  for (const provider of ["nvidia", "openrouter"] as const) {
+    for (const tier of ["deep", "balanced", "fast"] as const) {
+      const modelId = LLM_MODEL_MATRIX[provider][tier];
+      assert.equal(typeof modelId, "string");
+      assert.ok(VERIFIED_LLM_MODEL_IDS[provider].includes(modelId as string));
+      assert.equal(resolveLlmModelId(provider, tier), modelId);
+    }
+    assert.ok(Object.isFrozen(LLM_MODEL_MATRIX[provider]));
+  }
+
+  const savedFetch = globalThis.fetch;
+  const savedKeys = { NVIDIA_API_KEY: process.env.NVIDIA_API_KEY, OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY };
+  delete process.env.NVIDIA_API_KEY;
+  delete process.env.OPENROUTER_API_KEY;
+  globalThis.fetch = async () => {
+    throw new Error("keyless provider tests must not call fetch");
+  };
+
+  try {
+    for (const provider of ["nvidia", "openrouter"] as const) {
+      // Construction is keyless and network-free, with or without a BYOK key.
+      assert.ok(createLlmGateway(provider) instanceof AiSdkLlmGateway);
+      assert.ok(createLlmGateway(provider, { apiKey: "test-key" }) instanceof AiSdkLlmGateway);
+      // A missing key surfaces as the typed configuration error at call time — never a fetch.
+      await assert.rejects(
+        createLlmGateway(provider).generateObject({
+          tier: "fast",
+          schema: z.object({ ok: z.boolean() }),
+          system: "s",
+          prompt: "p",
+          telemetry: { operation: "capture-parse" },
+        }),
+        ProviderConfigurationError,
+      );
+    }
+  } finally {
+    globalThis.fetch = savedFetch;
+    for (const [name, value] of Object.entries(savedKeys)) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
+  }
+});
+
 test("public production ignores client provider headers while development and judge mode allow the signed matrix", () => {
   assert.equal(
     resolveRequestLlmProvider(new Headers({ [RUNTIME_LLM_PROVIDER_HEADER]: "fake" }), { judgeMode: false }, "production"),

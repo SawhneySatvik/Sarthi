@@ -74,7 +74,10 @@ export type PlanItemKind = z.infer<typeof planItemKindEnum>;
 export const planItemStatusEnum = z.enum(['pending', 'active', 'done', 'skipped', 'missed']);
 export type PlanItemStatus = z.infer<typeof planItemStatusEnum>;
 
-export const completionSourceEnum = z.enum(['manual', 'capture', 'tool', 'rule', 'auto']);
+// `chatgpt` = auto-ticked by a capture committed through the ChatGPT plugin (MCP).
+// App-level value only: plan_items.completionSource is plain `text` in both dialects
+// (no CHECK / pg enum), so widening this needs no migration.
+export const completionSourceEnum = z.enum(['manual', 'capture', 'tool', 'rule', 'auto', 'chatgpt']);
 export type CompletionSource = z.infer<typeof completionSourceEnum>;
 
 export const domainEnum = z.enum(['overall', 'health', 'money', 'habits', 'skills']);

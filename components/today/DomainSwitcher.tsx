@@ -43,7 +43,16 @@ export function DomainSwitcher({
   initialDomain?: string;
 }) {
   const safeInitial = initialDomain && domains.includes(initialDomain as TodayDomain) ? initialDomain as TodayDomain : "all";
-  const [selected, setSelected] = useState<"all" | TodayDomain>(safeInitial);
+  const [selected, setSelectedState] = useState<"all" | TodayDomain>(safeInitial);
+  // Persist the tab in `?domain=` (replaceState: no navigation, no history entry) so a
+  // refresh — including the focus refresh — keeps the user on the same lens.
+  const setSelected = (next: "all" | TodayDomain) => {
+    setSelectedState(next);
+    const url = new URL(window.location.href);
+    if (next === "all") url.searchParams.delete("domain");
+    else url.searchParams.set("domain", next);
+    window.history.replaceState(window.history.state, "", url);
+  };
   return (
     <div>
       <div className="flex gap-2 overflow-x-auto px-4 py-3">

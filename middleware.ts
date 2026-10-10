@@ -50,6 +50,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 export const config = {
   // Run on page navigations only. Exclude Next internals, static assets, and ALL API routes
   // (the sandbox cookie is minted on the preceding page load; `/api/try-demo` and
-  // `/api/start-fresh` set their own cookie and must not be pre-minted here).
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|.*\\..*).*)"],
+  // `/api/start-fresh` set their own cookie and must not be pre-minted here). `/mcp/*` is the
+  // ChatGPT-app MCP endpoint (capability-URL auth, no cookies) and must never hit auth either.
+  matcher: ["/((?!api|mcp|_next/static|_next/image|favicon.ico|.*\\..*).*)"],
 };

@@ -20,7 +20,7 @@ export function createLlmGateway(provider: LlmProviderName, options?: { apiKey?:
   if (provider === "fake") {
     return new FakeLlmGateway();
   }
-  if (provider === "google" || provider === "openai") {
+  if (provider === "google" || provider === "openai" || provider === "nvidia" || provider === "openrouter") {
     return new AiSdkLlmGateway(provider, options?.apiKey);
   }
   throw new ProviderConfigurationError(

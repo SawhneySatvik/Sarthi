@@ -37,7 +37,7 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
       repos.plans.items.list({ localDate }),
       repos.plans.progress.list({}),
       repos.plans.arcs.list({}),
-      repos.coach.notes.list({ scope: "daily", localDate }),
+      repos.coach.notes.list({ localDate }),
       repos.health.meals.list({ localDate }),
       repos.health.waterLogs.list({ localDate }),
       repos.health.workouts.list({ localDate }),
@@ -77,12 +77,28 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
     await Promise.all(inWindowCompletedArcs.map((arc) => repos.plans.items.list({ arcId: arc.id })))
   ).flat();
 
+  // The coach line reacts to the newest capture today (app or ChatGPT plugin) whose commit
+  // is still live (an undone batch's reaction never shows); otherwise the daily brief.
+  const captureNotes = notes
+    .filter((note) => note.scope === "capture")
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  let captureNote: (typeof notes)[number] | null = null;
+  for (const note of captureNotes.slice(0, 5)) {
+    const commitId = note.stalenessKey.startsWith("commit:") ? note.stalenessKey.slice("commit:".length) : null;
+    const commit = commitId ? await repos.commits.commits.byId(commitId) : null;
+    if (commit && commit.status !== "undone") {
+      captureNote = note;
+      break;
+    }
+  }
+  const dailyNote = notes.find((note) => note.scope === "daily") ?? null;
+
   const view = buildTodayView({
     localDate,
     items,
     progress,
     arcs,
-    coachNote: notes[0] ?? null,
+    coachNote: captureNote ?? dailyNote,
     arcHistoryItems,
   });
   const healthView = buildHealthView({ meals, waterLogs, workouts, weighIns });

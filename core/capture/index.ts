@@ -5,3 +5,4 @@ export * from "./resolve";
 export * from "./parse";
 export * from "./vision";
 export * from "./commit";
+export * from "./verify";

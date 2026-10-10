@@ -15,6 +15,13 @@ export type LlmModelId = string | null;
 export const VERIFIED_LLM_MODEL_IDS = Object.freeze({
   google: Object.freeze(["gemini-2.5-flash", "gemini-flash-lite-latest"]),
   openai: Object.freeze(["gpt-5.6-sol", "gpt-5.6", "gpt-5.6-terra", "gpt-5.6-luna"]),
+  // Listed by each provider's own `GET /v1/models` on 2026-10-10 (no guessing).
+  nvidia: Object.freeze([
+    "nvidia/nemotron-3-super-120b-a12b",
+    "google/gemma-4-31b-it",
+    "nvidia/nemotron-3.5-lightning-30b-a3b",
+  ]),
+  openrouter: Object.freeze(["nvidia/nemotron-3-super-120b-a12b:free"]),
 });
 
 /** The only runtime model IDs approved by the signed architecture. */
@@ -40,6 +47,25 @@ export const LLM_MODEL_MATRIX: Readonly<Record<LlmProviderName, Readonly<Record<
     fast: "gpt-5.6-luna",
   }),
   anthropic: Object.freeze({ deep: null, balanced: null, fast: null }),
+  // NVIDIA NIM (OpenAI-compatible, https://integrate.api.nvidia.com/v1, key NVIDIA_API_KEY).
+  // IDs picked 2026-10-10 from `GET /v1/models`: deep = Nemotron 3 Super (120B MoE, 12B
+  // active) for reasoning-grade briefs; balanced = Gemma 4 31B instruct; fast = Nemotron 3.5
+  // Lightning (30B MoE, 3B active) for capture parse / short structured work.
+  nvidia: Object.freeze({
+    deep: "nvidia/nemotron-3-super-120b-a12b",
+    balanced: "google/gemma-4-31b-it",
+    fast: "nvidia/nemotron-3.5-lightning-30b-a3b",
+  }),
+  // OpenRouter (OpenAI-compatible, https://openrouter.ai/api/v1, key OPENROUTER_API_KEY).
+  // ID picked 2026-10-10 from `GET /api/v1/models` (`:free`, advertises `response_format` +
+  // `structured_outputs`) and live-smoked OK. The Gemma 4 `:free` variants were listed but
+  // returned 429 from the upstream shared pool that day, so every tier uses the one verified
+  // free model. Free variants are rate-limited — fine for dev/delegation, not prod.
+  openrouter: Object.freeze({
+    deep: "nvidia/nemotron-3-super-120b-a12b:free",
+    balanced: "nvidia/nemotron-3-super-120b-a12b:free",
+    fast: "nvidia/nemotron-3-super-120b-a12b:free",
+  }),
 });
 
 export function resolveLlmModelId(provider: LlmProviderName, tier: Tier): string {

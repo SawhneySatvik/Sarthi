@@ -1,5 +1,6 @@
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createOpenAI } from "@ai-sdk/openai";
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { generateObject, generateText, type LanguageModel, type ModelMessage } from "ai";
 import { z } from "zod";
 
@@ -11,9 +12,49 @@ import type {
   ObjectResult,
   TextRequest,
 } from "@/core/contracts";
-import { resolveLlmModelId } from "./matrix";
+import { ProviderConfigurationError, resolveLlmModelId } from "./matrix";
 
-type LiveLlmProviderName = Extract<LlmProviderName, "google" | "openai">;
+type LiveLlmProviderName = Extract<LlmProviderName, "google" | "openai" | "nvidia" | "openrouter">;
+type OpenAiCompatibleProviderName = Extract<LiveLlmProviderName, "nvidia" | "openrouter">;
+
+/** OpenAI-compatible endpoints; key names match `.env.example`. */
+const OPENAI_COMPATIBLE_ENDPOINTS: Readonly<
+  Record<OpenAiCompatibleProviderName, { baseURL: string; keyEnv: string }>
+> = Object.freeze({
+  nvidia: { baseURL: "https://integrate.api.nvidia.com/v1", keyEnv: "NVIDIA_API_KEY" },
+  openrouter: { baseURL: "https://openrouter.ai/api/v1", keyEnv: "OPENROUTER_API_KEY" },
+});
+
+/**
+ * Builds an OpenAI-compatible client. `createOpenAICompatible` does NOT fail on a missing
+ * key (it just omits the auth header), so a missing key is surfaced here as a typed
+ * `ProviderConfigurationError` — lazily, at call time, so a misconfigured env never breaks
+ * request setup for routes that never call the LLM. The message names the env var only.
+ */
+function openAiCompatibleClient(
+  provider: OpenAiCompatibleProviderName,
+  apiKey: string | undefined,
+): (modelId: string) => LanguageModel {
+  const { baseURL, keyEnv } = OPENAI_COMPATIBLE_ENDPOINTS[provider];
+  const key = apiKey || process.env[keyEnv] || undefined;
+  if (!key) {
+    return () => {
+      throw new ProviderConfigurationError(
+        `LLM provider "${provider}" is selected but ${keyEnv} is not set.`,
+      );
+    };
+  }
+  const headers: Record<string, string> =
+    provider === "openrouter"
+      ? {
+          // Optional OpenRouter app attribution headers.
+          "HTTP-Referer": process.env.VERCEL_APP_URL || "https://sarthi-gray.vercel.app",
+          "X-Title": "Sarthi",
+        }
+      : {};
+  const client = createOpenAICompatible({ name: provider, baseURL, apiKey: key, headers });
+  return (modelId: string) => client.chatModel(modelId);
+}
 
 function promptMessages(prompt: string, images: readonly ImageInput[] | undefined): ModelMessage[] {
   const content = [
@@ -42,6 +83,14 @@ function integerUsage(usage: { inputTokens: number | undefined; outputTokens: nu
  * `JSON.parse`. If there are no object braces the raw text is returned so the
  * caller's `JSON.parse` throws — never a silent bad parse.
  */
+/**
+ * Drop inline `<think>…</think>` reasoning blocks (several NIM / OpenRouter models emit
+ * them in the content) so a brace inside the reasoning can't corrupt the slice below.
+ */
+function stripThinking(text: string): string {
+  return text.replace(/<think>[\s\S]*?<\/think>/gi, "");
+}
+
 function extractJsonObject(text: string): string {
   let trimmed = text.trim();
   const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
@@ -73,15 +122,17 @@ export class AiSdkLlmGateway implements LlmGateway {
     apiKey?: string,
   ) {
     this.client =
-      provider === "google"
-        ? createGoogleGenerativeAI({
-            apiKey:
-              apiKey ||
-              process.env.GOOGLE_API_KEY ||
-              process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
-              undefined,
-          })
-        : createOpenAI({ apiKey: apiKey || process.env.OPENAI_API_KEY || undefined });
+      provider === "nvidia" || provider === "openrouter"
+        ? openAiCompatibleClient(provider, apiKey)
+        : provider === "google"
+          ? createGoogleGenerativeAI({
+              apiKey:
+                apiKey ||
+                process.env.GOOGLE_API_KEY ||
+                process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
+                undefined,
+            })
+          : createOpenAI({ apiKey: apiKey || process.env.OPENAI_API_KEY || undefined });
   }
 
   private modelFor(tier: ObjectRequest<z.ZodType>["tier"]) {
@@ -97,7 +148,9 @@ export class AiSdkLlmGateway implements LlmGateway {
     // that REJECTS discriminated unions / `oneOf` — and the F3 `captureDraftSchema`
     // embeds one. So for the google provider we never hand the Zod schema to the SDK's
     // `generateObject`; we take back free-form JSON text and validate locally instead.
-    if (this.provider === "google") {
+    // The OpenAI-compatible providers (nvidia, openrouter) take the same path: their
+    // JSON-schema / response_format support varies per model, so we never trust it.
+    if (this.provider !== "openai") {
       return this.generateObjectViaJsonText(request, startedAt);
     }
 
@@ -119,7 +172,7 @@ export class AiSdkLlmGateway implements LlmGateway {
   }
 
   /**
-   * Google-only structured-output path that avoids Gemini's union-hostile
+   * Non-OpenAI structured-output path (google, nvidia, openrouter) that avoids Gemini's union-hostile
    * `responseSchema`. The target shape is described as a JSON Schema *inside the
    * prompt* (guidance text only — it is NEVER sent to the provider as a response
    * schema), we take back free-form text, extract the JSON object, and validate it
@@ -160,15 +213,15 @@ export class AiSdkLlmGateway implements LlmGateway {
 
     let candidate: unknown;
     try {
-      candidate = JSON.parse(extractJsonObject(result.text));
+      candidate = JSON.parse(extractJsonObject(stripThinking(result.text)));
     } catch {
-      throw new Error("google generateObject: model response was not parseable JSON");
+      throw new Error(`${this.provider} generateObject: model response was not parseable JSON`);
     }
 
     const validated = request.schema.safeParse(candidate);
     if (!validated.success) {
       throw new Error(
-        `google generateObject: response failed schema validation — ${validated.error.message}`,
+        `${this.provider} generateObject: response failed schema validation — ${validated.error.message}`,
       );
     }
 

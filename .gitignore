@@ -37,3 +37,5 @@ assets/
 .claude/
 CLAUDE.md
 claude.mk
+.vercel
+.env*.local

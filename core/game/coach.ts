@@ -85,7 +85,8 @@ export function derivePlanEffectCounts(items: readonly PlanItemRecord[]): PlanEf
   for (const item of items) {
     if (item.status !== "done") continue;
     counts.totalCompleted += 1;
-    if (item.completionSource === "capture") counts.capture += 1;
+    // A ChatGPT-plugin capture is still a capture for the plan-effect tally.
+    if (item.completionSource === "capture" || item.completionSource === "chatgpt") counts.capture += 1;
     else if (item.completionSource === "tool") counts.tool += 1;
     else if (item.completionSource === "rule") counts.rule += 1;
     else if (item.completionSource === "manual") counts.manual += 1;

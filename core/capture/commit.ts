@@ -14,7 +14,8 @@ import { randomUUID } from "node:crypto";
 
 import type { UserScopedRepositories } from "@/core/contracts";
 import type { LlmGateway } from "@/core/contracts";
-import type { AdaptationRecord } from "@/data/schema/contract";
+import type { AdaptationRecord, CoachEvidence } from "@/data/schema/contract";
+import { formatPaise } from "@/core/domains/money";
 import { applyProgress, computeStreak, GRACE_DAYS, nextStreak, type ProgressEffect, type ProgressState } from "@/core/game";
 import { xpForProposal } from "@/core/game";
 
@@ -46,11 +47,21 @@ function withIdempotencyLock<T>(key: string, work: () => Promise<T>): Promise<T>
 
 export type CommitKind = "capture" | "tap" | "tool" | "edit" | "delete";
 
+/**
+ * Where a proposal commit came from. `app` = the Sarthi web/mobile capture sheet;
+ * `chatgpt` = the ChatGPT plugin (MCP). It only changes provenance metadata — the plan
+ * item's `completionSource` ("via ChatGPT" badge) and the envelope summary. Entry rows keep
+ * `source:"capture"`; the write path, undo, and XP are identical.
+ */
+export type CommitOrigin = "app" | "chatgpt";
+
 export interface ProposalCommitInput {
   draftId?: string;
   idempotencyKey: string;
   kind: Exclude<CommitKind, "tool">;
   proposals: readonly ResolvedProposal[];
+  /** Per-call provenance; overrides the service-level `origin`. */
+  origin?: CommitOrigin;
 }
 
 /** A deliberate Focus completion. The route resolves the scoped skill before this reaches the service. */
@@ -164,6 +175,8 @@ export interface CreateCommitServiceOptions {
   repos: UserScopedRepositories;
   llm: LlmGateway;
   now?: () => string;
+  /** Default provenance for every proposal commit from this service (e.g. the MCP server → `chatgpt`). */
+  origin?: CommitOrigin;
 }
 
 /* ── helpers ─────────────────────────────────────────────────────────────── */
@@ -610,11 +623,97 @@ async function dispatchCorrection(
   }
 }
 
+/* ── grounded capture coach line ─────────────────────────────────────────── */
+
+type EvidenceItem = CoachEvidence["items"][number];
+
+function textField(record: Record<string, unknown>, key: string): string | null {
+  const value = record[key];
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function intField(record: Record<string, unknown>, key: string): number | null {
+  const value = record[key];
+  return typeof value === "number" && Number.isSafeInteger(value) ? value : null;
+}
+
+/**
+ * The committed rows as grounded coach evidence (integer values only; money is labelled
+ * with the exact paise formatter so the model never sees or converts raw paise). Habit and
+ * skill names are resolved from the scoped repos so the line can name the specific thing.
+ */
+async function captureEvidence(
+  repos: UserScopedRepositories,
+  rows: readonly DispatchedRow[],
+  ticked: readonly { domain: ProposalDomain; planItemId: string; title: string }[],
+): Promise<EvidenceItem[]> {
+  const items: EvidenceItem[] = [];
+  for (const row of rows) {
+    const r = row.record;
+    const note = textField(r, "note");
+    const base = { domain: row.domain, entryKind: row.entryKind, entryId: row.entryId };
+    switch (row.entryKind) {
+      case "transaction": {
+        const paise = intField(r, "amountPaise");
+        const merchant = textField(r, "merchant");
+        const verb = r.direction === "credit" ? "received" : "spent";
+        const amount = paise === null ? "an amount" : formatPaise(paise);
+        items.push({ ...base, label: `${verb} ${amount}${merchant ? ` at ${merchant}` : ""}${note ? ` (${note})` : ""}`, valueInt: paise, unit: "paise" });
+        break;
+      }
+      case "meal": {
+        const kcal = intField(r, "kcal");
+        items.push({ ...base, label: `meal${note ? `: ${note}` : ""}${kcal !== null ? ` (${kcal} kcal)` : ""}`, valueInt: kcal, unit: kcal !== null ? "kcal" : null });
+        break;
+      }
+      case "mealItem":
+        items.push({ ...base, label: `ate ${textField(r, "name") ?? "an item"}`, valueInt: null, unit: null });
+        break;
+      case "water": {
+        const ml = intField(r, "millilitres");
+        items.push({ ...base, label: ml !== null ? `drank ${ml} ml water` : "drank water", valueInt: ml, unit: "ml" });
+        break;
+      }
+      case "workout": {
+        const minutes = intField(r, "durationMinutes");
+        items.push({ ...base, label: `workout${minutes !== null ? ` ${minutes} min` : ""}${note ? ` (${note})` : ""}`, valueInt: minutes, unit: "minutes" });
+        break;
+      }
+      case "workoutExercise":
+        items.push({ ...base, label: `exercise: ${textField(r, "name") ?? "exercise"}`, valueInt: intField(r, "reps"), unit: "reps" });
+        break;
+      case "weighIn":
+        items.push({ ...base, label: "weigh-in", valueInt: intField(r, "weightGrams"), unit: "grams" });
+        break;
+      case "habitLog": {
+        const habitId = textField(r, "habitId");
+        const habit = habitId ? await repos.habits.habits.byId(habitId) : null;
+        items.push({ ...base, label: `habit ${habit?.name ?? "logged"}: ${textField(r, "status") ?? "done"}`, valueInt: null, unit: null });
+        break;
+      }
+      case "skillSession": {
+        const skillId = textField(r, "skillId");
+        const skill = skillId ? await repos.skills.skills.byId(skillId) : null;
+        const minutes = intField(r, "minutes");
+        items.push({ ...base, label: `practised ${skill?.name ?? "a skill"}${minutes !== null ? ` for ${minutes} min` : ""}`, valueInt: minutes, unit: "minutes" });
+        break;
+      }
+      default:
+        break;
+    }
+  }
+  for (const tick of ticked) {
+    items.push({ domain: tick.domain, entryKind: "planItem", entryId: tick.planItemId, label: `plan item done: ${tick.title}`, valueInt: null, unit: null });
+  }
+  return items;
+}
+
 /* ── the service ─────────────────────────────────────────────────────────── */
 
 export function createCommitService(options: CreateCommitServiceOptions): CommitService {
   const { repos, llm } = options;
   const now = options.now ?? (() => new Date().toISOString());
+  const serviceOrigin: CommitOrigin = options.origin ?? "app";
 
   // Single-flight per scope (D-F): serialize commit/undo so `repos.transaction`
   // (and the `ScopeContext` executor swap) is never re-entered.
@@ -681,6 +780,10 @@ export function createCommitService(options: CreateCommitServiceOptions): Commit
       const undoExpiresAt = new Date(Date.parse(nowIso) + UNDO_WINDOW_MS).toISOString();
       const entries: WrittenEntry[] = [];
       const progressEffects: ProgressEffect[] = [];
+      const origin: CommitOrigin = input.kind === "tool" ? "app" : input.origin ?? serviceOrigin;
+      // Grounding for the post-transaction coach line (what was written + what it ticked).
+      const createdRows: DispatchedRow[] = [];
+      const tickedItems: { domain: ProposalDomain; planItemId: string; title: string }[] = [];
 
       await repos.transaction(async () => {
         // 2a. Supersede the previous active undo batch (there is at most one).
@@ -705,7 +808,7 @@ export function createCommitService(options: CreateCommitServiceOptions): Commit
                 : input.tool === "meditation"
                   ? `Logged ${input.minutes} meditation minutes`
                   : `Logged a ${input.durationMinutes} min workout`
-              : `${proposals.length} entr${proposals.length === 1 ? "y" : "ies"} via capture`,
+              : `${proposals.length} entr${proposals.length === 1 ? "y" : "ies"} via ${origin === "chatgpt" ? "ChatGPT" : "capture"}`,
         });
 
         // A tool command is resolved only after the transaction begins. This keeps the
@@ -766,6 +869,7 @@ export function createCommitService(options: CreateCommitServiceOptions): Commit
           if (proposal.intent === "correction") {
             // F4a: update the matched entry in place — no duplicate, no new XP.
             const corrected = await dispatchCorrection(repos, proposal);
+            createdRows.push({ entryKind: corrected.entryKind, entryId: corrected.entryId, domain: proposal.domain, minutes: 0, record: corrected.after });
             entries.push({ entryKind: corrected.entryKind, entryId: corrected.entryId });
             await repos.commits.rows.create({
               commitId,
@@ -780,6 +884,7 @@ export function createCommitService(options: CreateCommitServiceOptions): Commit
           const source =
             input.kind !== "tool" ? "capture" : input.tool === "focus" ? "timer" : "tool";
           const rows = await dispatchCreate(repos, proposal, source);
+          createdRows.push(...rows);
           for (const row of rows) {
             entries.push({ entryKind: row.entryKind, entryId: row.entryId });
             await repos.commits.rows.create({
@@ -883,7 +988,7 @@ export function createCommitService(options: CreateCommitServiceOptions): Commit
         // pre-SAR-012 → zero effects, but the writer + reversal are complete now.
         const touchedDomains = new Set<string>([...perDomain.keys()]);
         const touchedDates = new Set(proposals.map((p) => p.localDate));
-        const completionSource = input.kind === "tool" ? "tool" : "capture";
+        const completionSource = input.kind === "tool" ? "tool" : origin === "chatgpt" ? "chatgpt" : "capture";
         const planItems = await repos.plans.items.list({});
         for (const item of planItems) {
           if (item.status === "done" || item.status === "skipped") {
@@ -894,6 +999,7 @@ export function createCommitService(options: CreateCommitServiceOptions): Commit
           }
           const beforeColumns = scalarColumns(item as unknown as Record<string, unknown>);
           const updated = await repos.plans.items.update(item.id, { status: "done", completionSource });
+          tickedItems.push({ domain: item.domain as ProposalDomain, planItemId: item.id, title: item.title });
           await repos.commits.rows.create({
             commitId,
             entryKind: "planItem",
@@ -953,24 +1059,26 @@ export function createCommitService(options: CreateCommitServiceOptions): Commit
         }
       });
 
-      // 3. Capture coach note AFTER the transaction. Its failure never rolls back a safe commit.
+      // 3. Capture coach note AFTER the transaction, grounded in the typed rows just
+      // written (+ the plan items they ticked). Its failure never rolls back a safe commit.
       let coachNoteId: string | null = null;
       try {
+        const localDate = proposals[0]?.localDate ?? nowIso.slice(0, 10);
+        const evidenceItems = await captureEvidence(repos, createdRows, tickedItems);
         const line = await llm.generateText({
           tier: "fast",
           system:
-            "You are Sarthi. Write ONE short, warm sentence reacting to what the user just logged — grounded in the entries they captured. Be encouraging but calm, never preachy. No advice, no new plans, no invented facts. One sentence only.",
-          prompt: `Committed ${proposals.length} entries.`,
+            "You are Sarthi, a calm life coach. Write ONE short, warm sentence (max 25 words) reacting to what the user just logged. Ground it ONLY in the supplied entries: name at least one specific thing they captured, and mention a completed plan item if one is listed. Money labels are already formatted rupees — quote them as given. Encouraging but calm, never preachy. No advice, no new plans, no invented facts or numbers. One sentence only, no quotes.",
+          prompt: JSON.stringify({ localDate, loggedVia: origin === "chatgpt" ? "ChatGPT" : "Sarthi", entries: evidenceItems.map(({ domain, label }) => ({ domain, label })) }),
           telemetry: { operation: "capture-line" },
         });
-        const localDate = proposals[0]?.localDate ?? nowIso.slice(0, 10);
         const note = await repos.coach.notes.create({
           scope: "capture",
           localDate,
-          text: line.text,
+          text: line.text.trim(),
           modelProvider: line.provider,
           modelId: line.modelId,
-          evidenceJson: { generatedForLocalDate: localDate, items: [] },
+          evidenceJson: { generatedForLocalDate: localDate, items: evidenceItems },
           stalenessKey: `commit:${commitId}`,
         });
         coachNoteId = note.id;

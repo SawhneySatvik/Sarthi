@@ -13,7 +13,7 @@ export class RuntimeOverrideError extends Error {
   }
 }
 
-const REQUEST_SELECTABLE_LLM_PROVIDERS = new Set<LlmProviderName>(["fake", "google", "openai"]);
+const REQUEST_SELECTABLE_LLM_PROVIDERS = new Set<LlmProviderName>(["fake", "google", "openai", "nvidia", "openrouter"]);
 
 /** Public production has no runtime provider controls, including hidden headers. */
 export function isDeveloperControlAllowed(

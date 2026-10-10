@@ -1,7 +1,7 @@
 import type { z } from "zod";
 
 /** Provider selector values shared by the server composition root and provider ports. */
-export type LlmProviderName = "fake" | "google" | "openai" | "anthropic";
+export type LlmProviderName = "fake" | "google" | "openai" | "anthropic" | "nvidia" | "openrouter";
 export type VoiceProviderName = "fake" | "gemini" | "sarvam" | "openai" | "webspeech";
 export type VisionProviderName = "fake" | "google" | "openai";
 export type Tier = "deep" | "balanced" | "fast";

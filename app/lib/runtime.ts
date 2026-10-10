@@ -30,7 +30,7 @@ export interface RuntimeConfig {
 const emptyToUndefined = (value: unknown): unknown => (value === "" ? undefined : value);
 
 const runtimeEnvironmentSchema = z.object({
-  LLM_PROVIDER: z.enum(["fake", "google", "openai", "anthropic"]).default("fake"),
+  LLM_PROVIDER: z.enum(["fake", "google", "openai", "anthropic", "nvidia", "openrouter"]).default("fake"),
   VOICE_PROVIDER: z.enum(["fake", "gemini", "sarvam", "openai", "webspeech"]).default("fake"),
   VISION_PROVIDER: z.enum(["fake", "google", "openai"]).default("fake"),
   AUTH_PROVIDER: z.enum(["local-password", "anonymous", "supabase"]).default("local-password"),
