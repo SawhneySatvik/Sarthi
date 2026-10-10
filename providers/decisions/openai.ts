@@ -55,10 +55,8 @@ export function createOpenAiDecisionProvider(options: OpenAiDecisionOptions = {}
     return fakeAnswers(input, questions).map((a) => ({ ...a, source: "fallback" as const }));
   };
 
-  return {
-    name: "openai",
-    stats: () => ({ ...stats }),
-    async decide(input, questions) {
+  async function decideOnce(input: string, questions: DecisionQuestion[]): Promise<DecisionAnswer[]> {
+    {
       if (questions.length === 0) return [];
       const wire = questions.map(wireQuestion);
       const key = createHash("sha256").update(input).update("\u0000").update(JSON.stringify(wire)).digest("hex");
@@ -115,6 +113,19 @@ export function createOpenAiDecisionProvider(options: OpenAiDecisionOptions = {}
       });
       if (!degraded) cache.set(key, answers);
       else stats.fallbacks += 1;
+      return answers;
+    }
+  }
+
+  return {
+    name: "openai",
+    stats: () => ({ ...stats }),
+    async decide(input, questions) {
+      const answers = await decideOnce(input, questions);
+      // This instance's real totals (a timed-out attempt still counts as a call).
+      if (questions.length > 0) {
+        log(`luna provider=openai calls=${stats.calls} cached=${stats.cached} fallbacks=${stats.fallbacks} timeoutMs=${timeoutMs} (process totals)`);
+      }
       return answers;
     },
   };

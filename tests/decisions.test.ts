@@ -12,7 +12,7 @@ import { createRepositoryFactory } from "../data/repository";
 import { lunaCheck } from "../mcp/decisions";
 import { deriveCardKey, logEntries, type ToolContext } from "../mcp/tools";
 import { createLlmGateway } from "../providers";
-import { createFakeDecisionProvider, createOpenAiDecisionProvider, fakeAnswers } from "../providers/decisions";
+import { createFakeDecisionProvider, createOpenAiDecisionProvider, decisionsTimeoutMs, fakeAnswers } from "../providers/decisions";
 import { createMemoryDb } from "./helpers/memory-db";
 
 const SENTENCE = "Spent 450 on a team lunch, had a paneer wrap and lassi, 45 min of system design";
@@ -207,4 +207,27 @@ test("log_entries: one batched Luna call per message; low probability → card; 
   });
   assert.equal(ok.structuredContent.filed.length, 1);
   assert.equal(ok.structuredContent.decisions?.calls, 0);
+});
+
+test("DECISIONS_TIMEOUT_MS: default 2500, clamped 500–15000; a timed-out attempt shows in the instance's stats log", async () => {
+  assert.equal(decisionsTimeoutMs(undefined), 2500);
+  assert.equal(decisionsTimeoutMs("abc"), 2500);
+  assert.equal(decisionsTimeoutMs("8000"), 8000);
+  assert.equal(decisionsTimeoutMs("100"), 500);
+  assert.equal(decisionsTimeoutMs("60000"), 15000);
+
+  const lines: string[] = [];
+  const hang = createOpenAiDecisionProvider({
+    apiKey: "test",
+    timeoutMs: 20,
+    log: (line) => lines.push(line),
+    fetch: ((_url: string, init: RequestInit) =>
+      new Promise((_resolve, reject) => {
+        init.signal?.addEventListener("abort", () => reject(Object.assign(new Error("aborted"), { name: "AbortError" })));
+      })) as unknown as typeof fetch,
+  });
+  await hang.decide(SENTENCE, [PRED("a", "450")]);
+  assert.deepEqual(hang.stats(), { calls: 1, cached: 0, fallbacks: 1 });
+  assert.ok(lines.includes("decisions fallback (timeout)"));
+  assert.ok(lines.includes("luna provider=openai calls=1 cached=0 fallbacks=1 timeoutMs=20 (process totals)"));
 });
